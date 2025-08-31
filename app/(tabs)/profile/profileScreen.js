@@ -112,7 +112,7 @@ const ProfileScreen = () => {
                 />
                 <View style={{ marginTop: Sizes.fixPadding + 5.0, alignItems: 'center' }}>
                     <Text style={{ textAlign: 'center', ...Fonts.blackColor17Bold }}>
-                        Joseph Reese, 28
+                        {`${process.env.EXPO_PUBLIC_DEFAULT_NAME || 'Joseph Reese'}, ${process.env.EXPO_PUBLIC_DEFAULT_AGE || 28}`}
                     </Text>
                     <Text style={{ textAlign: 'center', ...Fonts.grayColor15Regular, marginTop: Sizes.fixPadding - 5.0 }}>
                         Irvine, California

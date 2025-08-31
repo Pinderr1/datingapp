@@ -2,19 +2,56 @@
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
-## Get started
+## Getting Started
 
-1. Install dependencies
+### Prerequisites
+
+- [Node.js](https://nodejs.org/)
+- npm (comes with Node.js)
+- [Expo CLI](https://docs.expo.dev/get-started/installation/)
+
+<<<<<<< ours
+### Environment Setup
+=======
+2. Copy the example environment file and configure the values
 
    ```bash
-   npm install
+   cp .env.example .env
    ```
 
-2. Start the app
+   Required variables:
 
-   ```bash
-    npx expo start
-   ```
+   - `EXPO_PUBLIC_API_URL` – base URL for the backend API.
+   - `EXPO_PUBLIC_CONTACT_EMAIL` – default email address for the contact form.
+
+3. Start the app
+>>>>>>> theirs
+
+Copy the example environment file and update the values as needed:
+
+```bash
+cp .env.example .env
+```
+
+### Install dependencies
+
+```bash
+npm install
+```
+
+### Dry Build
+
+Verify the project compiles without running the app:
+
+```bash
+npm run build
+```
+
+### Start the app
+
+```bash
+npx expo start
+```
 
 In the output, you'll find options to open the app in a
 

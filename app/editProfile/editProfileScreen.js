@@ -29,8 +29,8 @@ const EditProfileScreen = () => {
 
     const navigation=useNavigation();
 
-    const [name, setname] = useState('Joseph Reese');
-    const [age, setage] = useState('28 Years');
+    const [name, setname] = useState(process.env.EXPO_PUBLIC_DEFAULT_NAME || 'Joseph Reese');
+    const [age, setage] = useState(process.env.EXPO_PUBLIC_DEFAULT_AGE || '28 Years');
     const [gender, setgender] = useState('Male');
     const [about, setabout] = useState('Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry\'s standard dummy.')
 

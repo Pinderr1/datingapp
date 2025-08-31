@@ -7,10 +7,32 @@ import { useNavigation } from 'expo-router';
 const ContactUsScreen = () => {
 
     const navigation = useNavigation();
+    const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+    const defaultEmail = process.env.EXPO_PUBLIC_CONTACT_EMAIL || 'josephreese@gmail.com';
 
+<<<<<<< ours
+    const [name, setname] = useState(process.env.EXPO_PUBLIC_DEFAULT_NAME || 'Joseph Reese');
+    const [email, setemail] = useState(process.env.EXPO_PUBLIC_DEFAULT_EMAIL || 'josephreese@gmail.com')
+=======
     const [name, setname] = useState('Joseph Reese');
-    const [email, setemail] = useState('josephreese@gmail.com')
+    const [email, setemail] = useState(defaultEmail)
+>>>>>>> theirs
     const [message, setmessage] = useState('');
+
+    const handleSend = async () => {
+        if (apiUrl) {
+            try {
+                await fetch(`${apiUrl}/contact`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, message }),
+                });
+            } catch (error) {
+                console.error('Failed to send contact request', error);
+            }
+        }
+        navigation.pop();
+    };
 
     return (
         <View style={{ flex: 1, backgroundColor: Colors.primaryColor }}>
@@ -35,7 +57,7 @@ const ContactUsScreen = () => {
             <View style={{ backgroundColor: Colors.whiteColor }}>
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => { navigation.pop() }}
+                    onPress={handleSend}
                     style={styles.buttonStyle}
                 >
                     <Text style={{ ...Fonts.whiteColor20Medium }}>

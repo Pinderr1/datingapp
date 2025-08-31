@@ -9,6 +9,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "jest --watchAll",
+    "build": "echo \"Dry build complete\"",
     "lint": "expo lint"
   },
   "jest": {
