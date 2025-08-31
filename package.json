@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "test": "jest --watchAll",
     "build": "echo \"Dry build complete\"",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "server": "npm --prefix server start"
   },
   "jest": {
     "preset": "jest-expo"
