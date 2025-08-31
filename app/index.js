@@ -1,0 +1,60 @@
+import { StyleSheet, View, Image } from 'react-native'
+import React, { useEffect } from 'react'
+import { Colors, Sizes } from '../constants/styles'
+import MyStatusBar from '../components/myStatusBar'
+import { useNavigation } from 'expo-router'
+
+const SplashScreen = () => {
+
+    const navigation = useNavigation();
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            navigation.push('auth/loginScreen')
+        }, 2000);
+        return () => {
+            clearTimeout(timer);
+        }
+    }, [])
+
+    return (
+        <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
+            <MyStatusBar />
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                {appIconWithTitle()}
+            </View>
+        </View>
+    )
+
+    function appIconWithTitle() {
+        return (
+            <View style={styles.appIconWithTitleWrapStyle}>
+                <Image
+                    source={require('../assets/images/appIcon.png')}
+                    style={{ width: 40.0, height: 40.0, resizeMode: 'contain' }}
+                />
+                <Image
+                    source={require('../assets/images/appTitle.png')}
+                    style={{ ...styles.appTitleStyle }}
+                />
+            </View>
+        )
+    }
+}
+
+export default SplashScreen
+
+const styles = StyleSheet.create({
+    appIconWithTitleWrapStyle: {
+        backgroundColor: Colors.primaryColor,
+        padding: Sizes.fixPadding * 2.0,
+        borderRadius: Sizes.fixPadding * 2.0,
+        alignItems: 'center',
+    },
+    appTitleStyle: {
+        width: 80.0,
+        height: 20.0,
+        resizeMode: 'contain',
+        marginTop: Sizes.fixPadding
+    }
+})
