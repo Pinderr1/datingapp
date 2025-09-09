@@ -8,7 +8,6 @@ import { fetchJson } from '../../services/api';
 const ContactUsScreen = () => {
 
     const navigation = useNavigation();
-    const apiUrl = process.env.EXPO_PUBLIC_API_URL;
     const defaultName = process.env.EXPO_PUBLIC_DEFAULT_NAME || 'Joseph Reese';
     const defaultEmail = process.env.EXPO_PUBLIC_DEFAULT_EMAIL || 'josephreese@gmail.com';
 
@@ -17,12 +16,7 @@ const ContactUsScreen = () => {
     const [message, setmessage] = useState('');
 
     const handleSend = async () => {
-        if (!apiUrl) {
-            Alert.alert('Error', 'API URL is not configured');
-            return;
-        }
-
-        const response = await fetchJson(`${apiUrl}/contact`, {
+        const response = await fetchJson('/contact', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, email, message }),
