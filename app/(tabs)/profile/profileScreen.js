@@ -1,8 +1,9 @@
-import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView } from 'react-native'
+import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native'
 import React from 'react'
 import { Colors, Fonts, screenWidth, Sizes, CommonStyles } from '../../../constants/styles'
 import { Feather } from '@expo/vector-icons'
 import { useNavigation } from 'expo-router';
+import { useUser } from '../../../context/userContext';
 
 const weeklyActivityList = [
     {
@@ -45,6 +46,15 @@ const weeklyActivityList = [
 const ProfileScreen = () => {
 
     const navigation = useNavigation();
+    const { profile } = useUser();
+
+    if (!profile) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.whiteColor }}>
+                <ActivityIndicator size="large" color={Colors.primaryColor} />
+            </View>
+        );
+    }
 
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
@@ -112,7 +122,7 @@ const ProfileScreen = () => {
                 />
                 <View style={{ marginTop: Sizes.fixPadding + 5.0, alignItems: 'center' }}>
                     <Text style={{ textAlign: 'center', ...Fonts.blackColor17Bold }}>
-                        {`${process.env.EXPO_PUBLIC_DEFAULT_NAME || 'Joseph Reese'}, ${process.env.EXPO_PUBLIC_DEFAULT_AGE || 28}`}
+                        {`${profile.name}, ${profile.age}`}
                     </Text>
                     <Text style={{ textAlign: 'center', ...Fonts.grayColor15Regular, marginTop: Sizes.fixPadding - 5.0 }}>
                         Irvine, California

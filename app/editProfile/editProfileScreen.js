@@ -1,10 +1,11 @@
-import { StyleSheet, Text, View, TextInput, ScrollView, TouchableOpacity, Image, ImageBackground } from 'react-native'
+import { StyleSheet, Text, View, TextInput, ScrollView, TouchableOpacity, Image, ImageBackground, ActivityIndicator } from 'react-native'
 import React, { useState } from 'react'
 import { Colors, Fonts, screenHeight, screenWidth, Sizes, CommonStyles } from '../../constants/styles'
 import { MaterialIcons } from '@expo/vector-icons'
 import { Dropdown } from 'react-native-element-dropdown';
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
+import { useUser } from '../../context/userContext';
 
 const agesList = [
     { label: '25 Years' },
@@ -27,10 +28,19 @@ const agesList = [
 
 const EditProfileScreen = () => {
 
-    const navigation=useNavigation();
+    const navigation = useNavigation();
+    const { profile, setProfile } = useUser();
 
-    const [name, setname] = useState(process.env.EXPO_PUBLIC_DEFAULT_NAME || 'Joseph Reese');
-    const [age, setage] = useState(process.env.EXPO_PUBLIC_DEFAULT_AGE || '28 Years');
+    if (!profile) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.whiteColor }}>
+                <ActivityIndicator size="large" color={Colors.primaryColor} />
+            </View>
+        );
+    }
+
+    const [name, setname] = useState(profile.name);
+    const [age, setage] = useState(`${profile.age} Years`);
     const [gender, setgender] = useState('Male');
     const [about, setabout] = useState('Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry\'s standard dummy.')
 
@@ -54,7 +64,10 @@ const EditProfileScreen = () => {
         return (
             <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => { navigation.pop() }}
+                onPress={() => {
+                    setProfile({ ...profile, name, age: parseInt(age) });
+                    navigation.pop();
+                }}
                 style={styles.buttonStyle}
             >
                 <Text style={{ ...Fonts.whiteColor20Medium }}>
