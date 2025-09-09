@@ -36,6 +36,17 @@ app.post('/auth/token', async (req, res) => {
   }
 });
 
+// Get all users
+app.get('/users', async (req, res) => {
+  try {
+    const snapshot = await db.collection('users').get();
+    const users = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Example Firestore endpoint: get user document
 app.get('/users/:id', async (req, res) => {
   try {
