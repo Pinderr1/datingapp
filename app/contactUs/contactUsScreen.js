@@ -3,11 +3,11 @@ import React, { useState } from 'react'
 import { Colors, Fonts, screenWidth, Sizes, CommonStyles } from '../../constants/styles'
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
+import { fetchJson } from '../../services/api';
 
 const ContactUsScreen = () => {
 
     const navigation = useNavigation();
-    const apiUrl = process.env.EXPO_PUBLIC_API_URL;
     const defaultName = process.env.EXPO_PUBLIC_DEFAULT_NAME || 'Joseph Reese';
     const defaultEmail = process.env.EXPO_PUBLIC_DEFAULT_EMAIL || 'josephreese@gmail.com';
 
@@ -16,24 +16,14 @@ const ContactUsScreen = () => {
     const [message, setmessage] = useState('');
 
     const handleSend = async () => {
-        if (!apiUrl) {
-            Alert.alert('Error', 'API URL is not configured');
-            return;
-        }
-
         try {
-            const response = await fetch(`${apiUrl}/contact`, {
+            await fetchJson('/contact', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, email, message }),
             });
 
-            if (response.ok) {
-                Alert.alert('Success', 'Message sent successfully');
-                navigation.pop();
-            } else {
-                Alert.alert('Error', 'Failed to send message');
-            }
+            Alert.alert('Success', 'Message sent successfully');
+            navigation.pop();
         } catch (error) {
             console.error('Failed to send contact request', error);
             Alert.alert('Error', 'Failed to send message');

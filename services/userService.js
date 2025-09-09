@@ -1,13 +1,11 @@
-export async function fetchUsers() {
-  const baseUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (!baseUrl) {
-    throw new Error('EXPO_PUBLIC_API_URL not set');
-  }
+import { fetchJson } from './api';
 
-  const response = await fetch(`${baseUrl}/users`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch users');
+export async function fetchUsers() {
+  try {
+    return await fetchJson('/users');
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    throw error;
   }
-  return response.json();
 }
 
