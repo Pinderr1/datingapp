@@ -3,6 +3,7 @@ import React, { useState } from 'react'
 import { Colors, Fonts, screenWidth, Sizes, CommonStyles } from '../../constants/styles'
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
+import { fetchJson } from '../../services/api';
 
 const ContactUsScreen = () => {
 
@@ -21,22 +22,15 @@ const ContactUsScreen = () => {
             return;
         }
 
-        try {
-            const response = await fetch(`${apiUrl}/contact`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, message }),
-            });
+        const response = await fetchJson(`${apiUrl}/contact`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email, message }),
+        });
 
-            if (response.ok) {
-                Alert.alert('Success', 'Message sent successfully');
-                navigation.pop();
-            } else {
-                Alert.alert('Error', 'Failed to send message');
-            }
-        } catch (error) {
-            console.error('Failed to send contact request', error);
-            Alert.alert('Error', 'Failed to send message');
+        if (response) {
+            Alert.alert('Success', 'Message sent successfully');
+            navigation.pop();
         }
     };
 
