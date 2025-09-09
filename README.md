@@ -75,6 +75,10 @@ The backend server lives in the `server` directory.
    npm start
    ```
 
+### API Endpoints
+
+- `POST /contact` – submit a contact form message. Send a JSON body with `name`, `email`, and `message` fields. On success the server responds with `{ "success": true }`.
+
 ## Get a fresh project
 
 When you're ready, run:

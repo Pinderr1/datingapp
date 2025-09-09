@@ -23,6 +23,26 @@ const db = admin.firestore();
 const app = express();
 app.use(express.json());
 
+// Contact form endpoint
+app.post('/contact', async (req, res) => {
+  const { name, email, message } = req.body;
+  if (!name || !email || !message) {
+    return res.status(400).json({ error: 'name, email, and message are required' });
+  }
+  try {
+    await db.collection('contactMessages').add({
+      name,
+      email,
+      message,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Failed to save contact message', err);
+    res.status(500).json({ error: 'Failed to save message' });
+  }
+});
+
 // Example auth endpoint: create custom token for a user
 app.post('/auth/token', async (req, res) => {
   const { uid } = req.body;
