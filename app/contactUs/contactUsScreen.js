@@ -8,15 +8,11 @@ const ContactUsScreen = () => {
 
     const navigation = useNavigation();
     const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-    const defaultEmail = process.env.EXPO_PUBLIC_CONTACT_EMAIL || 'josephreese@gmail.com';
+    const defaultName = process.env.EXPO_PUBLIC_DEFAULT_NAME || 'Joseph Reese';
+    const defaultEmail = process.env.EXPO_PUBLIC_DEFAULT_EMAIL || 'josephreese@gmail.com';
 
-<<<<<<< ours
-    const [name, setname] = useState(process.env.EXPO_PUBLIC_DEFAULT_NAME || 'Joseph Reese');
-    const [email, setemail] = useState(process.env.EXPO_PUBLIC_DEFAULT_EMAIL || 'josephreese@gmail.com')
-=======
-    const [name, setname] = useState('Joseph Reese');
-    const [email, setemail] = useState(defaultEmail)
->>>>>>> theirs
+    const [name, setname] = useState(defaultName);
+    const [email, setemail] = useState(defaultEmail);
     const [message, setmessage] = useState('');
 
     const handleSend = async () => {

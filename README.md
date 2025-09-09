@@ -10,28 +10,18 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 - npm (comes with Node.js)
 - [Expo CLI](https://docs.expo.dev/get-started/installation/)
 
-<<<<<<< ours
 ### Environment Setup
-=======
-2. Copy the example environment file and configure the values
 
-   ```bash
-   cp .env.example .env
-   ```
-
-   Required variables:
-
-   - `EXPO_PUBLIC_API_URL` – base URL for the backend API.
-   - `EXPO_PUBLIC_CONTACT_EMAIL` – default email address for the contact form.
-
-3. Start the app
->>>>>>> theirs
-
-Copy the example environment file and update the values as needed:
+Copy the example environment file and configure the values:
 
 ```bash
 cp .env.example .env
 ```
+
+Required variables:
+
+- `EXPO_PUBLIC_API_URL` – base URL for the backend API.
+- `EXPO_PUBLIC_CONTACT_EMAIL` – default email address for the contact form.
 
 ### Install dependencies
 
