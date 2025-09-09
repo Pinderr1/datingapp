@@ -9,27 +9,45 @@ import {
 import React, { useState, useRef, useEffect } from 'react'
 import { Colors, Fonts, screenHeight, screenWidth, Sizes } from '../../../constants/styles'
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons'
-import { usersList } from '../../../components/usersList'
 import { useNavigation } from 'expo-router'
 import TinderCard from 'react-tinder-card'
 import { LinearGradient } from 'expo-linear-gradient'
+import { fetchUsers } from '../../../services/userService'
 
 const HomeScreen = () => {
 
     const navigation = useNavigation();
 
-    const [users, setusers] = useState(usersList)
+    const [users, setusers] = useState([])
     const [search, setsearch] = useState('');
     const searchFieldRef = useRef(null);
-    const [cardLength, setCardLength] = useState(usersList.length);
+    const [cardLength, setCardLength] = useState(0);
 
     useEffect(() => {
-        if (cardLength == 0) {
-            setCardLength(14);
-            setusers(usersList);
+        (async () => {
+            try {
+                const data = await fetchUsers();
+                setusers(data);
+                setCardLength(data.length);
+            } catch (error) {
+                console.error(error);
+            }
+        })();
+    }, []);
+
+    useEffect(() => {
+        if (cardLength === 0) {
+            (async () => {
+                try {
+                    const data = await fetchUsers();
+                    setusers(data);
+                    setCardLength(data.length);
+                } catch (error) {
+                    console.error(error);
+                }
+            })();
         }
-        return () => { }
-    }, [cardLength])
+    }, [cardLength]);
 
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor, }}>
