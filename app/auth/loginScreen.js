@@ -5,10 +5,12 @@ import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
+import { useUser } from '../../context/userContext';
 
 const LoginScreen = () => {
 
     const navigation = useNavigation();
+    const { setProfile } = useUser();
 
     const backAction = () => {
         backClickCount == 1 ? BackHandler.exitApp() : _spring();
@@ -109,7 +111,14 @@ const LoginScreen = () => {
         return (
             <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => { navigation.push('auth/registerScreen') }}
+                onPress={() => {
+                    setProfile({
+                        name: process.env.EXPO_PUBLIC_DEFAULT_NAME || 'Joseph Reese',
+                        age: parseInt(process.env.EXPO_PUBLIC_DEFAULT_AGE || '28'),
+                        email: process.env.EXPO_PUBLIC_DEFAULT_EMAIL || 'josephreese@gmail.com'
+                    });
+                    navigation.push('(tabs)');
+                }}
                 style={styles.buttonStyle}
             >
                 <Text style={{ ...Fonts.whiteColor20Medium }}>
