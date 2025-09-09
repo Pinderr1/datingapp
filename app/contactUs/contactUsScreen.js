@@ -1,8 +1,9 @@
-import { StyleSheet, Text, View, ScrollView, Image, TextInput, TouchableOpacity } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, Image, TextInput, TouchableOpacity, Alert } from 'react-native'
 import React, { useState } from 'react'
 import { Colors, Fonts, screenWidth, Sizes, CommonStyles } from '../../constants/styles'
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
+import { fetchJson } from '../../services/api';
 
 const ContactUsScreen = () => {
 
@@ -16,18 +17,21 @@ const ContactUsScreen = () => {
     const [message, setmessage] = useState('');
 
     const handleSend = async () => {
-        if (apiUrl) {
-            try {
-                await fetch(`${apiUrl}/contact`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, email, message }),
-                });
-            } catch (error) {
-                console.error('Failed to send contact request', error);
-            }
+        if (!apiUrl) {
+            Alert.alert('Error', 'API URL not set');
+            return;
         }
-        navigation.pop();
+
+        try {
+            await fetchJson(`${apiUrl}/contact`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, message }),
+            });
+            navigation.pop();
+        } catch (error) {
+            // Error handled in fetchJson
+        }
     };
 
     return (
