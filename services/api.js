@@ -1,6 +1,15 @@
 import { Alert } from 'react-native';
 
-export async function fetchJson(url, options) {
+// TODO: Add auth headers and token refresh logic once authentication is implemented.
+export async function fetchJson(path, options) {
+  const baseUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (!baseUrl) {
+    Alert.alert('Error', 'EXPO_PUBLIC_API_URL not set');
+    return null;
+  }
+
+  const url = `${baseUrl}${path}`;
+
   try {
     const response = await fetch(url, options);
     if (!response.ok) {
