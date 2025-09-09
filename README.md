@@ -52,6 +52,29 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
+## Server Setup
+
+The backend server lives in the `server` directory.
+
+1. Copy the example environment file and update the values:
+
+   ```bash
+   cd server
+   cp .env.example .env
+   ```
+
+   Required variables:
+
+   - `FIREBASE_SERVICE_ACCOUNT` – JSON string for your Firebase service account.
+   - `PORT` – port for the Express server (defaults to `3000`).
+
+2. Install dependencies and start the server:
+
+   ```bash
+   npm install
+   npm start
+   ```
+
 ## Get a fresh project
 
 When you're ready, run:
