@@ -1,35 +1,28 @@
-import { StyleSheet, Text, View, ScrollView, Image, TextInput, TouchableOpacity } from 'react-native'
-import React, { useState } from 'react'
-import { Colors, Fonts, screenWidth, Sizes, CommonStyles } from '../../constants/styles'
+import { StyleSheet, Text, View, ScrollView, Image, TextInput, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { Colors, Fonts, screenWidth, Sizes, CommonStyles } from '../../constants/styles';
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
+import { fetchJson } from '../../services/api';
 
 const ContactUsScreen = () => {
 
     const navigation = useNavigation();
-    const apiUrl = process.env.EXPO_PUBLIC_API_URL;
     const defaultEmail = process.env.EXPO_PUBLIC_CONTACT_EMAIL || 'josephreese@gmail.com';
 
-<<<<<<< ours
     const [name, setname] = useState(process.env.EXPO_PUBLIC_DEFAULT_NAME || 'Joseph Reese');
-    const [email, setemail] = useState(process.env.EXPO_PUBLIC_DEFAULT_EMAIL || 'josephreese@gmail.com')
-=======
-    const [name, setname] = useState('Joseph Reese');
-    const [email, setemail] = useState(defaultEmail)
->>>>>>> theirs
+    const [email, setemail] = useState(process.env.EXPO_PUBLIC_DEFAULT_EMAIL || defaultEmail);
     const [message, setmessage] = useState('');
 
     const handleSend = async () => {
-        if (apiUrl) {
-            try {
-                await fetch(`${apiUrl}/contact`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, email, message }),
-                });
-            } catch (error) {
-                console.error('Failed to send contact request', error);
-            }
+        try {
+            await fetchJson('/contact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, message }),
+            });
+        } catch (error) {
+            console.error('Failed to send contact request', error);
         }
         navigation.pop();
     };
