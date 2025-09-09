@@ -10,28 +10,18 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 - npm (comes with Node.js)
 - [Expo CLI](https://docs.expo.dev/get-started/installation/)
 
-<<<<<<< ours
 ### Environment Setup
-=======
-2. Copy the example environment file and configure the values
 
-   ```bash
-   cp .env.example .env
-   ```
-
-   Required variables:
-
-   - `EXPO_PUBLIC_API_URL` – base URL for the backend API.
-   - `EXPO_PUBLIC_CONTACT_EMAIL` – default email address for the contact form.
-
-3. Start the app
->>>>>>> theirs
-
-Copy the example environment file and update the values as needed:
+Copy the example environment file and configure the values:
 
 ```bash
 cp .env.example .env
 ```
+
+Required variables:
+
+- `EXPO_PUBLIC_API_URL` – base URL for the backend API.
+- `EXPO_PUBLIC_CONTACT_EMAIL` – default email address for the contact form.
 
 ### Install dependencies
 
@@ -61,6 +51,29 @@ In the output, you'll find options to open the app in a
 - [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+
+## Server Setup
+
+The backend server lives in the `server` directory.
+
+1. Copy the example environment file and update the values:
+
+   ```bash
+   cd server
+   cp .env.example .env
+   ```
+
+   Required variables:
+
+   - `FIREBASE_SERVICE_ACCOUNT` – JSON string for your Firebase service account.
+   - `PORT` – port for the Express server (defaults to `3000`).
+
+2. Install dependencies and start the server:
+
+   ```bash
+   npm install
+   npm start
+   ```
 
 ## Get a fresh project
 
