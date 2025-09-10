@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const admin = require('firebase-admin');
+const { body, validationResult } = require('express-validator');
+const winston = require('winston');
 
 // Load service account from environment variable
 let serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
@@ -20,28 +22,45 @@ admin.initializeApp({
 const auth = admin.auth();
 const db = admin.firestore();
 
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.json(),
+  transports: [new winston.transports.Console()],
+});
+
 const app = express();
 app.use(express.json());
 
 // Contact form endpoint
-app.post('/contact', async (req, res) => {
-  const { name, email, message } = req.body;
-  if (!name || !email || !message) {
-    return res.status(400).json({ error: 'name, email, and message are required' });
+app.post(
+  '/contact',
+  [
+    body('name').trim().escape().notEmpty(),
+    body('email').isEmail().normalizeEmail(),
+    body('message').trim().escape().notEmpty(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { name, email, message } = req.body;
+
+    try {
+      await db.collection('contactMessages').add({
+        name,
+        email,
+        message,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      res.json({ success: true });
+    } catch (err) {
+      logger.error('Failed to save contact message', { error: err });
+      res.status(500).json({ error: 'Failed to save message' });
+    }
   }
-  try {
-    await db.collection('contactMessages').add({
-      name,
-      email,
-      message,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Failed to save contact message', err);
-    res.status(500).json({ error: 'Failed to save message' });
-  }
-});
+);
 
 // Example auth endpoint: create custom token for a user
 app.post('/auth/token', async (req, res) => {
@@ -83,7 +102,7 @@ app.get('/users/:id', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+  logger.info(`Server listening on port ${PORT}`);
 });
 
 module.exports = app;
