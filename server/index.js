@@ -23,6 +23,24 @@ const db = admin.firestore();
 const app = express();
 app.use(express.json());
 
+// Middleware to verify Firebase ID token from Authorization header
+const authenticate = async (req, res, next) => {
+  const authHeader = req.headers.authorization || '';
+  const [scheme, token] = authHeader.split(' ');
+
+  if (scheme !== 'Bearer' || !token) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const decodedToken = await auth.verifyIdToken(token);
+    req.user = decodedToken;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+};
+
 // Contact form endpoint
 app.post('/contact', async (req, res) => {
   const { name, email, message } = req.body;
@@ -58,7 +76,7 @@ app.post('/auth/token', async (req, res) => {
 });
 
 // Get all users
-app.get('/users', async (req, res) => {
+app.get('/users', authenticate, async (req, res) => {
   try {
     const snapshot = await db.collection('users').get();
     const users = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
@@ -69,7 +87,7 @@ app.get('/users', async (req, res) => {
 });
 
 // Example Firestore endpoint: get user document
-app.get('/users/:id', async (req, res) => {
+app.get('/users/:id', authenticate, async (req, res) => {
   try {
     const doc = await db.collection('users').doc(req.params.id).get();
     if (!doc.exists) {
