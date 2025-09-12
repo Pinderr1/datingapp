@@ -7,7 +7,8 @@ import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
 import { useUser } from '../../context/userContext';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../../firebaseConfig';
+import { auth, db } from '../../firebaseConfig';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 const LoginScreen = () => {
 
@@ -43,12 +44,11 @@ const LoginScreen = () => {
 
     const handleLogin = async () => {
         try {
-            await signInWithEmailAndPassword(auth, email, password);
-            setProfile({
-                name: process.env.EXPO_PUBLIC_DEFAULT_NAME || 'Joseph Reese',
-                age: parseInt(process.env.EXPO_PUBLIC_DEFAULT_AGE || '28'),
-                email: process.env.EXPO_PUBLIC_DEFAULT_EMAIL || 'josephreese@gmail.com'
-            });
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+            if (userDoc.exists()) {
+                setProfile(userDoc.data());
+            }
             Alert.alert('Success', 'Logged in successfully');
             navigation.push('(tabs)');
         } catch (error) {
@@ -58,12 +58,14 @@ const LoginScreen = () => {
 
     const handleRegister = async () => {
         try {
-            await createUserWithEmailAndPassword(auth, email, password);
-            setProfile({
-                name: process.env.EXPO_PUBLIC_DEFAULT_NAME || 'Joseph Reese',
-                age: parseInt(process.env.EXPO_PUBLIC_DEFAULT_AGE || '28'),
-                email: process.env.EXPO_PUBLIC_DEFAULT_EMAIL || 'josephreese@gmail.com'
-            });
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const profileData = {
+                name: '',
+                age: 0,
+                email,
+            };
+            await setDoc(doc(db, 'users', userCredential.user.uid), profileData);
+            setProfile(profileData);
             Alert.alert('Success', 'Account created successfully');
             navigation.push('(tabs)');
         } catch (error) {
