@@ -3,8 +3,9 @@ import React, { useState } from 'react'
 import { Colors, Fonts, screenWidth, Sizes, CommonStyles } from '../../constants/styles'
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
-import { fetchJson } from '../../services/api';
 import { useUser } from '../../context/userContext';
+import { db } from '../../firebaseConfig';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 
 const ContactUsScreen = () => {
 
@@ -19,13 +20,12 @@ const ContactUsScreen = () => {
     const handleSend = async () => {
         setLoading(true);
         try {
-            const res = await fetchJson('/contact', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, message }),
+            await addDoc(collection(db, 'contactMessages'), {
+                name,
+                email,
+                message,
+                createdAt: serverTimestamp(),
             });
-            if (!res) throw new Error('Failed to send message');
-
             Alert.alert('Success', 'Message sent successfully');
             navigation.pop();
         } catch (e) {
