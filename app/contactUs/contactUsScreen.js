@@ -1,30 +1,37 @@
-import { StyleSheet, Text, View, ScrollView, Image, TextInput, TouchableOpacity, Alert } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, Image, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native'
 import React, { useState } from 'react'
 import { Colors, Fonts, screenWidth, Sizes, CommonStyles } from '../../constants/styles'
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
 import { fetchJson } from '../../services/api';
+import { useUser } from '../../context/userContext';
 
 const ContactUsScreen = () => {
 
     const navigation = useNavigation();
-    const defaultName = process.env.EXPO_PUBLIC_DEFAULT_NAME || 'Joseph Reese';
-    const defaultEmail = process.env.EXPO_PUBLIC_DEFAULT_EMAIL || 'josephreese@gmail.com';
+    const { profile } = useUser();
 
-    const [name, setname] = useState(defaultName);
-    const [email, setemail] = useState(defaultEmail);
+    const [name, setname] = useState(profile?.name || '');
+    const [email, setemail] = useState(profile?.email || '');
     const [message, setmessage] = useState('');
+    const [loading, setLoading] = useState(false);
 
     const handleSend = async () => {
-        const response = await fetchJson('/contact', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, message }),
-        });
+        setLoading(true);
+        try {
+            const res = await fetchJson('/contact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, message }),
+            });
+            if (!res) throw new Error('Failed to send message');
 
-        if (response) {
             Alert.alert('Success', 'Message sent successfully');
             navigation.pop();
+        } catch (e) {
+            Alert.alert('Error', e instanceof Error ? e.message : String(e));
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -52,11 +59,16 @@ const ContactUsScreen = () => {
                 <TouchableOpacity
                     activeOpacity={0.8}
                     onPress={handleSend}
+                    disabled={loading}
                     style={styles.buttonStyle}
                 >
-                    <Text style={{ ...Fonts.whiteColor20Medium }}>
-                        Send
-                    </Text>
+                    {loading ? (
+                        <ActivityIndicator color={Colors.whiteColor} />
+                    ) : (
+                        <Text style={{ ...Fonts.whiteColor20Medium }}>
+                            Send
+                        </Text>
+                    )}
                 </TouchableOpacity>
             </View>
         )
