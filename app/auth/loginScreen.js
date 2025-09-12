@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, BackHandler, Image, ScrollView, TouchableOpacity, TextInput } from 'react-native'
+import { StyleSheet, Text, View, BackHandler, Image, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native'
 import React, { useState, useCallback } from 'react'
 import { Colors, Fonts, Sizes, CommonStyles } from '../../constants/styles'
 import { Feather } from '@expo/vector-icons';
@@ -6,6 +6,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
 import { useUser } from '../../context/userContext';
+import { auth } from '../../firebaseConfig';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 
 const LoginScreen = () => {
 
@@ -35,8 +37,39 @@ const LoginScreen = () => {
 
     const [backClickCount, setBackClickCount] = useState(0);
     const [phoneNumber, setphoneNumber] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setpassword] = useState('');
     const [showPassword, setshowPassword] = useState(false);
+
+    const handleLogin = async () => {
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+            setProfile({
+                name: process.env.EXPO_PUBLIC_DEFAULT_NAME || 'Joseph Reese',
+                age: parseInt(process.env.EXPO_PUBLIC_DEFAULT_AGE || '28'),
+                email: process.env.EXPO_PUBLIC_DEFAULT_EMAIL || 'josephreese@gmail.com'
+            });
+            Alert.alert('Success', 'Logged in successfully');
+            navigation.push('(tabs)');
+        } catch (error) {
+            Alert.alert('Login Error', error.message);
+        }
+    };
+
+    const handleRegister = async () => {
+        try {
+            await createUserWithEmailAndPassword(auth, email, password);
+            setProfile({
+                name: process.env.EXPO_PUBLIC_DEFAULT_NAME || 'Joseph Reese',
+                age: parseInt(process.env.EXPO_PUBLIC_DEFAULT_AGE || '28'),
+                email: process.env.EXPO_PUBLIC_DEFAULT_EMAIL || 'josephreese@gmail.com'
+            });
+            Alert.alert('Success', 'Account created successfully');
+            navigation.push('(tabs)');
+        } catch (error) {
+            Alert.alert('Registration Error', error.message);
+        }
+    };
 
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
@@ -45,6 +78,7 @@ const LoginScreen = () => {
                 <ScrollView automaticallyAdjustKeyboardInsets={true} showsVerticalScrollIndicator={false}>
                     {loginInfo()}
                     {phoneNumberField()}
+                    {emailField()}
                     {passwordField()}
                     {forgetPasswordText()}
                     {loginButton()}
@@ -76,7 +110,7 @@ const LoginScreen = () => {
                 <Text style={{ ...Fonts.grayColor15Regular }}>
                     Don’t have an account? { }
                 </Text>
-                <Text onPress={() => { navigation.push('auth/registerScreen') }} style={{ ...Fonts.primaryColor15Medium }}>
+                <Text onPress={handleRegister} style={{ ...Fonts.primaryColor15Medium }}>
                     Sign Up
                 </Text>
             </Text>
@@ -111,14 +145,7 @@ const LoginScreen = () => {
         return (
             <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => {
-                    setProfile({
-                        name: process.env.EXPO_PUBLIC_DEFAULT_NAME || 'Joseph Reese',
-                        age: parseInt(process.env.EXPO_PUBLIC_DEFAULT_AGE || '28'),
-                        email: process.env.EXPO_PUBLIC_DEFAULT_EMAIL || 'josephreese@gmail.com'
-                    });
-                    navigation.push('(tabs)');
-                }}
+                onPress={handleLogin}
                 style={styles.buttonStyle}
             >
                 <Text style={{ ...Fonts.whiteColor20Medium }}>
@@ -175,6 +202,25 @@ const LoginScreen = () => {
                     placeholder="Enter Phone Number"
                     placeholderTextColor={Colors.grayColor}
                     keyboardType="phone-pad"
+                />
+            </View>
+        )
+    }
+
+    function emailField() {
+        return (
+            <View style={{ ...styles.infoWrapStyle, marginBottom: Sizes.fixPadding * 2.5, borderColor: email ? Colors.primaryColor : Colors.bgColor }}>
+                <Feather name="mail" size={18} color={Colors.grayColor} />
+                <TextInput
+                    value={email}
+                    onChangeText={(value) => setEmail(value)}
+                    cursorColor={Colors.primaryColor}
+                    selectionColor={Colors.primaryColor}
+                    style={styles.textFieldStyle}
+                    numberOfLines={1}
+                    placeholder="Enter Email"
+                    placeholderTextColor={Colors.grayColor}
+                    keyboardType="email-address"
                 />
             </View>
         )
