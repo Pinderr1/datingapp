@@ -4,15 +4,15 @@ import { Colors, Fonts, screenWidth, Sizes, CommonStyles } from '../../constants
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
 import { fetchJson } from '../../services/api';
+import { useUser } from '../../context/userContext';
 
 const ContactUsScreen = () => {
 
     const navigation = useNavigation();
-    const defaultName = process.env.EXPO_PUBLIC_DEFAULT_NAME || 'Joseph Reese';
-    const defaultEmail = process.env.EXPO_PUBLIC_DEFAULT_EMAIL || 'josephreese@gmail.com';
+    const { profile } = useUser();
 
-    const [name, setname] = useState(defaultName);
-    const [email, setemail] = useState(defaultEmail);
+    const [name, setname] = useState(profile?.name || '');
+    const [email, setemail] = useState(profile?.email || '');
     const [message, setmessage] = useState('');
 
     const handleSend = async () => {

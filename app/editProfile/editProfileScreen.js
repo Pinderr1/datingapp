@@ -6,6 +6,8 @@ import { Dropdown } from 'react-native-element-dropdown';
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
 import { useUser } from '../../context/userContext';
+import { auth, db } from '../../firebaseConfig';
+import { doc, updateDoc } from 'firebase/firestore';
 
 const agesList = [
     { label: '25 Years' },
@@ -64,8 +66,13 @@ const EditProfileScreen = () => {
         return (
             <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => {
-                    setProfile({ ...profile, name, age: parseInt(age) });
+                onPress={async () => {
+                    const updatedProfile = { ...profile, name, age: parseInt(age) };
+                    setProfile(updatedProfile);
+                    await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+                        name: updatedProfile.name,
+                        age: updatedProfile.age,
+                    });
                     navigation.pop();
                 }}
                 style={styles.buttonStyle}
