@@ -42,6 +42,24 @@ const authenticate = async (req, res, next) => {
   }
 };
 
+// Middleware to verify Firebase ID token from Authorization header
+const authenticate = async (req, res, next) => {
+  const authHeader = req.headers.authorization || '';
+  const [scheme, token] = authHeader.split(' ');
+
+  if (scheme !== 'Bearer' || !token) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const decodedToken = await auth.verifyIdToken(token);
+    req.user = decodedToken;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+};
+
 // Contact form endpoint
 app.post('/contact', authenticate, async (req, res) => {
   const { name, email, message } = req.body;
