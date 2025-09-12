@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const admin = require('firebase-admin');
+const cors = require('cors');
 
 // Load service account from environment variable
 let serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
@@ -22,9 +23,27 @@ const db = admin.firestore();
 
 const app = express();
 app.use(express.json());
+// Enable CORS for all origins
+app.use(cors());
+
+// Middleware to authenticate requests using Firebase ID tokens
+const authenticate = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const idToken = authHeader.split('Bearer ')[1];
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    req.user = decodedToken;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+};
 
 // Contact form endpoint
-app.post('/contact', async (req, res) => {
+app.post('/contact', authenticate, async (req, res) => {
   const { name, email, message } = req.body;
   if (!name || !email || !message) {
     return res.status(400).json({ error: 'name, email, and message are required' });
@@ -58,7 +77,7 @@ app.post('/auth/token', async (req, res) => {
 });
 
 // Get all users
-app.get('/users', async (req, res) => {
+app.get('/users', authenticate, async (req, res) => {
   try {
     const snapshot = await db.collection('users').get();
     const users = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
@@ -69,7 +88,7 @@ app.get('/users', async (req, res) => {
 });
 
 // Example Firestore endpoint: get user document
-app.get('/users/:id', async (req, res) => {
+app.get('/users/:id', authenticate, async (req, res) => {
   try {
     const doc = await db.collection('users').doc(req.params.id).get();
     if (!doc.exists) {
