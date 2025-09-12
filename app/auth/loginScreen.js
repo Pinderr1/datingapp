@@ -6,8 +6,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
 import { useUser } from '../../context/userContext';
-import { auth } from '../../firebaseConfig';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../../firebaseConfig';
 
 const LoginScreen = () => {
 
@@ -36,10 +36,10 @@ const LoginScreen = () => {
     }
 
     const [backClickCount, setBackClickCount] = useState(0);
-    const [phoneNumber, setphoneNumber] = useState('');
+    const [phoneNumber, setPhoneNumber] = useState('');
     const [email, setEmail] = useState('');
-    const [password, setpassword] = useState('');
-    const [showPassword, setshowPassword] = useState(false);
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleLogin = async () => {
         try {
@@ -169,7 +169,7 @@ const LoginScreen = () => {
                 <Feather name="lock" size={18} color={Colors.grayColor} />
                 <TextInput
                     value={password}
-                    onChangeText={(value) => setpassword(value)}
+                    onChangeText={setPassword}
                     cursorColor={Colors.primaryColor}
                     style={styles.textFieldStyle}
                     numberOfLines={1}
@@ -182,7 +182,7 @@ const LoginScreen = () => {
                     name={showPassword ? "eye" : "eye-off"}
                     size={18}
                     color={Colors.grayColor}
-                    onPress={() => { setshowPassword(!showPassword) }}
+                    onPress={() => setShowPassword(!showPassword)}
                 />
             </View>
         )
@@ -194,7 +194,7 @@ const LoginScreen = () => {
                 <Feather name="phone" size={18} color={Colors.grayColor} />
                 <TextInput
                     value={phoneNumber}
-                    onChangeText={(value) => setphoneNumber(value)}
+                    onChangeText={setPhoneNumber}
                     cursorColor={Colors.primaryColor}
                     selectionColor={Colors.primaryColor}
                     style={styles.textFieldStyle}
