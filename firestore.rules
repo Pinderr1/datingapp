@@ -22,7 +22,7 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      allow get: if request.auth != null && request.auth.uid == uid;
       allow create, update: if request.auth != null && request.auth.uid == uid &&
                             isValidUser(request.resource.data, uid);
     }
