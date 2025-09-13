@@ -118,6 +118,7 @@ const ContactUsScreen = () => {
                     }}
                     placeholder="Write here..."
                     placeholderTextColor={Colors.grayColor}
+                    maxLength={2000}
                     multiline
                     numberOfLines={4}
                     textAlignVertical="top"
