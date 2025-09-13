@@ -4,7 +4,7 @@ import { Colors, Fonts, screenWidth, Sizes, CommonStyles } from '../../constants
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
 import { useUser } from '../../context/userContext';
-import { db } from '../../firebaseConfig';
+import { auth, db } from '../../firebaseConfig';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 
 const ContactUsScreen = () => {
@@ -18,6 +18,10 @@ const ContactUsScreen = () => {
     const [loading, setLoading] = useState(false);
 
     const handleSend = async () => {
+        if (!auth.currentUser) {
+            Alert.alert('Error', 'You must be logged in to send a message');
+            return;
+        }
         setLoading(true);
         try {
             await addDoc(collection(db, 'contactMessages'), {

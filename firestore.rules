@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isValidUser(data, uid) {
+      return data.keys().hasAll(['uid', 'name', 'email']) &&
+             data.uid == uid &&
+             data.name is string &&
+             data.email is string;
+    }
+
+    function isValidContactMessage(data) {
+      return data.keys().hasOnly(['name', 'email', 'message']) &&
+             data.name is string &&
+             data.email is string &&
+             data.message is string &&
+             data.message.size() <= 2000;
+    }
+
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid &&
+                            isValidUser(request.resource.data, uid);
+    }
+
+    match /contactMessages/{messageId} {
+      allow create: if request.auth != null &&
+                    isValidContactMessage(request.resource.data);
+    }
+  }
+}
