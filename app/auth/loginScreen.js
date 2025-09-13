@@ -45,7 +45,10 @@ const LoginScreen = () => {
     const handleLogin = async () => {
         try {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+            const { uid, email: authEmail } = userCredential.user;
+            const userRef = doc(db, 'users', uid);
+            await setDoc(userRef, { uid, email: authEmail }, { merge: true });
+            const userDoc = await getDoc(userRef);
             if (userDoc.exists()) {
                 setProfile(userDoc.data());
             }
@@ -59,13 +62,19 @@ const LoginScreen = () => {
     const handleRegister = async () => {
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const { uid } = userCredential.user;
             const profileData = {
+                uid,
                 name: '',
                 age: 0,
                 email,
             };
-            await setDoc(doc(db, 'users', userCredential.user.uid), profileData);
-            setProfile(profileData);
+            const userRef = doc(db, 'users', uid);
+            await setDoc(userRef, profileData);
+            const userDoc = await getDoc(userRef);
+            if (userDoc.exists()) {
+                setProfile(userDoc.data());
+            }
             Alert.alert('Success', 'Account created successfully');
             navigation.push('(tabs)');
         } catch (error) {
