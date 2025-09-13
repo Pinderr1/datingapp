@@ -9,7 +9,7 @@ service cloud.firestore {
     }
 
     function isValidContactMessage(data) {
-      return data.keys().hasOnly(['name', 'email', 'message']) &&
+      return data.keys().hasOnly(['name', 'email', 'message', 'createdAt']) &&
              data.name is string && data.name.size() > 0 &&
              data.email is string &&
              data.email.size() > 0 &&
@@ -17,7 +17,8 @@ service cloud.firestore {
              data.email.matches("^[^@\s]+@[^@\s]+\.[^@\s]+$") &&
              data.message is string &&
              data.message.size() > 0 &&
-             data.message.size() <= 2000;
+             data.message.size() <= 2000 &&
+             (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp);
     }
 
     match /users/{uid} {
