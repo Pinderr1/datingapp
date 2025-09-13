@@ -10,9 +10,13 @@ service cloud.firestore {
 
     function isValidContactMessage(data) {
       return data.keys().hasOnly(['name', 'email', 'message']) &&
-             data.name is string &&
+             data.name is string && data.name.size() > 0 &&
              data.email is string &&
+             data.email.size() > 0 &&
+             // Disallow whitespace in email addresses
+             data.email.matches("^[^@\s]+@[^@\s]+\.[^@\s]+$") &&
              data.message is string &&
+             data.message.size() > 0 &&
              data.message.size() <= 2000;
     }
 

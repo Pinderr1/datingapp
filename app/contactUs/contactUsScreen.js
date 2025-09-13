@@ -6,6 +6,7 @@ import { useNavigation } from 'expo-router';
 import { useUser } from '../../context/userContext';
 import { auth, db } from '../../firebaseConfig';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { logContactMessage } from '../../services/monitoringService';
 
 const ContactUsScreen = () => {
 
@@ -22,6 +23,17 @@ const ContactUsScreen = () => {
             Alert.alert('Error', 'You must be logged in to send a message');
             return;
         }
+
+        if (!name.trim() || !email.trim() || !message.trim()) {
+            Alert.alert('Error', 'All fields are required');
+            return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            Alert.alert('Error', 'Please enter a valid email address');
+            return;
+        }
         setLoading(true);
         try {
             await addDoc(collection(db, 'contactMessages'), {
@@ -30,6 +42,7 @@ const ContactUsScreen = () => {
                 message,
                 createdAt: serverTimestamp(),
             });
+            logContactMessage({ name, email, message });
             Alert.alert('Success', 'Message sent successfully');
             navigation.pop();
         } catch (e) {
