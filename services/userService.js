@@ -1,8 +1,13 @@
-import { db } from '../firebaseConfig';
-import { collection, getDocs } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../firebaseConfig';
 
-export async function fetchUsers() {
-  const snapshot = await getDocs(collection(db, 'users'));
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+export async function fetchUsers({ limit = 20, startAfter } = {}) {
+  const getPublicUsers = httpsCallable(functions, 'getPublicUsers');
+  try {
+    const result = await getPublicUsers({ limit, startAfter });
+    return { users: result.data.users, nextCursor: result.data.nextCursor };
+  } catch (e) {
+    throw new Error('Failed to fetch users. Please try again later.');
+  }
 }
 
