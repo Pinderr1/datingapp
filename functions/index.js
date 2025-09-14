@@ -10,32 +10,59 @@ exports.getPublicUsers = functions.https.onCall(async (data = {}, context) => {
 
   const { limit = 20, startAfter } = data;
 
-  let query = admin.firestore().collection('users').orderBy('uid').limit(limit);
-  if (startAfter) {
-    query = query.startAfter(startAfter);
+  if (typeof limit !== 'number' || !Number.isInteger(limit) || limit <= 0) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'limit must be a positive integer'
+    );
+  }
+  const clampedLimit = Math.min(limit, 100);
+
+  if (startAfter !== undefined && startAfter !== null && typeof startAfter !== 'string') {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'startAfter must be a string'
+    );
   }
 
-  const snapshot = await query.get();
-  const users = snapshot.docs.map((doc) => {
-    const d = doc.data();
-    return {
-      id: doc.id,
-      name: d.name ?? '',
-      photoURL: d.photoURL ?? null,
-      age: d.age ?? null,
-      gender: d.gender ?? null,
-      bio: d.bio ?? '',
-      image: d.image ?? '',
-      address: d.address ?? '',
-      distance: d.distance ?? null,
-      profession: d.profession ?? '',
-      isFavorite: d.isFavorite ?? false,
-    };
-  });
+  try {
+    let query = admin
+      .firestore()
+      .collection('users')
+      .orderBy('uid')
+      .limit(clampedLimit);
+    if (startAfter) {
+      query = query.startAfter(startAfter);
+    }
 
-  const lastDoc = snapshot.docs[snapshot.docs.length - 1];
-  const nextCursor = lastDoc ? lastDoc.get('uid') : null;
+    const snapshot = await query.get();
+    const users = snapshot.docs.map((doc) => {
+      const d = doc.data();
+      return {
+        id: doc.id,
+        name: d.name ?? '',
+        photoURL: d.photoURL ?? null,
+        age: d.age ?? null,
+        gender: d.gender ?? null,
+        bio: d.bio ?? '',
+        image: d.image ?? '',
+        address: d.address ?? '',
+        distance: d.distance ?? null,
+        profession: d.profession ?? '',
+        isFavorite: d.isFavorite ?? false,
+      };
+    });
 
-  return { users, nextCursor };
+    const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+    const nextCursor = lastDoc ? lastDoc.get('uid') : null;
+
+    return { users, nextCursor };
+  } catch (err) {
+    console.error('getPublicUsers error', err);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to fetch users'
+    );
+  }
 });
 
