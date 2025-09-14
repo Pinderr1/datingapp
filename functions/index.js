@@ -25,6 +25,11 @@ exports.getPublicUsers = functions.https.onCall(async (data = {}, context) => {
       age: d.age ?? null,
       gender: d.gender ?? null,
       bio: d.bio ?? '',
+      image: d.image ?? '',
+      address: d.address ?? '',
+      distance: d.distance ?? null,
+      profession: d.profession ?? '',
+      isFavorite: d.isFavorite ?? false,
     };
   });
 
