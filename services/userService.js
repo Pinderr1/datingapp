@@ -6,8 +6,7 @@ export async function fetchUsers({ limit = 20, startAfter } = {}) {
   try {
     const result = await getPublicUsers({ limit, startAfter });
     const { users, nextCursor } = result.data;
-    users.nextCursor = nextCursor;
-    return users;
+    return { users, nextCursor };
   } catch (e) {
     throw new Error('Failed to fetch users. Please try again later.');
   }

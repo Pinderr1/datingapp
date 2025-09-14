@@ -21,33 +21,26 @@ const HomeScreen = () => {
     const [users, setusers] = useState([])
     const [search, setsearch] = useState('');
     const searchFieldRef = useRef(null);
-    const [cardLength, setCardLength] = useState(0);
+    const [cursor, setCursor] = useState(null);
+    const [done, setDone] = useState(false);
+    const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        (async () => {
-            try {
-                const data = await fetchUsers();
-                setusers(data);
-                setCardLength(data.length);
-            } catch (error) {
-                console.error(error);
-            }
-        })();
-    }, []);
-
-    useEffect(() => {
-        if (cardLength === 0) {
-            (async () => {
-                try {
-                    const data = await fetchUsers();
-                    setusers(data);
-                    setCardLength(data.length);
-                } catch (error) {
-                    console.error(error);
-                }
-            })();
+    async function loadMore() {
+        if (loading || done) return;
+        setLoading(true);
+        try {
+            const { users: fetched, nextCursor } = await fetchUsers({ limit: 20, startAfter: cursor });
+            setusers(p => [...p, ...fetched]);
+            if (fetched.length === 0) setDone(true);
+            setCursor(nextCursor || null);
+            if (!nextCursor) setDone(true);
+        } catch (error) {
+            console.error(error);
         }
-    }, [cardLength]);
+        setLoading(false);
+    }
+
+    useEffect(() => { loadMore(); }, []);
 
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor, }}>
@@ -65,6 +58,7 @@ const HomeScreen = () => {
         const copyUsers = users;
         const newUsers = copyUsers.filter((item) => item.id !== id);
         setusers(newUsers);
+        if (newUsers.length === 0) loadMore();
     };
 
     function changeShortlist({ id }) {
@@ -85,12 +79,12 @@ const HomeScreen = () => {
             <View style={{ flex: 1, alignItems: 'center' }}>
                 <View style={styles.imageBottomContainre1} >
                     <View style={styles.imageBottomContainre2} >
-                        {cardLength !== 0 && users.map((item, index) => (
+                        {users.map((item, index) => (
                             <View
                                 key={`${item.id}`}
                                 style={styles.tinderCardWrapper}
                             >
-                                <TinderCard onCardLeftScreen={() => { setCardLength(index) }}>
+                                <TinderCard onCardLeftScreen={() => removeCard(item.id)}>
                                     <ImageBackground
                                         source={item.image}
                                         style={{ height: '100%', width: '100%', }}
@@ -114,7 +108,7 @@ const HomeScreen = () => {
                                             <View style={styles.userInfoWithOptionWrapper}>
                                                 <TouchableOpacity
                                                     activeOpacity={0.8}
-                                                    onPress={() => { removeCard(item.id); setCardLength(index) }}
+                                                    onPress={() => { removeCard(item.id) }}
                                                     style={styles.closeAndShortlistIconWrapStyle}
                                                 >
                                                     <MaterialIcons name="close" size={24} color={Colors.primaryColor} />
