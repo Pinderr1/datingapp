@@ -73,7 +73,6 @@ const LoginScreen = () => {
             const profileData = {
                 uid,
                 name: '',
-                age: 0,
                 email,
             };
             const userRef = doc(db, 'users', uid);
