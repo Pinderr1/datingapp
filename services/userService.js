@@ -5,7 +5,9 @@ export async function fetchUsers({ limit = 20, startAfter } = {}) {
   const getPublicUsers = httpsCallable(functions, 'getPublicUsers');
   try {
     const result = await getPublicUsers({ limit, startAfter });
-    return { users: result.data.users, nextCursor: result.data.nextCursor };
+    const { users, nextCursor } = result.data;
+    users.nextCursor = nextCursor;
+    return users;
   } catch (e) {
     throw new Error('Failed to fetch users. Please try again later.');
   }
