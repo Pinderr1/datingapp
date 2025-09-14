@@ -45,13 +45,20 @@ const LoginScreen = () => {
     const handleLogin = async () => {
         try {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            const { uid, email: authEmail } = userCredential.user;
+            const { uid, email: authEmail, displayName } = userCredential.user;
             const userRef = doc(db, 'users', uid);
-            await setDoc(userRef, { uid, email: authEmail }, { merge: true });
             const userDoc = await getDoc(userRef);
-            if (userDoc.exists()) {
-                setProfile(userDoc.data());
+
+            let profileData;
+            if (!userDoc.exists()) {
+                profileData = { uid, name: displayName || '', email: authEmail };
+                await setDoc(userRef, profileData);
+            } else {
+                profileData = { ...userDoc.data(), uid, email: authEmail };
+                await setDoc(userRef, { uid, email: authEmail }, { merge: true });
             }
+
+            setProfile(profileData);
             Alert.alert('Success', 'Logged in successfully');
             navigation.push('(tabs)');
         } catch (error) {
