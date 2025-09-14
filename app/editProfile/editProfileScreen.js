@@ -72,7 +72,11 @@ const EditProfileScreen = () => {
                     const uid = auth.currentUser?.uid;
                     if (!uid) return;
                     const userRef = doc(db, 'users', uid);
-                    const parsedAge = Number.parseInt(age, 10) || null;
+                    const parsedAge = Number.parseInt(age, 10);
+                    if (!Number.isInteger(parsedAge) || parsedAge < 18 || parsedAge > 120) {
+                        Alert.alert('Invalid age', 'Enter a valid age (18–120)');
+                        return;
+                    }
                     setUpdating(true);
                     try {
                         await setDoc(userRef, { uid, name, age: parsedAge, email: profile.email }, { merge: true });
