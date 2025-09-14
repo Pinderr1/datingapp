@@ -1,19 +1,27 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 
-const UserContext = createContext(null);
+export const UserContext = createContext(null);
+export default UserContext;
 
 export const UserProvider = ({ children }) => {
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState(undefined);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          setProfile(userDoc.data());
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            setProfile(userDoc.data());
+          } else {
+            setProfile(null);
+          }
+        } catch (error) {
+          console.error('Error fetching user profile:', error);
+          setProfile(null);
         }
       } else {
         setProfile(null);
@@ -22,8 +30,10 @@ export const UserProvider = ({ children }) => {
     return unsubscribe;
   }, []);
 
+  const value = useMemo(() => ({ profile, setProfile }), [profile]);
+
   return (
-    <UserContext.Provider value={{ profile, setProfile }}>
+    <UserContext.Provider value={value}>
       {children}
     </UserContext.Provider>
   );
