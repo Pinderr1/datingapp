@@ -2,15 +2,29 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function isValidUser(data, uid) {
-      return data.keys().hasAll(['uid', 'name', 'email']) &&
+      return data.keys().hasOnly([
+               'uid', 'name', 'email', 'age', 'gender', 'photoURL', 'bio',
+               'image', 'address', 'distance', 'profession', 'isFavorite'
+             ]) &&
+             data.keys().hasAll(['uid', 'name', 'email']) &&
              data.uid == uid &&
              data.name is string &&
-             data.email is string;
+             data.email is string &&
+             (!data.keys().hasAny(['age']) ||
+              (data.age is int && data.age >= 18 && data.age <= 120)) &&
+             (!data.keys().hasAny(['gender']) || data.gender is string) &&
+             (!data.keys().hasAny(['photoURL']) || data.photoURL is string) &&
+             (!data.keys().hasAny(['bio']) || data.bio is string) &&
+             (!data.keys().hasAny(['image']) || data.image is string) &&
+             (!data.keys().hasAny(['address']) || data.address is string) &&
+             (!data.keys().hasAny(['distance']) || (data.distance is number && data.distance >= 0)) &&
+             (!data.keys().hasAny(['profession']) || data.profession is string) &&
+             (!data.keys().hasAny(['isFavorite']) || data.isFavorite is bool);
     }
 
     function isValidContactMessage(data) {
       return data.keys().hasOnly(['name', 'email', 'message', 'createdAt']) &&
-             data.name is string && data.name.size() > 0 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
              data.email is string &&
              data.email.size() > 0 &&
              // Disallow whitespace in email addresses
