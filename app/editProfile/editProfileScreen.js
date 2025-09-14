@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, TextInput, ScrollView, TouchableOpacity, Image, ImageBackground, ActivityIndicator } from 'react-native'
+import { StyleSheet, Text, View, TextInput, ScrollView, TouchableOpacity, Image, ImageBackground, ActivityIndicator, Alert } from 'react-native'
 import React, { useState } from 'react'
 import { Colors, Fonts, screenHeight, screenWidth, Sizes, CommonStyles } from '../../constants/styles'
 import { MaterialIcons } from '@expo/vector-icons'
@@ -45,6 +45,7 @@ const EditProfileScreen = () => {
     const [age, setage] = useState(`${profile.age} Years`);
     const [gender, setgender] = useState('Male');
     const [about, setabout] = useState('Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry\'s standard dummy.')
+    const [updating, setUpdating] = useState(false);
 
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
@@ -66,18 +67,28 @@ const EditProfileScreen = () => {
         return (
             <TouchableOpacity
                 activeOpacity={0.8}
+                disabled={updating}
                 onPress={async () => {
                     const uid = auth.currentUser?.uid;
                     if (!uid) return;
                     const userRef = doc(db, 'users', uid);
-                    await setDoc(userRef, { uid, name, age: parseInt(age), email: profile.email }, { merge: true });
-                    const userDoc = await getDoc(userRef);
-                    if (userDoc.exists()) {
-                        setProfile(userDoc.data());
+                    const parsedAge = Number.parseInt(age, 10) || null;
+                    setUpdating(true);
+                    try {
+                        await setDoc(userRef, { uid, name, age: parsedAge, email: profile.email }, { merge: true });
+                        const userDoc = await getDoc(userRef);
+                        if (userDoc.exists()) {
+                            setProfile(userDoc.data());
+                        }
+                        navigation.pop();
+                    } catch (error) {
+                        const friendlyMessage = error instanceof Error ? error.message : String(error);
+                        Alert.alert('Update failed', friendlyMessage);
+                    } finally {
+                        setUpdating(false);
                     }
-                    navigation.pop();
                 }}
-                style={styles.buttonStyle}
+                style={[styles.buttonStyle, updating && { opacity: 0.5 }]}
             >
                 <Text style={{ ...Fonts.whiteColor20Medium }}>
                     Update
