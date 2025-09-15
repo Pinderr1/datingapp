@@ -1,11 +1,9 @@
 import { httpsCallable } from 'firebase/functions';
-import { signInAnonymously } from 'firebase/auth';
-import { functions, auth } from '../firebaseConfig';
+import { functions } from '../firebaseConfig';
+import { ensureAuth } from './authService';
 
 export async function fetchUsers({ limit = 20, startAfter } = {}) {
-  if (!auth.currentUser) {
-    await signInAnonymously(auth);
-  }
+  await ensureAuth();
   const getPublicUsers = httpsCallable(functions, 'getPublicUsers');
   try {
     const result = await getPublicUsers({ limit, startAfter });
