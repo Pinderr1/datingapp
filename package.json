@@ -28,6 +28,7 @@
   "dependencies": {
     "@expo/vector-icons": "^14.0.2",
     "@miblanchard/react-native-slider": "^2.6.0",
+    "@react-native-async-storage/async-storage": "2.1.2",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
     "@react-spring/native": "^9.5.5",
@@ -44,7 +45,6 @@
     "expo-symbols": "~0.4.5",
     "expo-system-ui": "~5.0.10",
     "expo-web-browser": "~14.2.0",
-    "@react-native-async-storage/async-storage": "^1.23.1",
     "firebase": "^12.2.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
