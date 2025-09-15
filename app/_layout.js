@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { AppState, LogBox, StatusBar } from 'react-native';
 import { UserProvider } from '../context/userContext';
+import { ensureAuth } from '../services/authService';
 
 LogBox.ignoreAllLogs();
 
@@ -22,6 +23,7 @@ export default function RootLayout() {
     if (loaded) {
       SplashScreen.hideAsync();
     }
+    ensureAuth();
     const subscription = AppState.addEventListener("change", (_) => {
       StatusBar.setBarStyle("light-content");
     });
