@@ -3,7 +3,10 @@ const admin = require('firebase-admin');
 
 admin.initializeApp();
 
-exports.getPublicUsers = functions.https.onCall(async (data = {}, context) => {
+exports.getPublicUsers = functions
+  .region('us-central1')
+  .runWith({ memory: '256MB', timeoutSeconds: 60 })
+  .https.onCall(async (data = {}, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Auth required');
   }
