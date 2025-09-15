@@ -32,10 +32,33 @@ exports.getPublicUsers = functions
     let query = admin
       .firestore()
       .collection('users')
-      .orderBy('uid')
+      .orderBy(admin.firestore.FieldPath.documentId())
+      .select(
+        'name',
+        'photoURL',
+        'age',
+        'gender',
+        'bio',
+        'image',
+        'address',
+        'distance',
+        'profession',
+        'isFavorite'
+      )
       .limit(clampedLimit);
     if (startAfter) {
-      query = query.startAfter(startAfter);
+      const cursorSnap = await admin
+        .firestore()
+        .collection('users')
+        .doc(startAfter)
+        .get();
+      if (!cursorSnap.exists) {
+        throw new functions.https.HttpsError(
+          'invalid-argument',
+          'Invalid cursor'
+        );
+      }
+      query = query.startAfter(cursorSnap);
     }
 
     const snapshot = await query.get();
@@ -57,7 +80,7 @@ exports.getPublicUsers = functions
     });
 
     const lastDoc = snapshot.docs[snapshot.docs.length - 1];
-    const nextCursor = lastDoc ? lastDoc.get('uid') : null;
+    const nextCursor = lastDoc ? lastDoc.id : null;
 
     return { users, nextCursor };
   } catch (err) {
