@@ -6,6 +6,9 @@ jest.mock('firebase/app', () => ({
 
 jest.mock('firebase/auth', () => ({
   getAuth: jest.fn(),
+  initializeAuth: jest.fn(),
+  getReactNativePersistence: jest.fn(),
+  signInAnonymously: jest.fn(() => Promise.resolve()),
   onAuthStateChanged: jest.fn((auth, cb) => {
     cb(null);
     return jest.fn();
