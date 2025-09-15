@@ -3,18 +3,13 @@ import { auth } from '../firebaseConfig';
 
 let authInitPromise;
 
-export async function waitForAuthInit(timeout = 500) {
-  if (auth.currentUser) return;
+export async function waitForAuthInit() {
   if (!authInitPromise) {
     authInitPromise = new Promise((resolve) => {
-      const unsub = onAuthStateChanged(auth, () => {
-        unsub();
+      const unsubscribe = onAuthStateChanged(auth, () => {
+        unsubscribe();
         resolve();
       });
-      setTimeout(() => {
-        unsub();
-        resolve();
-      }, timeout);
     });
   }
   await authInitPromise;
