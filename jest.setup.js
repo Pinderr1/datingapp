@@ -4,19 +4,33 @@ jest.mock('firebase/app', () => ({
   getApps: jest.fn(() => []),
 }));
 
-const authMock = { currentUser: null };
+const mockAuthListeners = new Set();
+const mockAuth = { currentUser: null };
+
+mockAuth.triggerAuthStateChange = (user = mockAuth.currentUser) => {
+  mockAuth.currentUser = user;
+  mockAuthListeners.forEach((listener) => listener(mockAuth.currentUser));
+};
 
 jest.mock('firebase/auth', () => ({
-  getAuth: jest.fn(() => authMock),
-  initializeAuth: jest.fn(() => authMock),
+  getAuth: jest.fn(() => mockAuth),
+  initializeAuth: jest.fn(() => mockAuth),
   getReactNativePersistence: jest.fn(),
   signInAnonymously: jest.fn(async () => {
-    authMock.currentUser = { uid: 'anon' };
-    return { user: authMock.currentUser };
+    const user = { uid: 'anon' };
+    mockAuth.triggerAuthStateChange(user);
+    return { user };
   }),
   onAuthStateChanged: jest.fn((auth, cb) => {
-    cb(auth.currentUser);
-    return jest.fn();
+    mockAuthListeners.add(cb);
+    setTimeout(() => {
+      if (mockAuthListeners.has(cb)) {
+        cb(auth.currentUser);
+      }
+    }, 0);
+    return () => {
+      mockAuthListeners.delete(cb);
+    };
   }),
 }));
 
