@@ -21,11 +21,27 @@ exports.getPublicUsers = functions
   }
   const clampedLimit = Math.min(limit, 100);
 
-  if (startAfter !== undefined && startAfter !== null && typeof startAfter !== 'string') {
-    throw new functions.https.HttpsError(
-      'invalid-argument',
-      'startAfter must be a string'
-    );
+  let cursorSnap = null;
+  if (startAfter !== undefined && startAfter !== null) {
+    if (typeof startAfter !== 'string') {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'startAfter must be a string'
+      );
+    }
+
+    cursorSnap = await admin
+      .firestore()
+      .collection('users')
+      .doc(startAfter)
+      .get();
+
+    if (!cursorSnap.exists) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Invalid cursor'
+      );
+    }
   }
 
   try {
@@ -46,18 +62,8 @@ exports.getPublicUsers = functions
         'isFavorite'
       )
       .limit(clampedLimit);
-    if (startAfter) {
-      const cursorSnap = await admin
-        .firestore()
-        .collection('users')
-        .doc(startAfter)
-        .get();
-      if (!cursorSnap.exists) {
-        throw new functions.https.HttpsError(
-          'invalid-argument',
-          'Invalid cursor'
-        );
-      }
+
+    if (cursorSnap) {
       query = query.startAfter(cursorSnap);
     }
 
@@ -85,6 +91,9 @@ exports.getPublicUsers = functions
     return { users, nextCursor };
   } catch (err) {
     console.error('getPublicUsers error', err);
+    if (err instanceof functions.https.HttpsError) {
+      throw err;
+    }
     throw new functions.https.HttpsError(
       'internal',
       'Failed to fetch users'
