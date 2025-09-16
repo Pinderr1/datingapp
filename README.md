@@ -60,6 +60,18 @@ npm run reset-project
 
 This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
 
+## Fix deps
+
+If the dependency tree drifts from the Expo SDK 54 expectations, run the following commands to reinstall everything and verify the project:
+
+```bash
+rm -rf node_modules package-lock.json
+npm install
+npx expo-doctor
+npm run lint
+npm run build
+```
+
 ## Learn more
 
 To learn more about developing your project with Expo, look at the following resources:
