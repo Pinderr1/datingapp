@@ -1,14 +1,18 @@
 import { useFonts } from 'expo-font';
+import { StatusBar, setStatusBarStyle } from 'expo-status-bar';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { AppState, LogBox, StatusBar } from 'react-native';
+import { AppState, LogBox } from 'react-native';
 import { UserProvider } from '../context/userContext';
 import { ensureAuth } from '../services/authService';
 
 LogBox.ignoreAllLogs();
 
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {
+  // Prevent the promise rejection from triggering an unhandled warning when
+  // the splash screen API is invoked before the native layer is ready.
+});
 
 export default function RootLayout() {
 
@@ -22,10 +26,11 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
+      setStatusBarStyle('light');
     }
     ensureAuth();
-    const subscription = AppState.addEventListener("change", (_) => {
-      StatusBar.setBarStyle("light-content");
+    const subscription = AppState.addEventListener('change', () => {
+      setStatusBarStyle('light');
     });
     return () => {
       subscription.remove();
@@ -38,6 +43,7 @@ export default function RootLayout() {
 
   return (
     <UserProvider>
+      <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, animation: 'ios_from_right' }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="auth/loginScreen" options={{ gestureEnabled: false }} />
