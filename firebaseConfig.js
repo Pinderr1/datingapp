@@ -1,4 +1,5 @@
 import { initializeApp, getApp, getApps } from "firebase/app";
+import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 import {
   getAuth,
   initializeAuth,
@@ -21,6 +22,20 @@ const firebaseConfig = {
 };
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+
+if (
+  process.env.NODE_ENV === "development" ||
+  (typeof __DEV__ !== "undefined" && __DEV__)
+) {
+  globalThis.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+}
+
+initializeAppCheck(app, {
+  provider: new ReCaptchaV3Provider(
+    process.env.EXPO_PUBLIC_RECAPTCHA_SITE_KEY
+  ),
+  isTokenAutoRefreshEnabled: true,
+});
 
 const auth =
   Platform.OS === "web"
