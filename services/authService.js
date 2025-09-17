@@ -1,5 +1,6 @@
-import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
+import { success, failure } from './result';
 
 let authInitPromise;
 
@@ -13,11 +14,14 @@ export async function waitForAuthInit() {
     });
   }
   await authInitPromise;
+  return success();
 }
 
 export async function ensureAuth() {
   await waitForAuthInit();
-  if (!auth.currentUser) {
-    await signInAnonymously(auth);
+  const user = auth.currentUser;
+  if (!user) {
+    return failure('no-auth');
   }
+  return success({ user });
 }

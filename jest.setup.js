@@ -16,11 +16,6 @@ jest.mock('firebase/auth', () => ({
   getAuth: jest.fn(() => mockAuth),
   initializeAuth: jest.fn(() => mockAuth),
   getReactNativePersistence: jest.fn(),
-  signInAnonymously: jest.fn(async () => {
-    const user = { uid: 'anon' };
-    mockAuth.triggerAuthStateChange(user);
-    return { user };
-  }),
   onAuthStateChanged: jest.fn((auth, cb) => {
     mockAuthListeners.add(cb);
     setTimeout(() => {
@@ -57,7 +52,25 @@ jest.mock('expo-linear-gradient', () => ({
   LinearGradient: ({ children }) => children,
 }));
 
-jest.mock('expo-router', () => ({}));
+const mockRouter = {
+  replace: jest.fn(),
+  push: jest.fn(),
+  navigate: jest.fn(),
+  back: jest.fn(),
+};
+
+jest.mock('expo-router', () => ({
+  Stack: ({ children }) => children,
+  useRouter: () => mockRouter,
+  useNavigation: () => ({
+    navigate: jest.fn(),
+    push: jest.fn(),
+    replace: jest.fn(),
+    reset: jest.fn(),
+    goBack: jest.fn(),
+  }),
+  router: mockRouter,
+}));
 
 jest.mock('react-tinder-card', () => ({
   __esModule: true,
