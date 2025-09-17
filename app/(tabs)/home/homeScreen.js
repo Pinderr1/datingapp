@@ -9,7 +9,7 @@ import {
 import React, { useState, useRef, useEffect } from 'react'
 import { Colors, Fonts, screenHeight, screenWidth, Sizes } from '../../../constants/styles'
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons'
-import { useNavigation } from 'expo-router'
+import { useNavigation, useRouter } from 'expo-router'
 import TinderCard from 'react-tinder-card'
 import { LinearGradient } from 'expo-linear-gradient'
 import { fetchUsers } from '../../../services/userService'
@@ -17,6 +17,7 @@ import { fetchUsers } from '../../../services/userService'
 const HomeScreen = () => {
 
     const navigation = useNavigation();
+    const router = useRouter();
 
     const [users, setusers] = useState([])
     const [search, setsearch] = useState('');
@@ -29,15 +30,26 @@ const HomeScreen = () => {
         if (loading || done) return;
         setLoading(true);
         try {
-            const { users: fetched, nextCursor } = await fetchUsers({ limit: 20, startAfter: cursor });
+            const result = await fetchUsers({ limit: 20, startAfter: cursor });
+            if (!result.ok) {
+                if (result.error?.code === 'no-auth') {
+                    setDone(true);
+                    router.replace('/auth/loginScreen');
+                } else {
+                    console.error(result.error);
+                }
+                return;
+            }
+            const { users: fetched, nextCursor } = result.data;
             setusers(p => [...p, ...fetched]);
             if (fetched.length === 0) setDone(true);
             setCursor(nextCursor || null);
             if (!nextCursor) setDone(true);
         } catch (error) {
             console.error(error);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }
 
     useEffect(() => { loadMore(); }, []);

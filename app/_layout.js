@@ -1,6 +1,6 @@
 import { useFonts } from 'expo-font';
 import { StatusBar, setStatusBarStyle } from 'expo-status-bar';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { AppState, LogBox } from 'react-native';
@@ -22,20 +22,30 @@ export default function RootLayout() {
     Roboto_Medium: require("../assets/fonts/Roboto-Medium.ttf"),
     Roboto_Bold: require("../assets/fonts/Roboto-Bold.ttf"),
   });
+  const router = useRouter();
 
   useEffect(() => {
+    let isMounted = true;
+
     if (loaded) {
       SplashScreen.hideAsync();
       setStatusBarStyle('light');
     }
-    ensureAuth();
+
+    ensureAuth().then((result) => {
+      if (!result.ok && result.error?.code === 'no-auth' && isMounted) {
+        router.replace('/auth/loginScreen');
+      }
+    });
+
     const subscription = AppState.addEventListener('change', () => {
       setStatusBarStyle('light');
     });
     return () => {
+      isMounted = false;
       subscription.remove();
     };
-  }, [loaded]);
+  }, [loaded, router]);
 
   if (!loaded) {
     return null;
