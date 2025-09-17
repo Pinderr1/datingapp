@@ -13,6 +13,6 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
-      - run: rm -rf node_modules package-lock.json
+      - run: rm -rf node_modules
       - run: npm ci --legacy-peer-deps
       - run: npm test
