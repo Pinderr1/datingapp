@@ -1,7 +1,6 @@
 name: CI
 
 on:
-  push:
   pull_request:
 
 jobs:
@@ -12,7 +11,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-      - run: rm -rf node_modules
-      - run: npm ci --legacy-peer-deps
+          cache: npm
+      - run: npm ci --legacy-peer-deps --no-audit --no-fund
       - run: npm test
