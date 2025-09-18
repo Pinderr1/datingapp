@@ -2,20 +2,21 @@ import { StyleSheet, View, Image } from 'react-native'
 import React, { useEffect } from 'react'
 import { Colors, Sizes } from '../constants/styles'
 import MyStatusBar from '../components/myStatusBar'
-import { useNavigation } from 'expo-router'
+import { useRouter } from 'expo-router'
+import { ensureAuth } from '../services/authService'
 
 const SplashScreen = () => {
 
-    const navigation = useNavigation();
+    const router = useRouter();
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            navigation.push('auth/loginScreen')
-        }, 2000);
-        return () => {
-            clearTimeout(timer);
-        }
-    }, [])
+        const redirect = async () => {
+            const result = await ensureAuth();
+            router.replace(result.ok ? '/(tabs)' : '/auth/loginScreen');
+        };
+
+        redirect();
+    }, [router])
 
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
