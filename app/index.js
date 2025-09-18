@@ -6,56 +6,56 @@ import { useRouter } from 'expo-router'
 import { ensureAuth } from '../services/authService'
 
 const SplashScreen = () => {
+  const router = useRouter();
 
-    const router = useRouter();
+  useEffect(() => {
+    const redirect = async () => {
+      const result = await ensureAuth();
+      // ✅ Redirect to a concrete tab route (home) instead of just "/(tabs)"
+      router.replace(result.ok ? '/(tabs)/home/homeScreen' : '/auth/loginScreen');
+    };
 
-    useEffect(() => {
-        const redirect = async () => {
-            const result = await ensureAuth();
-            router.replace(result.ok ? '/(tabs)' : '/auth/loginScreen');
-        };
+    redirect();
+  }, [router]);
 
-        redirect();
-    }, [router])
+  return (
+    <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
+      <MyStatusBar />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        {appIconWithTitle()}
+      </View>
+    </View>
+  );
 
+  function appIconWithTitle() {
     return (
-        <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
-            <MyStatusBar />
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                {appIconWithTitle()}
-            </View>
-        </View>
-    )
+      <View style={styles.appIconWithTitleWrapStyle}>
+        <Image
+          source={require('../assets/images/appIcon.png')}
+          style={{ width: 40.0, height: 40.0, resizeMode: 'contain' }}
+        />
+        <Image
+          source={require('../assets/images/appTitle.png')}
+          style={{ ...styles.appTitleStyle }}
+        />
+      </View>
+    );
+  }
+};
 
-    function appIconWithTitle() {
-        return (
-            <View style={styles.appIconWithTitleWrapStyle}>
-                <Image
-                    source={require('../assets/images/appIcon.png')}
-                    style={{ width: 40.0, height: 40.0, resizeMode: 'contain' }}
-                />
-                <Image
-                    source={require('../assets/images/appTitle.png')}
-                    style={{ ...styles.appTitleStyle }}
-                />
-            </View>
-        )
-    }
-}
-
-export default SplashScreen
+export default SplashScreen;
 
 const styles = StyleSheet.create({
-    appIconWithTitleWrapStyle: {
-        backgroundColor: Colors.primaryColor,
-        padding: Sizes.fixPadding * 2.0,
-        borderRadius: Sizes.fixPadding * 2.0,
-        alignItems: 'center',
-    },
-    appTitleStyle: {
-        width: 80.0,
-        height: 20.0,
-        resizeMode: 'contain',
-        marginTop: Sizes.fixPadding
-    }
-})
+  appIconWithTitleWrapStyle: {
+    backgroundColor: Colors.primaryColor,
+    padding: Sizes.fixPadding * 2.0,
+    borderRadius: Sizes.fixPadding * 2.0,
+    alignItems: 'center',
+  },
+  appTitleStyle: {
+    width: 80.0,
+    height: 20.0,
+    resizeMode: 'contain',
+    marginTop: Sizes.fixPadding,
+  },
+});
