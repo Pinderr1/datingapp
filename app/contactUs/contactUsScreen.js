@@ -6,7 +6,6 @@ import { useNavigation } from 'expo-router';
 import { useUser } from '../../context/userContext';
 import { auth, db } from '../../firebaseConfig';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { logContactMessage } from '../../services/monitoringService';
 
 const ContactUsScreen = () => {
 
@@ -42,7 +41,6 @@ const ContactUsScreen = () => {
                 message,
                 createdAt: serverTimestamp(),
             });
-            logContactMessage({ name, email, message });
             Alert.alert('Success', 'Message sent successfully');
             navigation.pop();
         } catch (e) {
