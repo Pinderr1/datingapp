@@ -9,50 +9,27 @@ import {
 import React, { useState, useRef, useEffect } from 'react'
 import { Colors, Fonts, screenHeight, screenWidth, Sizes } from '../../../constants/styles'
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons'
-import { useNavigation, useRouter } from 'expo-router'
+import { usersList } from '../../../components/usersList'
+import { useNavigation } from 'expo-router'
 import TinderCard from 'react-tinder-card'
 import { LinearGradient } from 'expo-linear-gradient'
-import { fetchUsers } from '../../../services/userService'
 
 const HomeScreen = () => {
 
     const navigation = useNavigation();
-    const router = useRouter();
 
-    const [users, setusers] = useState([])
+    const [users, setusers] = useState(usersList)
     const [search, setsearch] = useState('');
     const searchFieldRef = useRef(null);
-    const [cursor, setCursor] = useState(null);
-    const [done, setDone] = useState(false);
-    const [loading, setLoading] = useState(false);
+    const [cardLength, setCardLength] = useState(usersList.length);
 
-    async function loadMore() {
-        if (loading || done) return;
-        setLoading(true);
-        try {
-            const result = await fetchUsers({ limit: 20, startAfter: cursor });
-            if (!result.ok) {
-                if (result.error?.code === 'no-auth') {
-                    setDone(true);
-                    router.replace('/auth/loginScreen');
-                } else {
-                    console.error(result.error);
-                }
-                return;
-            }
-            const { users: fetched, nextCursor } = result.data;
-            setusers(p => [...p, ...fetched]);
-            if (fetched.length === 0) setDone(true);
-            setCursor(nextCursor || null);
-            if (!nextCursor) setDone(true);
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoading(false);
+    useEffect(() => {
+        if (cardLength == 0) {
+            setCardLength(14);
+            setusers(usersList);
         }
-    }
-
-    useEffect(() => { loadMore(); }, []);
+        return () => { }
+    }, [cardLength])
 
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor, }}>
@@ -70,7 +47,6 @@ const HomeScreen = () => {
         const copyUsers = users;
         const newUsers = copyUsers.filter((item) => item.id !== id);
         setusers(newUsers);
-        if (newUsers.length === 0) loadMore();
     };
 
     function changeShortlist({ id }) {
@@ -91,12 +67,12 @@ const HomeScreen = () => {
             <View style={{ flex: 1, alignItems: 'center' }}>
                 <View style={styles.imageBottomContainre1} >
                     <View style={styles.imageBottomContainre2} >
-                        {users.map((item, index) => (
+                        {cardLength !== 0 && users.map((item, index) => (
                             <View
                                 key={`${item.id}`}
                                 style={styles.tinderCardWrapper}
                             >
-                                <TinderCard onCardLeftScreen={() => removeCard(item.id)}>
+                                <TinderCard onCardLeftScreen={() => { setCardLength(index) }}>
                                     <ImageBackground
                                         source={item.image}
                                         style={{ height: '100%', width: '100%', }}
@@ -120,7 +96,7 @@ const HomeScreen = () => {
                                             <View style={styles.userInfoWithOptionWrapper}>
                                                 <TouchableOpacity
                                                     activeOpacity={0.8}
-                                                    onPress={() => { removeCard(item.id) }}
+                                                    onPress={() => { removeCard(item.id); setCardLength(index) }}
                                                     style={styles.closeAndShortlistIconWrapStyle}
                                                 >
                                                     <MaterialIcons name="close" size={24} color={Colors.primaryColor} />
