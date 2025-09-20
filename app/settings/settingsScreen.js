@@ -1,9 +1,11 @@
-import { StyleSheet, Text, View, TouchableOpacity, Modal, ScrollView } from 'react-native'
+import { StyleSheet, Text, View, TouchableOpacity, Modal, ScrollView, Alert } from 'react-native'
 import React, { useState } from 'react'
 import { Colors, Fonts, screenWidth, Sizes } from '../../constants/styles'
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons'
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
+import { signOut } from 'firebase/auth'
+import { auth } from '../../firebaseConfig'
 
 const SettingsScreen = () => {
 
@@ -13,6 +15,16 @@ const SettingsScreen = () => {
     const [hideLocation, sethideLocation] = useState(false);
     const [darkMode, setdarkMode] = useState(false);
     const [showLogoutDialog, setshowLogoutDialog] = useState(false);
+
+    const handleLogout = async () => {
+        try {
+            await signOut(auth);
+            setshowLogoutDialog(false);
+            navigation.reset({ index: 0, routes: [{ name: 'auth/loginScreen' }] });
+        } catch (error) {
+            Alert.alert('Logout Failed', error?.message ?? 'Unable to logout. Please try again.');
+        }
+    };
 
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
@@ -55,7 +67,7 @@ const SettingsScreen = () => {
                                 <Text onPress={() => { setshowLogoutDialog(false) }} style={{ ...Fonts.grayColor16Bold }}>
                                     Cancel
                                 </Text>
-                                <Text onPress={() => { setshowLogoutDialog(false), navigation.push('auth/loginScreen') }} style={{ marginLeft: Sizes.fixPadding * 2.0, ...Fonts.primaryColor16Bold }}>
+                                <Text onPress={handleLogout} style={{ marginLeft: Sizes.fixPadding * 2.0, ...Fonts.primaryColor16Bold }}>
                                     Logout
                                 </Text>
                             </View>
