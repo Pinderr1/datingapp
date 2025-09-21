@@ -21,7 +21,7 @@ exports.getPublicUsers = functions
   }
   const clampedLimit = Math.min(limit, 100);
 
-  let cursorSnap = null;
+  let startAfterId = null;
   if (startAfter !== undefined && startAfter !== null) {
     if (typeof startAfter !== 'string') {
       throw new functions.https.HttpsError(
@@ -30,17 +30,9 @@ exports.getPublicUsers = functions
       );
     }
 
-    cursorSnap = await admin
-      .firestore()
-      .collection('users')
-      .doc(startAfter)
-      .get();
-
-    if (!cursorSnap.exists) {
-      throw new functions.https.HttpsError(
-        'invalid-argument',
-        'Invalid cursor'
-      );
+    const trimmed = startAfter.trim();
+    if (trimmed.length > 0) {
+      startAfterId = trimmed;
     }
   }
 
@@ -63,8 +55,8 @@ exports.getPublicUsers = functions
       )
       .limit(clampedLimit);
 
-    if (cursorSnap) {
-      query = query.startAfter(cursorSnap);
+    if (startAfterId) {
+      query = query.startAfter(startAfterId);
     }
 
     const snapshot = await query.get();
