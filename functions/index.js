@@ -150,10 +150,22 @@ exports.likeUser = functions
     const swipeRef = db
       .collection('swipes')
       .doc(`${fromUserId}_${toUserId}`);
+    const reciprocalSwipeRef = db
+      .collection('swipes')
+      .doc(`${toUserId}_${fromUserId}`);
+    const [firstUser, secondUser] = [fromUserId, toUserId].sort();
+    const matchRef = db
+      .collection('matches')
+      .doc(`${firstUser}_${secondUser}`);
 
     try {
       const match = await db.runTransaction(async (transaction) => {
-        const swipeDoc = await transaction.get(swipeRef);
+        const [swipeDoc, reciprocalSwipeDoc, existingMatchDoc] =
+          await Promise.all([
+            transaction.get(swipeRef),
+            transaction.get(reciprocalSwipeRef),
+            transaction.get(matchRef),
+          ]);
         const swipeData = {
           from: fromUserId,
           to: toUserId,
@@ -173,10 +185,6 @@ exports.likeUser = functions
           return false;
         }
 
-        const reciprocalSwipeRef = db
-          .collection('swipes')
-          .doc(`${toUserId}_${fromUserId}`);
-        const reciprocalSwipeDoc = await transaction.get(reciprocalSwipeRef);
         const hasReciprocalLike =
           reciprocalSwipeDoc.exists &&
           reciprocalSwipeDoc.get('liked') === true;
@@ -184,12 +192,6 @@ exports.likeUser = functions
         if (!hasReciprocalLike) {
           return false;
         }
-
-        const [firstUser, secondUser] = [fromUserId, toUserId].sort();
-        const matchRef = db
-          .collection('matches')
-          .doc(`${firstUser}_${secondUser}`);
-        const existingMatchDoc = await transaction.get(matchRef);
 
         if (existingMatchDoc.exists) {
           return false;
