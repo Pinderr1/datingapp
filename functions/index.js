@@ -215,3 +215,72 @@ exports.likeUser = functions
     }
   });
 
+exports.sendMessage = functions
+  .region('us-central1')
+  .runWith({ memory: '256MB', timeoutSeconds: 60 })
+  .https.onCall(async (data = {}, context) => {
+    if (enforceAppCheck && !context.app) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'App Check required'
+      );
+    }
+
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Auth required');
+    }
+
+    const { matchId, content } = data || {};
+
+    if (typeof matchId !== 'string' || matchId.trim().length === 0) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'matchId must be a non-empty string'
+      );
+    }
+
+    if (typeof content !== 'string' || content.trim().length === 0) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'content must be a non-empty string'
+      );
+    }
+
+    const db = admin.firestore();
+    const uid = context.auth.uid;
+    const trimmedMatchId = matchId.trim();
+
+    try {
+      const matchRef = db.collection('matches').doc(trimmedMatchId);
+      const matchDoc = await matchRef.get();
+
+      if (!matchDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'Match not found');
+      }
+
+      const users = matchDoc.get('users');
+      if (!Array.isArray(users) || !users.includes(uid)) {
+        throw new functions.https.HttpsError(
+          'permission-denied',
+          'User is not part of the match'
+        );
+      }
+
+      const messagesRef = matchRef.collection('messages');
+      await messagesRef.add({
+        senderId: uid,
+        content: content.trim(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return { success: true };
+    } catch (err) {
+      console.error('sendMessage error', err);
+      if (err instanceof functions.https.HttpsError) {
+        throw err;
+      }
+
+      throw new functions.https.HttpsError('internal', 'Failed to send message');
+    }
+  });
+
