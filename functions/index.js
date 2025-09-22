@@ -3,10 +3,22 @@ const admin = require('firebase-admin');
 
 admin.initializeApp();
 
+const config = functions.config();
+const enforceAppCheck =
+  !!config.security &&
+  typeof config.security.enforce_app_check !== 'undefined' &&
+  String(config.security.enforce_app_check).toLowerCase() === 'true';
+
 exports.getPublicUsers = functions
   .region('us-central1')
   .runWith({ memory: '256MB', timeoutSeconds: 60 })
   .https.onCall(async (data = {}, context) => {
+  if (enforceAppCheck && !context.app) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'App Check required'
+    );
+  }
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Auth required');
   }

@@ -20,6 +20,7 @@ cp .env.example .env
 
 Required variables:
 - `EXPO_PUBLIC_CONTACT_EMAIL` – default email address for the contact form.
+- Cloud Functions App Check enforcement can be toggled with `functions.config().security.enforce_app_check`.
 
 ### Install dependencies
 
