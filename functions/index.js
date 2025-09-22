@@ -105,3 +105,111 @@ exports.getPublicUsers = functions
   }
 });
 
+exports.likeUser = functions
+  .region('us-central1')
+  .runWith({ memory: '256MB', timeoutSeconds: 60 })
+  .https.onCall(async (data = {}, context) => {
+    if (enforceAppCheck && !context.app) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'App Check required'
+      );
+    }
+
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Auth required');
+    }
+
+    const { targetUserId, liked } = data || {};
+
+    if (typeof targetUserId !== 'string' || targetUserId.trim().length === 0) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'targetUserId must be a non-empty string'
+      );
+    }
+
+    if (typeof liked !== 'boolean') {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'liked must be a boolean'
+      );
+    }
+
+    const db = admin.firestore();
+    const fromUserId = context.auth.uid;
+    const toUserId = targetUserId.trim();
+
+    if (fromUserId === toUserId) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Users cannot like themselves'
+      );
+    }
+
+    const swipeRef = db
+      .collection('swipes')
+      .doc(`${fromUserId}_${toUserId}`);
+
+    try {
+      const match = await db.runTransaction(async (transaction) => {
+        const swipeDoc = await transaction.get(swipeRef);
+        const swipeData = {
+          from: fromUserId,
+          to: toUserId,
+          liked,
+        };
+
+        if (swipeDoc.exists) {
+          transaction.set(swipeRef, swipeData, { merge: true });
+        } else {
+          transaction.set(swipeRef, {
+            ...swipeData,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+
+        if (!liked) {
+          return false;
+        }
+
+        const reciprocalSwipeRef = db
+          .collection('swipes')
+          .doc(`${toUserId}_${fromUserId}`);
+        const reciprocalSwipeDoc = await transaction.get(reciprocalSwipeRef);
+        const hasReciprocalLike =
+          reciprocalSwipeDoc.exists &&
+          reciprocalSwipeDoc.get('liked') === true;
+
+        if (!hasReciprocalLike) {
+          return false;
+        }
+
+        const [firstUser, secondUser] = [fromUserId, toUserId].sort();
+        const matchRef = db
+          .collection('matches')
+          .doc(`${firstUser}_${secondUser}`);
+        const existingMatchDoc = await transaction.get(matchRef);
+
+        if (existingMatchDoc.exists) {
+          return false;
+        }
+
+        transaction.set(matchRef, {
+          users: [firstUser, secondUser],
+          matchedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        return true;
+      });
+
+      return { match };
+    } catch (err) {
+      console.error('likeUser error', err);
+      if (err instanceof functions.https.HttpsError) {
+        throw err;
+      }
+      throw new functions.https.HttpsError('internal', 'Failed to process like');
+    }
+  });
+
