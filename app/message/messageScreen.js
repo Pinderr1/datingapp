@@ -1,38 +1,97 @@
 import { StyleSheet, Text, View, TextInput, Platform, FlatList, TouchableOpacity, Image, KeyboardAvoidingView } from 'react-native'
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Colors, Fonts, screenWidth, Sizes } from '../../constants/styles'
 import { MaterialIcons } from '@expo/vector-icons'
 import MyStatusBar from '../../components/myStatusBar';
-import { useNavigation } from 'expo-router';
+import { useNavigation, useLocalSearchParams } from 'expo-router';
+import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { auth, db } from '../../firebaseConfig';
+import { sendMessage as sendMessageService } from '../../services/userService';
 
 const receiverImage = require('../../assets/images/users/user10.png');
 
 const MessageScreen = () => {
 
-    const userMessages = [
-        {
-            id: '1',
-            message: 'Lorem ipsum dolor sit amet,consectetur adipiscing?',
-            isSender: false,
-            messageTime: '10:22 am',
-        },
-        {
-            id: '2',
-            message: 'eaque ipsa quae ab illo inventore consectetur adipiscing....',
-            isSender: true,
-            isSeen: true,
-        },
-        {
-            id: '3',
-            message: 'Nemo enim ipsam voluptatem quia voluptas sit.',
-            isSender: true,
-            isSeen: true
-        },
-    ];
-
     const navigation = useNavigation();
+    const params = useLocalSearchParams();
 
-    const [messagesList, setMessagesList] = useState(userMessages);
+    const matchIdParam = useMemo(() => {
+        if (Array.isArray(params?.matchId)) {
+            return params.matchId[0];
+        }
+        return params?.matchId;
+    }, [params]);
+
+    const otherUserName = useMemo(() => {
+        if (Array.isArray(params?.otherUserName)) {
+            return params.otherUserName[0];
+        }
+        return params?.otherUserName;
+    }, [params]);
+
+    const matchId = typeof matchIdParam === 'string' ? matchIdParam : undefined;
+    const currentUserId = auth.currentUser?.uid ?? null;
+
+    const [messagesList, setMessagesList] = useState([]);
+    const [messageText, setMessageText] = useState('');
+
+    useEffect(() => {
+        if (!matchId) {
+            setMessagesList([]);
+            return undefined;
+        }
+
+        const messagesRef = collection(db, 'matches', matchId, 'messages');
+        const messagesQuery = query(messagesRef, orderBy('createdAt', 'asc'));
+
+        const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+            const fetchedMessages = snapshot.docs.map((doc) => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    content: data?.content ?? '',
+                    senderId: data?.senderId ?? '',
+                    createdAt: data?.createdAt ?? null,
+                };
+            });
+            setMessagesList(fetchedMessages);
+        }, (error) => {
+            console.error('Failed to subscribe to messages', error);
+        });
+
+        return () => {
+            unsubscribe();
+        };
+    }, [matchId]);
+
+    const handleSendMessage = async () => {
+        const trimmedMessage = messageText.trim();
+        if (!trimmedMessage || !matchId) {
+            return;
+        }
+
+        const result = await sendMessageService(matchId, trimmedMessage);
+        if (!result?.ok) {
+            console.error('Failed to send message', result?.error);
+            return;
+        }
+
+        setMessageText('');
+    };
+
+    const formatMessageTime = (timestamp) => {
+        try {
+            if (timestamp?.toDate) {
+                return timestamp.toDate().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+            }
+            if (timestamp instanceof Date) {
+                return timestamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+            }
+        } catch (error) {
+            console.error('Failed to format timestamp', error);
+        }
+        return '';
+    };
 
     return (
         <KeyboardAvoidingView
@@ -50,63 +109,51 @@ const MessageScreen = () => {
 
     function messages() {
         const renderItem = ({ item, index }) => {
+            const isSender = item.senderId === currentUserId;
+            const previousMessage = index > 0 ? messagesList[index - 1] : null;
+            const shouldShowAvatar = !isSender && (!previousMessage || previousMessage.senderId !== item.senderId);
+            const formattedTime = formatMessageTime(item.createdAt);
+
             return (
                 <View style={{
-                    alignItems: item.isSender == true ? 'flex-end' : 'flex-start',
+                    alignItems: isSender ? 'flex-end' : 'flex-start',
                     marginHorizontal: Sizes.fixPadding + 10.0,
                     marginVertical: Sizes.fixPadding - 2.0,
                 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                         {
-                            !item.isSender
+                            !isSender
                                 ?
-                                index != 0
+                                shouldShowAvatar
                                     ?
-                                    messagesList[index].isSender == messagesList[index - 1].isSender
-                                        ?
-                                        <View style={{ marginRight: screenWidth / 6.0, }} />
-                                        :
-                                        <View style={{ marginRight: Sizes.fixPadding, }}>
-                                            <Image
-                                                source={receiverImage}
-                                                style={styles.smallProfilePicStyle}
-                                            />
-                                        </View>
+                                    <View style={{ marginRight: Sizes.fixPadding }}>
+                                        <Image
+                                            source={receiverImage}
+                                            style={styles.smallProfilePicStyle}
+                                        />
+                                    </View>
                                     :
-                                    messagesList[index].isSender == messagesList[index + 1].isSender || !messagesList[index].isSender
-                                        ?
-                                        <View style={{ marginRight: Sizes.fixPadding }}>
-                                            <Image
-                                                source={receiverImage}
-                                                style={styles.smallProfilePicStyle}
-                                            />
-                                        </View>
-                                        :
-                                        null
+                                    <View style={{ marginRight: screenWidth / 6.0 }} />
                                 :
                                 null
                         }
                         <View>
                             <View style={{
                                 ...styles.messageWrapStyle,
-                                backgroundColor: item.isSender == true ? Colors.primaryColor : Colors.bgColor,
+                                backgroundColor: isSender ? Colors.primaryColor : Colors.bgColor,
                             }}>
-                                <Text style={{ ...item.isSender ? { ...Fonts.whiteColor15Regular } : { ...Fonts.grayColor15Regular }, lineHeight: 22.0, }}>
-                                    {item.message}
+                                <Text style={{ ...(isSender ? { ...Fonts.whiteColor15Regular } : { ...Fonts.grayColor15Regular }), lineHeight: 22.0, }}>
+                                    {item.content}
                                 </Text>
                             </View>
                             {
-                                !item.isSender
+                                !isSender && formattedTime
                                     ?
                                     <Text style={{ marginTop: Sizes.fixPadding - 2.0, ...Fonts.blackColor13Regular }}>
-                                        {item.messageTime}
+                                        {formattedTime}
                                     </Text>
                                     :
-                                    item.isSeen
-                                        ?
-                                        <MaterialIcons name='done-all' color={Colors.primaryColor} size={20} style={{ alignSelf: 'flex-end', marginTop: Sizes.fixPadding - 8.0 }} />
-                                        :
-                                        <MaterialIcons name='done' color={Colors.primaryColor} size={20} style={{ alignSelf: 'flex-end', marginTop: Sizes.fixPadding - 8.0 }} />
+                                    null
                             }
                         </View>
                     </View>
@@ -117,41 +164,23 @@ const MessageScreen = () => {
         return (
             <View style={{ flex: 1 }}>
                 <FlatList
-                    inverted
                     data={messagesList}
                     keyExtractor={(item) => `${item.id}`}
                     renderItem={renderItem}
                     showsVerticalScrollIndicator={false}
-                    contentContainerStyle={{ flexDirection: 'column-reverse', }}
                 />
             </View>
         )
     }
 
-    function addMessage({ message }) {
-
-        const oldMessages = messagesList;
-
-        const newMessage = {
-            id: messagesList.length + 1,
-            message: message,
-            isSender: true,
-            isSeen: false,
-        }
-
-        oldMessages.push(newMessage);
-        setMessagesList(oldMessages);
-    }
-
     function typeMessage() {
-        const [message, setMessage] = useState('');
         return (
             <View style={styles.typeMessageWrapStyle}>
                 <View style={styles.textFieldWrapStyle}>
                     <TextInput
                         cursorColor={Colors.primaryColor}
-                        value={message}
-                        onChangeText={setMessage}
+                        value={messageText}
+                        onChangeText={setMessageText}
                         placeholder='Type a Message...'
                         style={{ padding: 0, ...Fonts.blackColor15Regular, flex: 1, }}
                         numberOfLines={1}
@@ -163,12 +192,7 @@ const MessageScreen = () => {
                 </View>
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => {
-                        if (message != '') {
-                            addMessage({ message: message })
-                            setMessage('');
-                        }
-                    }}
+                    onPress={handleSendMessage}
                     style={styles.sendButtonWrapStyle}
                 >
                     <MaterialIcons name="send" size={18} color={Colors.whiteColor} style={{ transform: [{ rotate: '-40deg' }], bottom: 2.0, }} />
@@ -194,7 +218,7 @@ const MessageScreen = () => {
                     />
                     <View style={{ flex: 1, }}>
                         <Text numberOfLines={1} style={{ ...Fonts.blackColor17Bold }}>
-                            Annie Robinson
+                            {otherUserName || 'Chat'}
                         </Text>
                         <Text style={{ ...Fonts.grayColor15Regular }}>
                             Online
