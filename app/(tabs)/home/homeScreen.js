@@ -5,31 +5,49 @@ import {
     TextInput,
     TouchableOpacity,
     ImageBackground,
+    Alert,
 } from 'react-native'
 import React, { useState, useRef, useEffect } from 'react'
 import { Colors, Fonts, screenHeight, screenWidth, Sizes } from '../../../constants/styles'
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons'
-import { usersList } from '../../../components/usersList'
 import { useNavigation } from 'expo-router'
 import TinderCard from 'react-tinder-card'
 import { LinearGradient } from 'expo-linear-gradient'
+import { fetchUsers, likeUser } from '../../../services/userService'
 
 const HomeScreen = () => {
 
     const navigation = useNavigation();
 
-    const [users, setusers] = useState(usersList)
+    const [users, setusers] = useState([])
     const [search, setsearch] = useState('');
     const searchFieldRef = useRef(null);
-    const [cardLength, setCardLength] = useState(usersList.length);
+    const defaultUserImage = require('../../../assets/images/users/user1.png');
 
     useEffect(() => {
-        if (cardLength == 0) {
-            setCardLength(14);
-            setusers(usersList);
+        let isMounted = true;
+
+        const loadUsers = async () => {
+            const result = await fetchUsers();
+
+            if (!isMounted) {
+                return;
+            }
+
+            if (result.ok && result.data?.users) {
+                setusers(result.data.users);
+            } else if (!result.ok) {
+                console.error('Failed to load users', result.error);
+                Alert.alert('Unable to load profiles', result.error?.message ?? 'Please try again later.');
+            }
+        };
+
+        loadUsers();
+
+        return () => {
+            isMounted = false;
         }
-        return () => { }
-    }, [cardLength])
+    }, [])
 
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor, }}>
@@ -44,22 +62,56 @@ const HomeScreen = () => {
     )
 
     function removeCard(id) {
-        const copyUsers = users;
-        const newUsers = copyUsers.filter((item) => item.id !== id);
-        setusers(newUsers);
+        setusers((prevUsers) => prevUsers.filter((item) => item.id !== id));
     };
 
+    async function handleSwipe(direction, userId) {
+        if (!userId) {
+            return;
+        }
+
+        const liked = direction === 'right';
+        const result = await likeUser({ targetUserId: userId, liked });
+
+        if (!result.ok) {
+            console.error('Failed to update like status', result.error);
+            Alert.alert('Action failed', result.error?.message ?? 'Please try again later.');
+        } else if (result.data?.match) {
+            Alert.alert("It's a match!");
+        }
+
+        removeCard(userId);
+    }
+
     function changeShortlist({ id }) {
-        const copyUsers = users;
-        const newUsers = copyUsers.map((item) => {
-            if (item.id == id) {
+        setusers((prevUsers) => prevUsers.map((item) => {
+            if (item.id === id) {
                 return { ...item, isFavorite: !item.isFavorite }
             }
             else {
                 return item
             }
-        })
-        setusers(newUsers);
+        }));
+    }
+
+    function getUserImageSource(user) {
+        if (!user) {
+            return defaultUserImage;
+        }
+
+        if (typeof user.image === 'number') {
+            return user.image;
+        }
+
+        if (user.image) {
+            return { uri: user.image };
+        }
+
+        if (user.photoURL) {
+            return { uri: user.photoURL };
+        }
+
+        return defaultUserImage;
     }
 
     function usersInfo() {
@@ -67,14 +119,17 @@ const HomeScreen = () => {
             <View style={{ flex: 1, alignItems: 'center' }}>
                 <View style={styles.imageBottomContainre1} >
                     <View style={styles.imageBottomContainre2} >
-                        {cardLength !== 0 && users.map((item, index) => (
+                        {users.length > 0 && users.map((item, index) => (
                             <View
                                 key={`${item.id}`}
                                 style={styles.tinderCardWrapper}
                             >
-                                <TinderCard onCardLeftScreen={() => { setCardLength(index) }}>
+                                <TinderCard
+                                    onSwipe={(direction) => handleSwipe(direction, item.id)}
+                                    onCardLeftScreen={() => { }}
+                                >
                                     <ImageBackground
-                                        source={item.image}
+                                        source={getUserImageSource(item)}
                                         style={{ height: '100%', width: '100%', }}
                                         resizeMode='cover'
                                         borderRadius={Sizes.fixPadding * 3.0}
@@ -96,7 +151,7 @@ const HomeScreen = () => {
                                             <View style={styles.userInfoWithOptionWrapper}>
                                                 <TouchableOpacity
                                                     activeOpacity={0.8}
-                                                    onPress={() => { removeCard(item.id); setCardLength(index) }}
+                                                    onPress={() => { handleSwipe('left', item.id) }}
                                                     style={styles.closeAndShortlistIconWrapStyle}
                                                 >
                                                     <MaterialIcons name="close" size={24} color={Colors.primaryColor} />
