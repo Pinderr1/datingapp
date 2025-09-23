@@ -19,3 +19,19 @@ export async function fetchUsers({ limit = 20, startAfter } = {}) {
     return failure('fetch-users-failed', 'Failed to fetch users. Please try again later.');
   }
 }
+
+export async function likeUser({ targetUserId, liked }) {
+  const authResult = await ensureAuth();
+  if (!authResult.ok) {
+    return authResult;
+  }
+
+  const likeUserCallable = httpsCallable(functions, 'likeUser');
+  try {
+    const result = await likeUserCallable({ targetUserId, liked });
+    return success(result.data);
+  } catch (e) {
+    console.error('Failed to update user like status. Please try again later.', e);
+    return failure('like-user-failed', 'Failed to update user like status. Please try again later.');
+  }
+}
