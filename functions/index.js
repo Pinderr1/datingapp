@@ -157,15 +157,24 @@ exports.likeUser = functions
     const matchRef = db
       .collection('matches')
       .doc(`${firstUser}_${secondUser}`);
+    const fromUserRef = db.collection('users').doc(fromUserId);
+    const toUserRef = db.collection('users').doc(toUserId);
 
     try {
       const match = await db.runTransaction(async (transaction) => {
-        const [swipeDoc, reciprocalSwipeDoc, existingMatchDoc] =
-          await Promise.all([
-            transaction.get(swipeRef),
-            transaction.get(reciprocalSwipeRef),
-            transaction.get(matchRef),
-          ]);
+        const [
+          swipeDoc,
+          reciprocalSwipeDoc,
+          existingMatchDoc,
+          fromUserDoc,
+          toUserDoc,
+        ] = await Promise.all([
+          transaction.get(swipeRef),
+          transaction.get(reciprocalSwipeRef),
+          transaction.get(matchRef),
+          transaction.get(fromUserRef),
+          transaction.get(toUserRef),
+        ]);
         const swipeData = {
           from: fromUserId,
           to: toUserId,
@@ -193,16 +202,37 @@ exports.likeUser = functions
           return false;
         }
 
-        if (existingMatchDoc.exists) {
-          return false;
+        const fromProfileData = fromUserDoc.exists ? fromUserDoc.data() : {};
+        const toProfileData = toUserDoc.exists ? toUserDoc.data() : {};
+
+        let createdMatch = false;
+
+        if (!existingMatchDoc.exists) {
+          transaction.set(matchRef, {
+            users: [firstUser, secondUser],
+            matchedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          createdMatch = true;
         }
 
-        transaction.set(matchRef, {
-          users: [firstUser, secondUser],
-          matchedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+        transaction.set(
+          matchRef,
+          {
+            profiles: {
+              [fromUserId]: {
+                name: fromProfileData?.name ?? '',
+                photoURL: fromProfileData?.photoURL ?? null,
+              },
+              [toUserId]: {
+                name: toProfileData?.name ?? '',
+                photoURL: toProfileData?.photoURL ?? null,
+              },
+            },
+          },
+          { merge: true }
+        );
 
-        return true;
+        return createdMatch;
       });
 
       return { match };
