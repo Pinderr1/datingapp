@@ -3,7 +3,11 @@ import { functions } from '../firebaseConfig';
 import { ensureAuth } from './authService';
 import { success, failure } from './result';
 
-export async function fetchSwipeCandidates({ limit = 20, startAfter } = {}) {
+export async function fetchSwipeCandidates({
+  limit = 20,
+  startAfter,
+  cooldownDays = 14,
+} = {}) {
   const authResult = await ensureAuth();
   if (!authResult.ok) {
     return authResult;
@@ -11,7 +15,7 @@ export async function fetchSwipeCandidates({ limit = 20, startAfter } = {}) {
 
   const getSwipeCandidates = httpsCallable(functions, 'getSwipeCandidates');
   try {
-    const result = await getSwipeCandidates({ limit, startAfter });
+    const result = await getSwipeCandidates({ limit, startAfter, cooldownDays });
     const { users, nextCursor } = result.data;
     return success({ users, nextCursor });
   } catch (e) {

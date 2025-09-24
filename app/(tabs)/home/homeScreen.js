@@ -8,6 +8,7 @@ import {
     Alert,
 } from 'react-native'
 import React, { useState, useRef, useEffect } from 'react'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Colors, Fonts, screenHeight, screenWidth, Sizes } from '../../../constants/styles'
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons'
 import { useNavigation } from 'expo-router'
@@ -22,12 +23,71 @@ const HomeScreen = () => {
     const [users, setusers] = useState([])
     const [search, setsearch] = useState('');
     const searchFieldRef = useRef(null);
+    const seenStateRef = useRef({ key: null, set: new Set() })
     const defaultUserImage = require('../../../assets/images/users/user1.png');
+
+    const getTodayKey = () => {
+        const today = new Date()
+        const isoDate = today.toISOString().split('T')[0]
+        return `seenCandidates:${isoDate}`
+    }
+
+    const ensureSeenState = async () => {
+        const todayKey = getTodayKey()
+
+        if (seenStateRef.current.key === todayKey) {
+            return seenStateRef.current
+        }
+
+        try {
+            const stored = await AsyncStorage.getItem(todayKey)
+            let parsed = []
+
+            if (stored) {
+                try {
+                    const data = JSON.parse(stored)
+                    if (Array.isArray(data)) {
+                        parsed = data.filter((value) => typeof value === 'string')
+                    }
+                } catch (error) {
+                    console.error('Failed to parse seen candidates', error)
+                }
+            }
+
+            seenStateRef.current = { key: todayKey, set: new Set(parsed) }
+        } catch (error) {
+            console.error('Failed to load seen candidates', error)
+            seenStateRef.current = { key: todayKey, set: new Set() }
+        }
+
+        return seenStateRef.current
+    }
+
+    const markCandidateSeen = async (id) => {
+        if (!id) {
+            return
+        }
+
+        const { key, set } = await ensureSeenState()
+
+        if (set.has(id)) {
+            return
+        }
+
+        set.add(id)
+
+        try {
+            await AsyncStorage.setItem(key, JSON.stringify(Array.from(set)))
+        } catch (error) {
+            console.error('Failed to update seen candidates', error)
+        }
+    }
 
     useEffect(() => {
         let isMounted = true;
 
         const loadCandidates = async () => {
+            const seenState = await ensureSeenState()
             const result = await fetchSwipeCandidates();
 
             if (!isMounted) {
@@ -35,7 +95,10 @@ const HomeScreen = () => {
             }
 
             if (result.ok && result.data?.users) {
-                setusers(result.data.users);
+                const unseenUsers = result.data.users.filter(
+                    (user) => user?.id && !seenState.set.has(user.id)
+                )
+                setusers(unseenUsers);
             } else if (!result.ok) {
                 console.error('Failed to load users', result.error);
                 Alert.alert('Unable to load profiles', result.error?.message ?? 'Please try again later.');
@@ -63,6 +126,9 @@ const HomeScreen = () => {
 
     function removeCard(id) {
         setusers((prevUsers) => prevUsers.filter((item) => item.id !== id));
+        markCandidateSeen(id).catch((error) => {
+            console.error('Failed to persist seen candidate', error)
+        })
     };
 
     async function handleSwipe(direction, userId) {
