@@ -3,22 +3,27 @@ import { functions } from '../firebaseConfig';
 import { ensureAuth } from './authService';
 import { success, failure } from './result';
 
-export async function fetchUsers({ limit = 20, startAfter } = {}) {
+export async function fetchSwipeCandidates({ limit = 20, startAfter } = {}) {
   const authResult = await ensureAuth();
   if (!authResult.ok) {
     return authResult;
   }
 
-  const getPublicUsers = httpsCallable(functions, 'getPublicUsers');
+  const getSwipeCandidates = httpsCallable(functions, 'getSwipeCandidates');
   try {
-    const result = await getPublicUsers({ limit, startAfter });
+    const result = await getSwipeCandidates({ limit, startAfter });
     const { users, nextCursor } = result.data;
     return success({ users, nextCursor });
   } catch (e) {
-    console.error('Failed to fetch users. Please try again later.', e);
-    return failure('fetch-users-failed', 'Failed to fetch users. Please try again later.');
+    console.error('Failed to load swipe candidates.', e);
+    return failure(
+      'fetch-candidates-failed',
+      'We were unable to load new people to show you. Please try again in a moment.'
+    );
   }
 }
+
+export const fetchUsers = fetchSwipeCandidates;
 
 export async function likeUser({ targetUserId, liked }) {
   const authResult = await ensureAuth();
