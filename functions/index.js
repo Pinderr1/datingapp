@@ -9,109 +9,230 @@ const enforceAppCheck =
   typeof config.security.enforce_app_check !== 'undefined' &&
   String(config.security.enforce_app_check).toLowerCase() === 'true';
 
+const PUBLIC_USER_FIELDS = [
+  'name',
+  'photoURL',
+  'age',
+  'gender',
+  'bio',
+  'image',
+  'address',
+  'distance',
+  'profession',
+  'isFavorite',
+];
+
+function mapPublicUserDoc(doc) {
+  const data = doc.data() || {};
+
+  return {
+    id: doc.id,
+    name: data.name ?? '',
+    photoURL: data.photoURL ?? null,
+    age: data.age ?? null,
+    gender: data.gender ?? null,
+    bio: data.bio ?? '',
+    image: data.image ?? '',
+    address: data.address ?? '',
+    distance: data.distance ?? null,
+    profession: data.profession ?? '',
+    isFavorite: data.isFavorite ?? false,
+  };
+}
+
 exports.getPublicUsers = functions
   .region('us-central1')
   .runWith({ memory: '256MB', timeoutSeconds: 60 })
   .https.onCall(async (data = {}, context) => {
-  if (enforceAppCheck && !context.app) {
-    throw new functions.https.HttpsError(
-      'failed-precondition',
-      'App Check required'
-    );
-  }
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Auth required');
-  }
+    if (enforceAppCheck && !context.app) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'App Check required'
+      );
+    }
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Auth required');
+    }
 
-  const { limit = 20, startAfter } = data;
+    const { limit = 20, startAfter } = data;
 
-  if (typeof limit !== 'number' || !Number.isInteger(limit) || limit <= 0) {
-    throw new functions.https.HttpsError(
-      'invalid-argument',
-      'limit must be a positive integer'
-    );
-  }
-  const clampedLimit = Math.min(limit, 100);
-  const fetchLimit = Math.min(clampedLimit + 1, 101);
-
-  let startAfterId = null;
-  if (startAfter !== undefined && startAfter !== null) {
-    if (typeof startAfter !== 'string') {
+    if (typeof limit !== 'number' || !Number.isInteger(limit) || limit <= 0) {
       throw new functions.https.HttpsError(
         'invalid-argument',
-        'startAfter must be a string'
+        'limit must be a positive integer'
+      );
+    }
+    const clampedLimit = Math.min(limit, 100);
+    const fetchLimit = Math.min(clampedLimit + 1, 101);
+
+    let startAfterId = null;
+    if (startAfter !== undefined && startAfter !== null) {
+      if (typeof startAfter !== 'string') {
+        throw new functions.https.HttpsError(
+          'invalid-argument',
+          'startAfter must be a string'
+        );
+      }
+
+      const trimmed = startAfter.trim();
+      if (trimmed.length > 0) {
+        startAfterId = trimmed;
+      }
+    }
+
+    try {
+      const currentUserId = context.auth.uid;
+
+      let query = admin
+        .firestore()
+        .collection('users')
+        .orderBy(admin.firestore.FieldPath.documentId())
+        .select(...PUBLIC_USER_FIELDS)
+        .limit(fetchLimit);
+
+      if (startAfterId) {
+        query = query.startAfter(startAfterId);
+      }
+
+      const snapshot = await query.get();
+      const filteredDocs = snapshot.docs.filter((doc) => doc.id !== currentUserId);
+      const limitedDocs = filteredDocs.slice(0, clampedLimit);
+      const users = limitedDocs.map(mapPublicUserDoc);
+
+      const hasMore =
+        (snapshot.docs.length === fetchLimit || filteredDocs.length > limitedDocs.length) &&
+        limitedDocs.length > 0;
+      const lastReturnedDoc = limitedDocs[limitedDocs.length - 1];
+      const nextCursor = hasMore && lastReturnedDoc ? lastReturnedDoc.id : null;
+
+      return { users, nextCursor };
+    } catch (err) {
+      console.error('getPublicUsers error', err);
+      if (err instanceof functions.https.HttpsError) {
+        throw err;
+      }
+      throw new functions.https.HttpsError(
+        'internal',
+        'Failed to fetch users'
+      );
+    }
+  });
+
+exports.getSwipeCandidates = functions
+  .region('us-central1')
+  .runWith({ memory: '256MB', timeoutSeconds: 60 })
+  .https.onCall(async (data = {}, context) => {
+    if (enforceAppCheck && !context.app) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'App Check required'
       );
     }
 
-    const trimmed = startAfter.trim();
-    if (trimmed.length > 0) {
-      startAfterId = trimmed;
-    }
-  }
-
-  try {
-    const currentUserId = context.auth.uid;
-
-    let query = admin
-      .firestore()
-      .collection('users')
-      .orderBy(admin.firestore.FieldPath.documentId())
-      .select(
-        'name',
-        'photoURL',
-        'age',
-        'gender',
-        'bio',
-        'image',
-        'address',
-        'distance',
-        'profession',
-        'isFavorite'
-      )
-      .limit(fetchLimit);
-
-    if (startAfterId) {
-      query = query.startAfter(startAfterId);
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Auth required');
     }
 
-    const snapshot = await query.get();
-    const filteredDocs = snapshot.docs.filter((doc) => doc.id !== currentUserId);
-    const limitedDocs = filteredDocs.slice(0, clampedLimit);
-    const users = limitedDocs.map((doc) => {
-      const d = doc.data();
-      return {
-        id: doc.id,
-        name: d.name ?? '',
-        photoURL: d.photoURL ?? null,
-        age: d.age ?? null,
-        gender: d.gender ?? null,
-        bio: d.bio ?? '',
-        image: d.image ?? '',
-        address: d.address ?? '',
-        distance: d.distance ?? null,
-        profession: d.profession ?? '',
-        isFavorite: d.isFavorite ?? false,
-      };
-    });
+    const { limit = 20, startAfter } = data;
 
-    const hasMore =
-      (snapshot.docs.length === fetchLimit || filteredDocs.length > limitedDocs.length) &&
-      limitedDocs.length > 0;
-    const lastReturnedDoc = limitedDocs[limitedDocs.length - 1];
-    const nextCursor = hasMore && lastReturnedDoc ? lastReturnedDoc.id : null;
-
-    return { users, nextCursor };
-  } catch (err) {
-    console.error('getPublicUsers error', err);
-    if (err instanceof functions.https.HttpsError) {
-      throw err;
+    if (typeof limit !== 'number' || !Number.isInteger(limit) || limit <= 0) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'limit must be a positive integer'
+      );
     }
-    throw new functions.https.HttpsError(
-      'internal',
-      'Failed to fetch users'
-    );
-  }
-});
+
+    const clampedLimit = Math.min(limit, 100);
+    const fetchLimit = Math.min(clampedLimit + 1, 101);
+
+    let startAfterId = null;
+    if (startAfter !== undefined && startAfter !== null) {
+      if (typeof startAfter !== 'string') {
+        throw new functions.https.HttpsError(
+          'invalid-argument',
+          'startAfter must be a string'
+        );
+      }
+
+      const trimmed = startAfter.trim();
+      if (trimmed.length > 0) {
+        startAfterId = trimmed;
+      }
+    }
+
+    try {
+      const db = admin.firestore();
+      const currentUserId = context.auth.uid;
+      const excludedIds = new Set([currentUserId]);
+
+      const [swipesSnapshot, matchesSnapshot] = await Promise.all([
+        db.collection('swipes').where('from', '==', currentUserId).get(),
+        db.collection('matches').where('users', 'array-contains', currentUserId).get(),
+      ]);
+
+      swipesSnapshot.forEach((doc) => {
+        const toUserId = doc.get('to');
+        if (typeof toUserId === 'string' && toUserId) {
+          excludedIds.add(toUserId);
+        }
+      });
+
+      matchesSnapshot.forEach((doc) => {
+        const users = doc.get('users');
+        if (Array.isArray(users)) {
+          users.forEach((uid) => {
+            if (typeof uid === 'string' && uid !== currentUserId) {
+              excludedIds.add(uid);
+            }
+          });
+        }
+      });
+
+      let query = db
+        .collection('users')
+        .orderBy(admin.firestore.FieldPath.documentId())
+        .select(...PUBLIC_USER_FIELDS)
+        .limit(fetchLimit);
+
+      if (startAfterId) {
+        query = query.startAfter(startAfterId);
+      }
+
+      const snapshot = await query.get();
+
+      const filteredDocs = snapshot.docs.filter((doc) => !excludedIds.has(doc.id));
+      const limitedDocs = filteredDocs.slice(0, clampedLimit);
+      const users = limitedDocs.map(mapPublicUserDoc);
+
+      const reachedFetchLimit = snapshot.docs.length === fetchLimit;
+      const hasExtraFiltered = filteredDocs.length > limitedDocs.length;
+      const hasMore =
+        (reachedFetchLimit || hasExtraFiltered) &&
+        (limitedDocs.length > 0 || reachedFetchLimit);
+
+      let nextCursor = null;
+      if (hasMore) {
+        if (limitedDocs.length > 0) {
+          nextCursor = limitedDocs[limitedDocs.length - 1].id;
+        } else {
+          const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+          nextCursor = lastDoc ? lastDoc.id : null;
+        }
+      }
+
+      return { users, nextCursor };
+    } catch (err) {
+      console.error('getSwipeCandidates error', err);
+      if (err instanceof functions.https.HttpsError) {
+        throw err;
+      }
+
+      throw new functions.https.HttpsError(
+        'internal',
+        'Failed to fetch swipe candidates'
+      );
+    }
+  });
 
 exports.likeUser = functions
   .region('us-central1')

@@ -13,7 +13,7 @@ import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons'
 import { useNavigation } from 'expo-router'
 import TinderCard from 'react-tinder-card'
 import { LinearGradient } from 'expo-linear-gradient'
-import { fetchUsers, likeUser } from '../../../services/userService'
+import { fetchSwipeCandidates, likeUser } from '../../../services/userService'
 
 const HomeScreen = () => {
 
@@ -27,8 +27,8 @@ const HomeScreen = () => {
     useEffect(() => {
         let isMounted = true;
 
-        const loadUsers = async () => {
-            const result = await fetchUsers();
+        const loadCandidates = async () => {
+            const result = await fetchSwipeCandidates();
 
             if (!isMounted) {
                 return;
@@ -42,7 +42,7 @@ const HomeScreen = () => {
             }
         };
 
-        loadUsers();
+        loadCandidates();
 
         return () => {
             isMounted = false;
