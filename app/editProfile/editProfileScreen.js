@@ -41,10 +41,10 @@ const EditProfileScreen = () => {
         );
     }
 
-    const [name, setname] = useState(profile.name);
-    const [age, setage] = useState(`${profile.age} Years`);
-    const [gender, setgender] = useState('Male');
-    const [about, setabout] = useState('Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry\'s standard dummy.')
+    const [name, setname] = useState(profile?.name ?? '');
+    const [age, setage] = useState(profile?.age ? `${profile.age} Years` : '');
+    const [gender, setgender] = useState(profile?.gender ?? '');
+    const [about, setabout] = useState(profile?.bio ?? '');
     const [updating, setUpdating] = useState(false);
 
     return (
@@ -79,7 +79,21 @@ const EditProfileScreen = () => {
                     }
                     setUpdating(true);
                     try {
-                        await setDoc(userRef, { uid, name, age: parsedAge, email: profile.email }, { merge: true });
+                        const trimmedName = name.trim();
+                        const trimmedGender = gender.trim();
+                        const trimmedBio = about.trim();
+                        await setDoc(
+                            userRef,
+                            {
+                                uid,
+                                email: profile.email,
+                                name: trimmedName,
+                                gender: trimmedGender,
+                                bio: trimmedBio,
+                                age: parsedAge,
+                            },
+                            { merge: true }
+                        );
                         const userDoc = await getDoc(userRef);
                         if (userDoc.exists()) {
                             setProfile(userDoc.data());
