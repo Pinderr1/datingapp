@@ -188,37 +188,77 @@ exports.getSwipeCandidates = functions
         }
       });
 
-      let query = db
+      const baseQuery = db
         .collection('users')
         .orderBy(admin.firestore.FieldPath.documentId())
         .select(...PUBLIC_USER_FIELDS)
         .limit(fetchLimit);
 
-      if (startAfterId) {
-        query = query.startAfter(startAfterId);
-      }
+      const maxScans = Math.min(fetchLimit * 5, 500);
+      const users = [];
+      let totalScanned = 0;
+      let cursor = startAfterId ?? null;
+      let lastScannedDocId = cursor;
+      let morePagesAvailable = false;
 
-      const snapshot = await query.get();
-
-      const filteredDocs = snapshot.docs.filter((doc) => !excludedIds.has(doc.id));
-      const limitedDocs = filteredDocs.slice(0, clampedLimit);
-      const users = limitedDocs.map(mapPublicUserDoc);
-
-      const reachedFetchLimit = snapshot.docs.length === fetchLimit;
-      const hasExtraFiltered = filteredDocs.length > limitedDocs.length;
-      const hasMore =
-        (reachedFetchLimit || hasExtraFiltered) &&
-        (limitedDocs.length > 0 || reachedFetchLimit);
-
-      let nextCursor = null;
-      if (hasMore) {
-        if (limitedDocs.length > 0) {
-          nextCursor = limitedDocs[limitedDocs.length - 1].id;
-        } else {
-          const lastDoc = snapshot.docs[snapshot.docs.length - 1];
-          nextCursor = lastDoc ? lastDoc.id : null;
+      while (users.length < clampedLimit && totalScanned < maxScans) {
+        let pageQuery = baseQuery;
+        if (cursor) {
+          pageQuery = pageQuery.startAfter(cursor);
         }
+
+        const snapshot = await pageQuery.get();
+
+        if (snapshot.empty) {
+          if (cursor) {
+            lastScannedDocId = cursor;
+          }
+          morePagesAvailable = false;
+          break;
+        }
+
+        totalScanned += snapshot.docs.length;
+
+        const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+        if (lastDoc) {
+          lastScannedDocId = lastDoc.id;
+        }
+
+        const filteredDocs = snapshot.docs.filter(
+          (doc) => !excludedIds.has(doc.id)
+        );
+        const usersBefore = users.length;
+        for (const doc of filteredDocs) {
+          if (users.length >= clampedLimit) {
+            break;
+          }
+          users.push(mapPublicUserDoc(doc));
+        }
+        const addedFromPage = users.length - usersBefore;
+
+        const pageHasMore = snapshot.docs.length === fetchLimit;
+        const hasExtraFiltered = filteredDocs.length > addedFromPage;
+
+        if (users.length >= clampedLimit) {
+          morePagesAvailable = pageHasMore || hasExtraFiltered;
+          break;
+        }
+
+        if (totalScanned >= maxScans) {
+          morePagesAvailable = pageHasMore;
+          break;
+        }
+
+        if (!pageHasMore) {
+          morePagesAvailable = hasExtraFiltered;
+          break;
+        }
+
+        cursor = lastScannedDocId;
       }
+
+      const nextCursor =
+        morePagesAvailable && lastScannedDocId ? lastScannedDocId : null;
 
       return { users, nextCursor };
     } catch (err) {
