@@ -133,7 +133,7 @@ exports.getSwipeCandidates = functions
       throw new functions.https.HttpsError('unauthenticated', 'Auth required');
     }
 
-    const { limit = 20, startAfter } = data;
+    const { limit = 20, startAfter, cooldownDays = 14 } = data;
 
     if (typeof limit !== 'number' || !Number.isInteger(limit) || limit <= 0) {
       throw new functions.https.HttpsError(
@@ -142,8 +142,20 @@ exports.getSwipeCandidates = functions
       );
     }
 
+    if (
+      typeof cooldownDays !== 'number' ||
+      Number.isNaN(cooldownDays) ||
+      cooldownDays < 0
+    ) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'cooldownDays must be a non-negative number'
+      );
+    }
+
     const clampedLimit = Math.min(limit, 100);
     const fetchLimit = Math.min(clampedLimit + 1, 101);
+    const cooldownMillis = cooldownDays * 24 * 60 * 60 * 1000;
 
     let startAfterId = null;
     if (startAfter !== undefined && startAfter !== null) {
@@ -164,6 +176,7 @@ exports.getSwipeCandidates = functions
       const db = admin.firestore();
       const currentUserId = context.auth.uid;
       const excludedIds = new Set([currentUserId]);
+      const swipeMap = new Map();
 
       const [swipesSnapshot, matchesSnapshot] = await Promise.all([
         db.collection('swipes').where('from', '==', currentUserId).get(),
@@ -171,9 +184,13 @@ exports.getSwipeCandidates = functions
       ]);
 
       swipesSnapshot.forEach((doc) => {
-        const toUserId = doc.get('to');
+        const data = doc.data() || {};
+        const toUserId = data.to;
         if (typeof toUserId === 'string' && toUserId) {
-          excludedIds.add(toUserId);
+          swipeMap.set(toUserId, {
+            liked: data.liked,
+            createdAt: data.createdAt ?? null,
+          });
         }
       });
 
@@ -224,9 +241,45 @@ exports.getSwipeCandidates = functions
           lastScannedDocId = lastDoc.id;
         }
 
-        const filteredDocs = snapshot.docs.filter(
-          (doc) => !excludedIds.has(doc.id)
-        );
+        const filteredDocs = snapshot.docs.filter((doc) => {
+          const candidateId = doc.id;
+          if (excludedIds.has(candidateId)) {
+            return false;
+          }
+
+          const swipeInfo = swipeMap.get(candidateId);
+
+          if (!swipeInfo) {
+            return true;
+          }
+
+          if (swipeInfo.liked === true) {
+            return false;
+          }
+
+          if (swipeInfo.liked === false) {
+            const { createdAt } = swipeInfo;
+            let createdAtDate = null;
+
+            if (createdAt && typeof createdAt.toDate === 'function') {
+              createdAtDate = createdAt.toDate();
+            } else if (createdAt instanceof Date) {
+              createdAtDate = createdAt;
+            }
+
+            if (!createdAtDate) {
+              return false;
+            }
+
+            const elapsed = Date.now() - createdAtDate.getTime();
+
+            if (elapsed < cooldownMillis) {
+              return false;
+            }
+          }
+
+          return true;
+        });
         const usersBefore = users.length;
         for (const doc of filteredDocs) {
           if (users.length >= clampedLimit) {
