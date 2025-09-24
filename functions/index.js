@@ -32,6 +32,7 @@ exports.getPublicUsers = functions
     );
   }
   const clampedLimit = Math.min(limit, 100);
+  const fetchLimit = Math.min(clampedLimit + 1, 101);
 
   let startAfterId = null;
   if (startAfter !== undefined && startAfter !== null) {
@@ -49,6 +50,8 @@ exports.getPublicUsers = functions
   }
 
   try {
+    const currentUserId = context.auth.uid;
+
     let query = admin
       .firestore()
       .collection('users')
@@ -65,14 +68,16 @@ exports.getPublicUsers = functions
         'profession',
         'isFavorite'
       )
-      .limit(clampedLimit);
+      .limit(fetchLimit);
 
     if (startAfterId) {
       query = query.startAfter(startAfterId);
     }
 
     const snapshot = await query.get();
-    const users = snapshot.docs.map((doc) => {
+    const filteredDocs = snapshot.docs.filter((doc) => doc.id !== currentUserId);
+    const limitedDocs = filteredDocs.slice(0, clampedLimit);
+    const users = limitedDocs.map((doc) => {
       const d = doc.data();
       return {
         id: doc.id,
@@ -89,8 +94,11 @@ exports.getPublicUsers = functions
       };
     });
 
-    const lastDoc = snapshot.docs[snapshot.docs.length - 1];
-    const nextCursor = lastDoc ? lastDoc.id : null;
+    const hasMore =
+      (snapshot.docs.length === fetchLimit || filteredDocs.length > limitedDocs.length) &&
+      limitedDocs.length > 0;
+    const lastReturnedDoc = limitedDocs[limitedDocs.length - 1];
+    const nextCursor = hasMore && lastReturnedDoc ? lastReturnedDoc.id : null;
 
     return { users, nextCursor };
   } catch (err) {
