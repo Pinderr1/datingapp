@@ -133,7 +133,7 @@ exports.getSwipeCandidates = functions
       throw new functions.https.HttpsError('unauthenticated', 'Auth required');
     }
 
-    const { limit = 20, startAfter, cooldownDays = 14 } = data;
+    const { limit = 20, startAfter, cooldownDays } = data;
 
     if (typeof limit !== 'number' || !Number.isInteger(limit) || limit <= 0) {
       throw new functions.https.HttpsError(
@@ -143,9 +143,8 @@ exports.getSwipeCandidates = functions
     }
 
     if (
-      typeof cooldownDays !== 'number' ||
-      Number.isNaN(cooldownDays) ||
-      cooldownDays < 0
+      cooldownDays !== undefined &&
+      (typeof cooldownDays !== 'number' || Number.isNaN(cooldownDays) || cooldownDays < 0)
     ) {
       throw new functions.https.HttpsError(
         'invalid-argument',
@@ -155,7 +154,8 @@ exports.getSwipeCandidates = functions
 
     const clampedLimit = Math.min(limit, 100);
     const fetchLimit = Math.min(clampedLimit + 1, 101);
-    const cooldownMillis = cooldownDays * 24 * 60 * 60 * 1000;
+    const cd = Math.max(5, cooldownDays ?? 7);
+    const cooldownMillis = cd * 24 * 60 * 60 * 1000;
 
     let startAfterId = null;
     if (startAfter !== undefined && startAfter !== null) {

@@ -6,7 +6,7 @@ import { success, failure } from './result';
 export async function fetchSwipeCandidates({
   limit = 20,
   startAfter,
-  cooldownDays = 14,
+  cooldownDays,
 } = {}) {
   const authResult = await ensureAuth();
   if (!authResult.ok) {
@@ -15,7 +15,11 @@ export async function fetchSwipeCandidates({
 
   const getSwipeCandidates = httpsCallable(functions, 'getSwipeCandidates');
   try {
-    const result = await getSwipeCandidates({ limit, startAfter, cooldownDays });
+    const result = await getSwipeCandidates({
+      limit,
+      startAfter,
+      cooldownDays: cooldownDays ?? 7,
+    });
     const { users, nextCursor } = result.data;
     return success({ users, nextCursor });
   } catch (e) {
