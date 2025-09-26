@@ -1,114 +1,40 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isValidUser(data, uid) {
-      return data.keys().hasOnly([
-               'uid', 'name', 'email', 'age', 'gender', 'photoURL', 'bio',
-               'image', 'address', 'distance', 'profession', 'isFavorite'
-             ]) &&
-             data.keys().hasAll(['uid', 'name', 'email']) &&
-             data.uid == uid &&
-             data.name is string &&
-             data.email is string &&
-             (!data.keys().hasAny(['age']) ||
-              (data.age is int && data.age >= 18 && data.age <= 120)) &&
-             (!data.keys().hasAny(['gender']) || data.gender is string) &&
-             (!data.keys().hasAny(['photoURL']) || data.photoURL is string) &&
-             (!data.keys().hasAny(['bio']) || data.bio is string) &&
-             (!data.keys().hasAny(['image']) || data.image is string) &&
-             (!data.keys().hasAny(['address']) || data.address is string) &&
-             (!data.keys().hasAny(['distance']) || (data.distance is number && data.distance >= 0)) &&
-             (!data.keys().hasAny(['profession']) || data.profession is string) &&
-             (!data.keys().hasAny(['isFavorite']) || data.isFavorite is bool);
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    function isValidContactMessage(data) {
-      return data.keys().hasOnly(['name', 'email', 'message', 'createdAt']) &&
-             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
-             data.email is string &&
-             data.email.size() > 0 &&
-             // Disallow whitespace in email addresses
-             data.email.matches("^[^@\s]+@[^@\s]+\.[^@\s]+$") &&
-             data.message is string &&
-             data.message.size() > 0 &&
-             data.message.size() <= 2000 &&
-             (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp);
-    }
-
-    function isValidSwipe(data) {
-      return data.keys().hasOnly(['from', 'to', 'liked', 'createdAt']) &&
-             data.keys().hasAll(['from', 'to', 'liked', 'createdAt']) &&
-             data.from is string && data.from.size() > 0 &&
-             data.to is string && data.to.size() > 0 &&
-             data.from != data.to &&
-             data.liked is bool &&
-             data.createdAt is timestamp;
-    }
-
-    function isValidMatch(data) {
-      return data.keys().hasOnly(['users', 'matchedAt']) &&
-             data.keys().hasAll(['users', 'matchedAt']) &&
-             data.users is list && data.users.size() == 2 &&
-             data.users[0] is string && data.users[0].size() > 0 &&
-             data.users[1] is string && data.users[1].size() > 0 &&
-             data.users[0] != data.users[1] &&
-             data.matchedAt is timestamp;
-    }
-
-    function matchExists(matchId) {
-      return exists(/databases/$(database)/documents/matches/$(matchId));
-    }
-
-    function matchUsers(matchId) {
-      return get(/databases/$(database)/documents/matches/$(matchId)).data.users;
-    }
-
-    function isUserInMatch(matchId, uid) {
-      return matchExists(matchId) &&
-             matchUsers(matchId) is list &&
-             uid in matchUsers(matchId);
-    }
-
-    function isValidMatchMessage(data, matchId) {
-      return matchExists(matchId) &&
-             matchUsers(matchId) is list &&
-             data.keys().hasOnly(['senderId', 'content', 'createdAt']) &&
-             data.keys().hasAll(['senderId', 'content', 'createdAt']) &&
-             data.senderId is string && data.senderId.size() > 0 &&
-             data.content is string && data.content.size() > 0 &&
-             data.createdAt is timestamp &&
-             data.senderId in matchUsers(matchId);
+    function isParticipant(matchId) {
+      return isAuthenticated() &&
+             exists(/databases/$(database)/documents/matches/$(matchId)) &&
+             request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users;
     }
 
     match /users/{uid} {
-      allow get: if request.auth != null && request.auth.uid == uid;
-      allow create, update: if request.auth != null && request.auth.uid == uid &&
-                            isValidUser(request.resource.data, uid);
-    }
-
-    match /contactMessages/{messageId} {
-      allow create: if request.auth != null &&
-                    isValidContactMessage(request.resource.data);
+      allow read: if isAuthenticated() && request.auth.uid == uid;
+      allow create, update: if isAuthenticated() && request.auth.uid == uid;
     }
 
     match /swipes/{swipeId} {
-      allow create: if request.auth != null &&
-                    request.auth.uid == request.resource.data.from &&
-                    isValidSwipe(request.resource.data);
+      allow write: if isAuthenticated() && request.resource.data.from == request.auth.uid;
     }
 
     match /matches/{matchId} {
-      allow read: if request.auth != null &&
-                  request.auth.uid in resource.data.users;
+      allow read: if isParticipant(matchId);
+      allow write: if false;
 
       match /messages/{messageId} {
-        allow create: if request.auth != null &&
-                       isUserInMatch(matchId, request.auth.uid) &&
-                       request.auth.uid == request.resource.data.senderId &&
-                       isValidMatchMessage(request.resource.data, matchId);
-
-        allow read: if request.auth != null &&
-                    isUserInMatch(matchId, request.auth.uid);
+        allow read: if isParticipant(matchId);
+        allow create: if isParticipant(matchId) &&
+                       request.resource.data.keys().hasOnly(["senderId", "content", "createdAt"]) &&
+                       request.resource.data.keys().hasAll(["senderId", "content", "createdAt"]) &&
+                       request.resource.data.senderId is string &&
+                       request.resource.data.senderId == request.auth.uid &&
+                       request.resource.data.content is string &&
+                       request.resource.data.content.size() > 0 &&
+                       request.resource.data.content.size() <= 2000 &&
+                       request.resource.data.createdAt is timestamp;
       }
     }
   }
