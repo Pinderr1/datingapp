@@ -1,41 +1,63 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isAuthenticated() {
-      return request.auth != null;
+
+    function hasOnlyAllowedUserKeys(data) {
+      return data.keys().hasOnly([
+        'uid', 'name', 'email', 'age', 'gender', 'photoURL', 'bio',
+        'image', 'address', 'distance', 'profession', 'isFavorite'
+      ]);
     }
 
-    function isParticipant(matchId) {
-      return isAuthenticated() &&
-             exists(/databases/$(database)/documents/matches/$(matchId)) &&
-             request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users;
+    function isValidUserCreate(data, uid) {
+      // Create may be minimal at first login
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid == uid &&
+             data.email is string &&
+             (!data.keys().hasAny(['name']) || data.name is string);
+    }
+
+    function isValidUserUpdate(data, uid) {
+      return hasOnlyAllowedUserKeys(data) &&
+             data.uid == uid &&
+             data.email is string &&
+             (!data.keys().hasAny(['name']) || data.name is string) &&
+             (!data.keys().hasAny(['age']) || (data.age is int && data.age >= 18 && data.age <= 120)) &&
+             (!data.keys().hasAny(['gender']) || data.gender is string) &&
+             (!data.keys().hasAny(['photoURL']) || data.photoURL is string) &&
+             (!data.keys().hasAny(['bio']) || data.bio is string) &&
+             (!data.keys().hasAny(['image']) || data.image is string) &&
+             (!data.keys().hasAny(['address']) || data.address is string) &&
+             (!data.keys().hasAny(['distance']) || (data.distance is number && data.distance >= 0)) &&
+             (!data.keys().hasAny(['profession']) || data.profession is string) &&
+             (!data.keys().hasAny(['isFavorite']) || data.isFavorite is bool);
     }
 
     match /users/{uid} {
-      allow read: if isAuthenticated() && request.auth.uid == uid;
-      allow create, update: if isAuthenticated() && request.auth.uid == uid;
+      // Read own profile
+      allow get: if request.auth != null && request.auth.uid == uid;
+
+      // First-time create: allow minimal shape
+      allow create: if request.auth != null &&
+                    request.auth.uid == uid &&
+                    isValidUserCreate(request.resource.data, uid);
+
+      // Updates/overwrites: validate full shape/types
+      allow update: if request.auth != null &&
+                    request.auth.uid == uid &&
+                    isValidUserUpdate(request.resource.data, uid);
     }
 
-    match /swipes/{swipeId} {
-      allow write: if isAuthenticated() && request.resource.data.from == request.auth.uid;
+    function isValidContactMessage(data) {
+      return data.keys().hasOnly(['name', 'email', 'message', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.email is string && data.email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$") &&
+             data.message is string && data.message.size() > 0 && data.message.size() <= 2000 &&
+             (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp);
     }
 
-    match /matches/{matchId} {
-      allow read: if isParticipant(matchId);
-      allow write: if false;
-
-      match /messages/{messageId} {
-        allow read: if isParticipant(matchId);
-        allow create: if isParticipant(matchId) &&
-                       request.resource.data.keys().hasOnly(["senderId", "content", "createdAt"]) &&
-                       request.resource.data.keys().hasAll(["senderId", "content", "createdAt"]) &&
-                       request.resource.data.senderId is string &&
-                       request.resource.data.senderId == request.auth.uid &&
-                       request.resource.data.content is string &&
-                       request.resource.data.content.size() > 0 &&
-                       request.resource.data.content.size() <= 2000 &&
-                       request.resource.data.createdAt is timestamp;
-      }
+    match /contactMessages/{messageId} {
+      allow create: if request.auth != null && isValidContactMessage(request.resource.data);
     }
   }
 }
