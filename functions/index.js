@@ -397,14 +397,14 @@ exports.likeUser = functions
           transaction.get(fromUserRef),
           transaction.get(toUserRef),
         ]);
-        const swipeData = {
-          from: fromUserId,
-          to: toUserId,
-          liked,
-        };
-
+        const swipeData = { from: fromUserId, to: toUserId, liked };
         if (swipeDoc.exists) {
-          transaction.set(swipeRef, swipeData, { merge: true });
+          const updates = { ...swipeData };
+          // Reset cooldown window on every pass
+          if (liked === false) {
+            updates.createdAt = admin.firestore.FieldValue.serverTimestamp();
+          }
+          transaction.set(swipeRef, updates, { merge: true });
         } else {
           transaction.set(swipeRef, {
             ...swipeData,
