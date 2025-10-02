@@ -9,6 +9,8 @@
     {
       "source": "functions",
       "codebase": "default",
+      "platform": "gcfv2",
+      "runtime": "nodejs18",
       "ignore": [
         "node_modules",
         ".git",
