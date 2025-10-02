@@ -51,7 +51,7 @@ function mapPublicUserDoc(doc) {
 exports.getPublicUsers = onCall(async (request) => {
   const data = request.data ?? {};
 
-  if (enforceAppCheck && !request.appId) {
+  if (enforceAppCheck && !request.app?.appId) {
     throw new HttpsError('failed-precondition', 'App Check required');
   }
 
@@ -118,7 +118,7 @@ exports.getPublicUsers = onCall(async (request) => {
 exports.getSwipeCandidates = onCall(async (request) => {
   const data = request.data ?? {};
 
-  if (enforceAppCheck && !request.appId) {
+  if (enforceAppCheck && !request.app?.appId) {
     throw new HttpsError('failed-precondition', 'App Check required');
   }
 
@@ -310,7 +310,7 @@ exports.getSwipeCandidates = onCall(async (request) => {
 exports.likeUser = onCall(async (request) => {
   const data = request.data ?? {};
 
-  if (enforceAppCheck && !request.appId) {
+  if (enforceAppCheck && !request.app?.appId) {
     throw new HttpsError('failed-precondition', 'App Check required');
   }
 
@@ -439,7 +439,7 @@ exports.likeUser = onCall(async (request) => {
 exports.sendMessage = onCall(async (request) => {
   const data = request.data ?? {};
 
-  if (enforceAppCheck && !request.appId) {
+  if (enforceAppCheck && !request.app?.appId) {
     throw new HttpsError('failed-precondition', 'App Check required');
   }
 
