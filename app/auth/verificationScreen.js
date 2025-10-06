@@ -1,17 +1,85 @@
-import { StyleSheet, Text, View, ScrollView, Modal, ActivityIndicator, TouchableOpacity, Platform } from 'react-native'
-import React, { useState } from 'react'
+import { StyleSheet, Text, View, ScrollView, Modal, ActivityIndicator, TouchableOpacity, Platform, Alert } from 'react-native'
+import React, { useEffect, useState } from 'react'
 import { MaterialIcons } from '@expo/vector-icons'
-import { Colors, Fonts, Sizes, CommonStyles, screenWidth } from '../../constants/styles'
-import { OtpInput } from "react-native-otp-entry";
+import { Colors, Fonts, Sizes, CommonStyles } from '../../constants/styles'
 import MyStatusBar from '../../components/myStatusBar';
-import { useNavigation } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
+import { auth } from '../../firebaseConfig';
+import { sendEmailVerification } from 'firebase/auth';
 
 const VerificationScreen = () => {
 
     const navigation = useNavigation();
+    const router = useRouter();
 
-    const [otpInput, setotpInput] = useState('');
     const [isLoading, setisLoading] = useState(false);
+    const [cooldown, setCooldown] = useState(0);
+
+    useEffect(() => {
+        setCooldown(60);
+    }, []);
+
+    useEffect(() => {
+        if (cooldown <= 0) {
+            return;
+        }
+
+        const timer = setInterval(() => {
+            setCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [cooldown]);
+
+    const handleVerify = async () => {
+        if (isLoading) {
+            return;
+        }
+
+        const user = auth.currentUser;
+        if (!user) {
+            Alert.alert('No Account', 'Please log in again to verify your email.');
+            return;
+        }
+
+        try {
+            setisLoading(true);
+            await user.reload();
+            const refreshedUser = auth.currentUser;
+            if (refreshedUser?.emailVerified) {
+                router.replace('/(tabs)/home/homeScreen');
+            } else {
+                Alert.alert('Not Verified', 'Your email is still not verified. Please check your inbox and try again.');
+            }
+        } catch (error) {
+            Alert.alert('Verification Error', error.message);
+        } finally {
+            setisLoading(false);
+        }
+    };
+
+    const handleResend = async () => {
+        if (isLoading || cooldown > 0) {
+            return;
+        }
+
+        const user = auth.currentUser;
+        if (!user) {
+            Alert.alert('No Account', 'Please log in again to request a new verification email.');
+            return;
+        }
+
+        try {
+            setisLoading(true);
+            await sendEmailVerification(user);
+            setCooldown(60);
+            Alert.alert('Email Sent', 'A new verification email has been sent.');
+        } catch (error) {
+            Alert.alert('Resend Error', error.message);
+        } finally {
+            setisLoading(false);
+        }
+    };
 
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
@@ -20,7 +88,6 @@ const VerificationScreen = () => {
                 {backArrow()}
                 <ScrollView automaticallyAdjustKeyboardInsets={true} showsVerticalScrollIndicator={false}>
                     {verificationInfo()}
-                    {otpFields()}
                     {resendInfo()}
                     {verifyButton()}
                 </ScrollView>
@@ -68,17 +135,15 @@ const VerificationScreen = () => {
         return (
             <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => {
-                    setisLoading(true)
-                    setTimeout(() => {
-                        setisLoading(false)
-                        navigation.push('(tabs)')
-                    }, 2000);
+                onPress={handleVerify}
+                disabled={isLoading}
+                style={{
+                    ...styles.buttonStyle,
+                    opacity: isLoading ? 0.6 : 1,
                 }}
-                style={styles.buttonStyle}
             >
                 <Text style={{ ...Fonts.whiteColor20Medium }}>
-                    Verify
+                    {isLoading ? 'Verifying...' : 'Verify'}
                 </Text>
             </TouchableOpacity>
         )
@@ -87,41 +152,17 @@ const VerificationScreen = () => {
     function resendInfo() {
         return (
             <Text style={{ marginHorizontal: Sizes.fixPadding * 2.0, ...Fonts.grayColor14Regular }}>
-                Didn’t receive and code? { }
-                <Text style={{ ...Fonts.primaryColor15Medium }}>
-                    Resend New Code
+                Didn’t receive the email? { }
+                <Text
+                    onPress={cooldown > 0 || isLoading ? undefined : handleResend}
+                    style={{
+                        ...Fonts.primaryColor15Medium,
+                        opacity: cooldown > 0 || isLoading ? 0.5 : 1,
+                    }}
+                >
+                    {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend Email'}
                 </Text>
             </Text>
-        )
-    }
-
-    function otpFields() {
-        return (
-            <OtpInput
-                numberOfDigits={4}
-                focusColor={Colors.primaryColor}
-                onTextChange={text => {
-                    setotpInput(text)
-                    if (text.length == 4) {
-                        setisLoading(true)
-                        setTimeout(() => {
-                            setisLoading(false)
-                            navigation.push('(tabs)')
-                        }, 2000);
-                    }
-                }}
-                theme={{
-                    containerStyle: {
-                        marginHorizontal: Sizes.fixPadding, marginBottom: Sizes.fixPadding * 2.5,
-                    },
-                    inputsContainerStyle: {
-                        justifyContent: 'flex-start',
-                    },
-                    pinCodeContainerStyle: { ...styles.textFieldStyle },
-                    pinCodeTextStyle: { ...Fonts.blackColor18Bold },
-                    focusedPinCodeContainerStyle: { borderWidth: 1.5 }
-                }}
-            />
         )
     }
 
@@ -129,10 +170,10 @@ const VerificationScreen = () => {
         return (
             <View style={{ marginHorizontal: Sizes.fixPadding * 2.0, marginBottom: Sizes.fixPadding * 3.5 }}>
                 <Text style={{ ...Fonts.blackColor24Bold }}>
-                    Verification Code
+                    Verify Your Email
                 </Text>
                 <Text style={{ ...Fonts.grayColor15Regular, marginTop: Sizes.fixPadding }}>
-                    We have sent the verification code to +(444) 489-7896
+                    We just emailed a verification link to the address on your account. Please open your inbox, tap the link, and then return here to continue.
                 </Text>
             </View>
         )
@@ -162,14 +203,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         margin: Sizes.fixPadding * 2.0,
-    },
-    textFieldStyle: {
-        marginHorizontal: 10.0,
-        width: screenWidth / 9,
-        height: screenWidth / 8.5,
-        borderRadius: Sizes.fixPadding - 5.0,
-        borderWidth: 0,
-        backgroundColor: Colors.bgColor,
     },
     buttonStyle: {
         backgroundColor: Colors.primaryColor,

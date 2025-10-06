@@ -11,8 +11,17 @@ const SplashScreen = () => {
   useEffect(() => {
     const redirect = async () => {
       const result = await ensureAuth();
-      // ✅ Redirect to a concrete tab route (home) instead of just "/(tabs)"
-      router.replace(result.ok ? '/(tabs)/home/homeScreen' : '/auth/loginScreen');
+      if (result.ok) {
+        router.replace('/(tabs)/home/homeScreen');
+        return;
+      }
+
+      if (result.error?.code === 'email-not-verified') {
+        router.replace('/auth/verificationScreen');
+        return;
+      }
+
+      router.replace('/auth/loginScreen');
     };
 
     redirect();

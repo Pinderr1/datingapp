@@ -23,5 +23,29 @@ export async function ensureAuth() {
   if (!user) {
     return failure('no-auth');
   }
-  return success({ user });
+
+  try {
+    await user.reload();
+  } catch (error) {
+    console.warn('Failed to reload auth user.', error);
+  }
+
+  const refreshedUser = auth.currentUser;
+  if (!refreshedUser) {
+    return failure('no-auth');
+  }
+
+  if (!refreshedUser.emailVerified) {
+    return failure('email-not-verified');
+  }
+
+  return success({ user: refreshedUser });
+}
+
+export function normalizeEmail(email) {
+  if (typeof email !== 'string') {
+    return '';
+  }
+
+  return email.trim().toLowerCase();
 }
