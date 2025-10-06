@@ -10,6 +10,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../../firebaseConfig';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { normalizeEmail } from '../../services/authService';
+import { checkEmailVerificationStatus } from '../../services/emailVerificationService';
 
 const LoginScreen = () => {
 
@@ -70,12 +71,37 @@ const LoginScreen = () => {
             setProfile(profileData);
 
             await userCredential.user.reload();
-            if (userCredential.user.emailVerified) {
+            const refreshedUser = auth.currentUser ?? userCredential.user;
+            if (refreshedUser.emailVerified) {
                 Alert.alert('Success', 'Logged in successfully');
                 navigation.replace('(tabs)');
             } else {
-                Alert.alert('Verify Email', 'Please verify your email before continuing.');
-                navigation.replace('auth/verificationScreen');
+                const statusResult = await checkEmailVerificationStatus();
+
+                let status = 'pending';
+                let cooldown = 0;
+                let resendAllowed = false;
+                let message = 'Please verify your email address to continue.';
+
+                if (statusResult.ok) {
+                    const verification = statusResult.data;
+                    status = verification?.status ?? status;
+                    cooldown = verification?.cooldownRemainingSeconds ?? cooldown;
+                    resendAllowed = Boolean(verification?.canRequest && cooldown <= 0);
+
+                    if (verification?.status === 'failed' || verification?.lastDelivery?.failed) {
+                        message = 'We had trouble sending your verification email. You can try resending from the verification screen.';
+                    } else if (cooldown > 0) {
+                        message = 'A verification email was recently sent. You can request another once the cooldown ends.';
+                    } else if (verification?.status === 'sent') {
+                        message = 'We sent a verification email. Please check your inbox to verify your account.';
+                    }
+                } else {
+                    message = statusResult.error?.message || 'We were unable to check your verification status. Please try again later.';
+                }
+
+                Alert.alert('Verify Email', message);
+                navigation.replace('auth/verificationScreen', { status, cooldown, resendAllowed, message });
                 return;
             }
         } catch (error) {
