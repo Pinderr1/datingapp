@@ -2,6 +2,7 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { HttpsError, onCall } = require('firebase-functions/v2/https');
+const { sendVerificationEmail } = require('./mailer');
 
 setGlobalOptions({
   region: 'us-central1',
@@ -918,8 +919,57 @@ exports.handleAuthUserCreate = functions.auth.user().onCreate(async (user) => {
       'auth.onCreate',
     );
 
-    if (result.error) {
-      console.error('auth.onCreate verification link generation failed', uid, result.error);
+    if (result.error || !result.link) {
+      if (result.error) {
+        console.error(
+          'auth.onCreate verification link generation failed',
+          uid,
+          result.error,
+        );
+      }
+      return;
+    }
+
+    try {
+      await sendVerificationEmail({ to: user.email, link: result.link });
+
+      const successAt = admin.firestore.Timestamp.now();
+      const lastDeliveryMetadata = result.metadata.lastDelivery || {};
+      const lastDelivery = {
+        source: lastDeliveryMetadata.source || 'auth.onCreate',
+        generatedAt:
+          lastDeliveryMetadata.generatedAt || result.metadata.lastSentAt || successAt,
+        failed: false,
+      };
+
+      await updateVerificationDoc(docRef, result.metadata, {
+        status: 'sent',
+        updatedAt: successAt,
+        lastDelivery,
+        lastError: null,
+      });
+    } catch (error) {
+      const errorAt = admin.firestore.Timestamp.now();
+      const lastDeliveryMetadata = result.metadata.lastDelivery || {};
+      const failedDelivery = {
+        source: lastDeliveryMetadata.source || 'auth.onCreate',
+        generatedAt:
+          lastDeliveryMetadata.generatedAt || result.metadata.lastSentAt || errorAt,
+        failed: true,
+      };
+
+      await updateVerificationDoc(docRef, result.metadata, {
+        status: 'failed',
+        updatedAt: errorAt,
+        lastDelivery: failedDelivery,
+        lastError: {
+          code: error.code || 'email/send-failed',
+          message: error.message || 'Failed to send verification email',
+          at: errorAt,
+        },
+      });
+
+      console.error('auth.onCreate verification email send failed', uid, error);
     }
   } catch (err) {
     console.error('auth.onCreate handler error', uid, err);
