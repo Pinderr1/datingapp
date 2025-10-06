@@ -36,6 +36,237 @@ const PUBLIC_USER_FIELDS = [
   'isFavorite',
 ];
 
+const VERIFICATION_COLLECTION = 'emailVerifications';
+const DEFAULT_COOLDOWN_SECONDS = 60;
+const MIN_COOLDOWN_SECONDS = 30;
+const MAX_COOLDOWN_SECONDS = 3600;
+
+function getVerificationDoc(db, uid) {
+  return db.collection(VERIFICATION_COLLECTION).doc(uid);
+}
+
+function resolveCooldownSeconds(value) {
+  if (value === undefined || value === null) {
+    return DEFAULT_COOLDOWN_SECONDS;
+  }
+
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    throw new HttpsError('invalid-argument', 'cooldownSeconds must be a number');
+  }
+
+  const rounded = Math.round(value);
+
+  if (rounded <= 0) {
+    throw new HttpsError('invalid-argument', 'cooldownSeconds must be positive');
+  }
+
+  return Math.min(Math.max(rounded, MIN_COOLDOWN_SECONDS), MAX_COOLDOWN_SECONDS);
+}
+
+async function ensureVerificationDoc(db, uid) {
+  const docRef = getVerificationDoc(db, uid);
+  const snapshot = await docRef.get();
+
+  if (snapshot.exists) {
+    return { ref: docRef, data: snapshot.data() || {} };
+  }
+
+  const now = admin.firestore.Timestamp.now();
+  const initialData = {
+    status: 'pending',
+    createdAt: now,
+    updatedAt: now,
+    tokenHash: null,
+    lastError: null,
+  };
+
+  await docRef.set(initialData);
+
+  return { ref: docRef, data: initialData };
+}
+
+async function updateVerificationDoc(docRef, metadata, update) {
+  await docRef.set(update, { merge: true });
+  return { ...(metadata || {}), ...update };
+}
+
+function timestampToMillis(value) {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === 'number') {
+    return value;
+  }
+
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+
+  if (typeof value.toMillis === 'function') {
+    return value.toMillis();
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+
+  return null;
+}
+
+function toIsoString(value) {
+  const millis = timestampToMillis(value);
+  return millis ? new Date(millis).toISOString() : null;
+}
+
+function sanitizeError(error) {
+  if (!error) {
+    return null;
+  }
+
+  return {
+    code: typeof error.code === 'string' ? error.code : 'unknown',
+    message: typeof error.message === 'string' ? error.message : '',
+    at: toIsoString(error.at),
+  };
+}
+
+function sanitizeDelivery(delivery) {
+  if (!delivery) {
+    return null;
+  }
+
+  return {
+    source: delivery.source ?? null,
+    generatedAt: toIsoString(delivery.generatedAt),
+    failed: delivery.failed ?? false,
+  };
+}
+
+function validateCooldown(metadata, nowMillis, cooldownMillis) {
+  const lastSentMillis = Math.max(
+    timestampToMillis(metadata?.lastSentAt) ?? 0,
+    timestampToMillis(metadata?.lastRequestedAt) ?? 0,
+  );
+
+  if (!lastSentMillis) {
+    return {
+      allowed: true,
+      remainingMillis: 0,
+      cooldownEndsAt: nowMillis,
+    };
+  }
+
+  const cooldownEndsAt = lastSentMillis + cooldownMillis;
+
+  if (nowMillis >= cooldownEndsAt) {
+    return {
+      allowed: true,
+      remainingMillis: 0,
+      cooldownEndsAt,
+    };
+  }
+
+  return {
+    allowed: false,
+    remainingMillis: cooldownEndsAt - nowMillis,
+    cooldownEndsAt,
+  };
+}
+
+function buildVerificationResponse(metadata = {}, options = {}) {
+  const cooldown = options.cooldown;
+  const cooldownSeconds = options.cooldownSeconds ?? null;
+  const status = options.status ?? metadata.status ?? 'pending';
+  const emailVerified =
+    options.emailVerified !== undefined
+      ? options.emailVerified
+      : status === 'verified';
+
+  const response = {
+    status,
+    emailVerified,
+    email: options.email ?? null,
+    createdAt: toIsoString(metadata.createdAt),
+    updatedAt: toIsoString(metadata.updatedAt),
+    verifiedAt: toIsoString(options.verifiedAt ?? metadata.verifiedAt),
+    lastRequestedAt: toIsoString(metadata.lastRequestedAt),
+    lastSentAt: toIsoString(metadata.lastSentAt),
+    lastError: sanitizeError(options.lastError ?? metadata.lastError),
+    lastDelivery: sanitizeDelivery(metadata.lastDelivery),
+    cooldownSeconds,
+    cooldownRemainingSeconds: cooldown
+      ? Math.max(0, Math.ceil((cooldown.remainingMillis ?? 0) / 1000))
+      : 0,
+    cooldownEndsAt: cooldown?.cooldownEndsAt
+      ? new Date(cooldown.cooldownEndsAt).toISOString()
+      : null,
+    canRequest: options.canRequest !== undefined
+      ? options.canRequest
+      : status !== 'verified' && (cooldown ? cooldown.allowed : true),
+  };
+
+  if (status === 'verified') {
+    response.canRequest = false;
+  }
+
+  if (options.additional) {
+    Object.entries(options.additional).forEach(([key, value]) => {
+      if (value !== undefined) {
+        response[key] = value;
+      }
+    });
+  }
+
+  return response;
+}
+
+async function sendVerificationLink(docRef, metadata, email, source) {
+  const generatedAt = admin.firestore.Timestamp.now();
+
+  try {
+    const link = await admin.auth().generateEmailVerificationLink(email);
+    const update = {
+      status: 'sent',
+      updatedAt: generatedAt,
+      lastRequestedAt: generatedAt,
+      lastSentAt: generatedAt,
+      lastError: null,
+      lastDelivery: {
+        source,
+        generatedAt,
+        failed: false,
+      },
+    };
+
+    const nextMetadata = await updateVerificationDoc(docRef, metadata, update);
+
+    return { metadata: nextMetadata, link, error: null };
+  } catch (error) {
+    const errorAt = admin.firestore.Timestamp.now();
+    const update = {
+      status: 'failed',
+      updatedAt: errorAt,
+      lastRequestedAt: errorAt,
+      lastError: {
+        code: error.code || 'unknown',
+        message: error.message || 'Failed to generate verification link',
+        at: errorAt,
+      },
+      lastDelivery: {
+        source,
+        generatedAt: errorAt,
+        failed: true,
+      },
+    };
+
+    const nextMetadata = await updateVerificationDoc(docRef, metadata, update);
+
+    return { metadata: nextMetadata, link: null, error };
+  }
+}
+
 function mapPublicUserDoc(doc) {
   const data = doc.data() || {};
 
@@ -490,6 +721,208 @@ exports.sendMessage = onCall(async (request) => {
     }
 
     throw new HttpsError('internal', 'Failed to send message');
+  }
+});
+
+exports.requestEmailVerification = onCall(async (request) => {
+  assertAppCheck(request);
+
+  if (!request.auth?.uid) {
+    throw new HttpsError('unauthenticated', 'Auth required');
+  }
+
+  const data = request.data ?? {};
+  const cooldownSeconds = resolveCooldownSeconds(data.cooldownSeconds);
+  const cooldownMillis = cooldownSeconds * 1000;
+  const uid = request.auth.uid;
+  const db = admin.firestore();
+
+  try {
+    const authClient = admin.auth();
+    const userRecord = await authClient.getUser(uid);
+
+    if (!userRecord.email) {
+      throw new HttpsError('failed-precondition', 'User is missing an email address');
+    }
+
+    let { ref: docRef, data: metadata } = await ensureVerificationDoc(db, uid);
+
+    if (!metadata.createdAt) {
+      const nowTs = admin.firestore.Timestamp.now();
+      metadata = await updateVerificationDoc(docRef, metadata, {
+        createdAt: nowTs,
+        updatedAt: nowTs,
+      });
+    }
+
+    if (userRecord.emailVerified) {
+      const nowTs = admin.firestore.Timestamp.now();
+      metadata = await updateVerificationDoc(docRef, metadata, {
+        status: 'verified',
+        verifiedAt: metadata.verifiedAt ?? nowTs,
+        updatedAt: nowTs,
+        lastError: null,
+      });
+
+      const cooldown = validateCooldown(metadata, Date.now(), cooldownMillis);
+
+      return buildVerificationResponse(metadata, {
+        email: userRecord.email,
+        emailVerified: true,
+        cooldownSeconds,
+        cooldown,
+        canRequest: false,
+      });
+    }
+
+    const cooldown = validateCooldown(metadata, Date.now(), cooldownMillis);
+
+    if (!cooldown.allowed) {
+      return buildVerificationResponse(metadata, {
+        email: userRecord.email,
+        emailVerified: false,
+        cooldownSeconds,
+        cooldown,
+        canRequest: false,
+      });
+    }
+
+    const sendResult = await sendVerificationLink(
+      docRef,
+      metadata,
+      userRecord.email,
+      'callable.requestEmailVerification',
+    );
+
+    metadata = sendResult.metadata;
+
+    if (sendResult.error) {
+      console.error('requestEmailVerification generate link failed', uid, sendResult.error);
+    }
+
+    const postCooldown = validateCooldown(metadata, Date.now(), cooldownMillis);
+
+    return buildVerificationResponse(metadata, {
+      email: userRecord.email,
+      emailVerified: false,
+      cooldownSeconds,
+      cooldown: postCooldown,
+      additional: sendResult.link ? { link: sendResult.link } : undefined,
+    });
+  } catch (err) {
+    console.error('requestEmailVerification error', uid, err);
+    if (err instanceof HttpsError) {
+      throw err;
+    }
+
+    throw new HttpsError('internal', 'Failed to request verification email');
+  }
+});
+
+exports.checkEmailVerificationStatus = onCall(async (request) => {
+  assertAppCheck(request);
+
+  if (!request.auth?.uid) {
+    throw new HttpsError('unauthenticated', 'Auth required');
+  }
+
+  const data = request.data ?? {};
+  const cooldownSeconds = resolveCooldownSeconds(data.cooldownSeconds);
+  const cooldownMillis = cooldownSeconds * 1000;
+  const uid = request.auth.uid;
+  const db = admin.firestore();
+
+  try {
+    const authClient = admin.auth();
+    const userRecord = await authClient.getUser(uid);
+
+    if (!userRecord.email) {
+      throw new HttpsError('failed-precondition', 'User is missing an email address');
+    }
+
+    let { ref: docRef, data: metadata } = await ensureVerificationDoc(db, uid);
+
+    const nowTs = admin.firestore.Timestamp.now();
+    const updates = { updatedAt: nowTs };
+
+    if (!metadata.createdAt) {
+      updates.createdAt = nowTs;
+    }
+
+    if (userRecord.emailVerified) {
+      updates.status = 'verified';
+      if (!metadata.verifiedAt) {
+        updates.verifiedAt = nowTs;
+      }
+      updates.lastError = null;
+    } else if (!metadata.status) {
+      updates.status = 'pending';
+    } else if (metadata.status === 'verified' && !userRecord.emailVerified) {
+      updates.status = metadata.lastSentAt ? 'sent' : 'pending';
+    }
+
+    metadata = await updateVerificationDoc(docRef, metadata, updates);
+
+    const cooldown = validateCooldown(metadata, Date.now(), cooldownMillis);
+
+    return buildVerificationResponse(metadata, {
+      email: userRecord.email,
+      emailVerified: userRecord.emailVerified,
+      cooldownSeconds,
+      cooldown,
+    });
+  } catch (err) {
+    console.error('checkEmailVerificationStatus error', uid, err);
+    if (err instanceof HttpsError) {
+      throw err;
+    }
+
+    throw new HttpsError('internal', 'Failed to check verification status');
+  }
+});
+
+exports.handleAuthUserCreate = functions.auth.user().onCreate(async (user) => {
+  const uid = user.uid;
+  const db = admin.firestore();
+
+  try {
+    let { ref: docRef, data: metadata } = await ensureVerificationDoc(db, uid);
+
+    if (!metadata.createdAt) {
+      const nowTs = admin.firestore.Timestamp.now();
+      metadata = await updateVerificationDoc(docRef, metadata, {
+        createdAt: nowTs,
+        updatedAt: nowTs,
+      });
+    }
+
+    if (user.emailVerified) {
+      const nowTs = admin.firestore.Timestamp.now();
+      await updateVerificationDoc(docRef, metadata, {
+        status: 'verified',
+        verifiedAt: metadata.verifiedAt ?? nowTs,
+        updatedAt: nowTs,
+        lastError: null,
+      });
+      return;
+    }
+
+    if (!user.email) {
+      return;
+    }
+
+    const result = await sendVerificationLink(
+      docRef,
+      metadata,
+      user.email,
+      'auth.onCreate',
+    );
+
+    if (result.error) {
+      console.error('auth.onCreate verification link generation failed', uid, result.error);
+    }
+  } catch (err) {
+    console.error('auth.onCreate handler error', uid, err);
   }
 });
 
