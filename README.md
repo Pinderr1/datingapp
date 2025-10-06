@@ -96,6 +96,22 @@ Each document is stored at `emailVerifications/{uid}` and mirrors a single Fireb
 
 > **Note:** Aside from the initial `pending` document created by the client, all subsequent mutations (status transitions, timestamps, token hashing, error recording) must be performed by trusted server code using the Admin SDK or a service account with the `admin` custom claim. Corresponding Firestore security rules enforce this separation of responsibilities.
 
+## Manual email verification resend validation
+
+Use the Firebase emulators to confirm the callable behaves correctly for both successful and failed deliveries.
+
+1. Start the emulators from the `functions` directory with `npm run serve` and authenticate with a test user that has an email address.
+2. **Happy path:**
+   - Ensure valid SendGrid credentials are configured via `firebase functions:config:set`.
+   - Invoke `requestEmailVerification` (for example with `firebase functions:shell`).
+   - Confirm the callable resolves, `emailVerifications/{uid}` shows `status: "sent"`, `lastDelivery.failed` is `false`, and no `lastError` is recorded.
+3. **Delivery failure path:**
+   - Temporarily unset or invalidate the SendGrid API key (e.g. `firebase functions:config:unset sendgrid.api_key`).
+   - Invoke `requestEmailVerification` again.
+   - Verify the callable rejects with `Failed to send verification email`, Firestore captures `status: "failed"`, the latest `lastDelivery.failed` is `true`, and `lastError` contains the SendGrid error payload.
+
+Restore valid mail settings after completing the checks.
+
 ## Join the community
 
 Join our community of developers creating universal apps.

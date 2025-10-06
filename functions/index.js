@@ -797,8 +797,82 @@ exports.requestEmailVerification = onCall(async (request) => {
 
     metadata = sendResult.metadata;
 
-    if (sendResult.error) {
-      console.error('requestEmailVerification generate link failed', uid, sendResult.error);
+    if (sendResult.error || !sendResult.link) {
+      console.error(
+        'requestEmailVerification generate link failed',
+        uid,
+        sendResult.error,
+      );
+
+      const failureCooldown = validateCooldown(metadata, Date.now(), cooldownMillis);
+      const failureResponse = buildVerificationResponse(metadata, {
+        email: userRecord.email,
+        emailVerified: false,
+        cooldownSeconds,
+        cooldown: failureCooldown,
+      });
+
+      throw new HttpsError(
+        'internal',
+        'Failed to generate verification link. Please try again later.',
+        failureResponse,
+      );
+    }
+
+    try {
+      await sendVerificationEmail({ to: userRecord.email, link: sendResult.link });
+
+      const successAt = admin.firestore.Timestamp.now();
+      const lastDeliveryMetadata = metadata.lastDelivery || {};
+      const lastDelivery = {
+        source: lastDeliveryMetadata.source || 'callable.requestEmailVerification',
+        generatedAt:
+          lastDeliveryMetadata.generatedAt || metadata.lastSentAt || successAt,
+        failed: false,
+      };
+
+      metadata = await updateVerificationDoc(docRef, metadata, {
+        status: 'sent',
+        updatedAt: successAt,
+        lastDelivery,
+        lastError: null,
+      });
+    } catch (error) {
+      const errorAt = admin.firestore.Timestamp.now();
+      const lastDeliveryMetadata = metadata.lastDelivery || {};
+      const failedDelivery = {
+        source: lastDeliveryMetadata.source || 'callable.requestEmailVerification',
+        generatedAt:
+          lastDeliveryMetadata.generatedAt || metadata.lastSentAt || errorAt,
+        failed: true,
+      };
+
+      metadata = await updateVerificationDoc(docRef, metadata, {
+        status: 'failed',
+        updatedAt: errorAt,
+        lastDelivery: failedDelivery,
+        lastError: {
+          code: error.code || 'email/send-failed',
+          message: error.message || 'Failed to send verification email',
+          at: errorAt,
+        },
+      });
+
+      console.error('requestEmailVerification email send failed', uid, error);
+
+      const failureCooldown = validateCooldown(metadata, Date.now(), cooldownMillis);
+      const failureResponse = buildVerificationResponse(metadata, {
+        email: userRecord.email,
+        emailVerified: false,
+        cooldownSeconds,
+        cooldown: failureCooldown,
+      });
+
+      throw new HttpsError(
+        'internal',
+        'Failed to send verification email. Please try again later.',
+        failureResponse,
+      );
     }
 
     const postCooldown = validateCooldown(metadata, Date.now(), cooldownMillis);
@@ -808,7 +882,7 @@ exports.requestEmailVerification = onCall(async (request) => {
       emailVerified: false,
       cooldownSeconds,
       cooldown: postCooldown,
-      additional: sendResult.link ? { link: sendResult.link } : undefined,
+      additional: { link: sendResult.link },
     });
   } catch (err) {
     console.error('requestEmailVerification error', uid, err);
