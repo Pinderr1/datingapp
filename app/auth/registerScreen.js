@@ -3,17 +3,19 @@ import React, { useState, useCallback } from 'react'
 import { Colors, Fonts, Sizes, CommonStyles } from '../../constants/styles'
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import MyStatusBar from '../../components/myStatusBar';
-import { useNavigation } from 'expo-router';
-import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from 'firebase/auth';
+import { useNavigation, useRouter } from 'expo-router';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../firebaseConfig';
 import { normalizeEmail } from '../../services/authService';
 import { useUser } from '../../context/userContext';
+import { requestEmailVerification } from '../../services/emailVerificationService';
 
 const RegisterScreen = () => {
 
     const navigation = useNavigation();
     const { setProfile } = useUser();
+    const router = useRouter();
 
     const [fullName, setfullName] = useState('');
     const [phoneNumber, setphoneNumber] = useState('');
@@ -81,19 +83,34 @@ const RegisterScreen = () => {
 
             setProfile({ uid: user.uid, ...profileData });
 
-            try {
-                await sendEmailVerification(user);
-            } catch (verificationError) {
-                console.warn('Failed to send verification email.', verificationError);
+            const verificationResult = await requestEmailVerification();
+
+            if (!verificationResult.ok) {
+                Alert.alert('Verification Email Issue', verificationResult.error?.message || 'We were unable to send a verification email. Please try again later.');
+                return;
             }
 
-            navigation.replace('auth/verificationScreen');
+            const verification = verificationResult.data;
+
+            if (verification.status === 'failed' || verification.lastDelivery?.failed) {
+                Alert.alert(
+                    'Email Delivery Issue',
+                    'We were unable to send a verification email to your address. Please try again from the verification screen.'
+                );
+            } else if (!verification.canRequest && verification.cooldownRemainingSeconds > 0) {
+                Alert.alert(
+                    'Verification Email Recently Sent',
+                    `Please check your inbox. You can request another email in ${verification.cooldownRemainingSeconds} seconds.`
+                );
+            }
+
+            router.replace({ pathname: '/auth/verificationScreen', params: { reason: 'account-created' } });
         } catch (error) {
             Alert.alert('Registration Error', error.message);
         } finally {
             setIsSubmitting(false);
         }
-    }, [agreeWithTerms, email, fullName, isSubmitting, navigation, password, phoneNumber, setProfile]);
+    }, [agreeWithTerms, email, fullName, isSubmitting, password, phoneNumber, router, setProfile]);
 
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
