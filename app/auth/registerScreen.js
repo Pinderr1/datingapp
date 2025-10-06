@@ -5,7 +5,7 @@ import { Feather, MaterialIcons } from '@expo/vector-icons';
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
 import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../firebaseConfig';
 import { normalizeEmail } from '../../services/authService';
 import { useUser } from '../../context/userContext';
@@ -69,6 +69,15 @@ const RegisterScreen = () => {
             }
 
             await setDoc(userRef, profileData, { merge: true });
+
+            const verificationRef = doc(db, 'emailVerifications', user.uid);
+            await setDoc(verificationRef, {
+                status: 'pending',
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                tokenHash: null,
+                lastError: null,
+            });
 
             setProfile({ uid: user.uid, ...profileData });
 

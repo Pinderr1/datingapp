@@ -80,6 +80,22 @@ To learn more about developing your project with Expo, look at the following res
 - [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
 - [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
 
+## Firestore data model
+
+### `emailVerifications` (top-level collection)
+
+Each document is stored at `emailVerifications/{uid}` and mirrors a single Firebase Auth user. New users get a document in `pending` status during registration.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `status` | string enum | One of `pending`, `sent`, `verified`, or `failed`. Client writes are limited to the initial `pending` state. |
+| `createdAt` | timestamp | Server timestamp captured when the document is first created. |
+| `updatedAt` | timestamp | Last server-side update time. |
+| `tokenHash` | string or null | Hash of the email verification token managed by backend jobs. |
+| `lastError` | map or null | Optional error metadata with keys `code`, `message`, and `at` (a timestamp) recorded by backend processes when email delivery fails. |
+
+> **Note:** Aside from the initial `pending` document created by the client, all subsequent mutations (status transitions, timestamps, token hashing, error recording) must be performed by trusted server code using the Admin SDK or a service account with the `admin` custom claim. Corresponding Firestore security rules enforce this separation of responsibilities.
+
 ## Join the community
 
 Join our community of developers creating universal apps.
