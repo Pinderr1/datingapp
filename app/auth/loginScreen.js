@@ -6,9 +6,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
 import { useUser } from '../../context/userContext';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../../firebaseConfig';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { normalizeEmail } from '../../services/authService';
 
 const LoginScreen = () => {
 
@@ -44,7 +45,15 @@ const LoginScreen = () => {
 
     const handleLogin = async () => {
         try {
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            const normalizedEmail = normalizeEmail(email);
+            setEmail(normalizedEmail);
+
+            if (!normalizedEmail) {
+                Alert.alert('Invalid Email', 'Please enter a valid email address.');
+                return;
+            }
+
+            const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
             const { uid, email: authEmail, displayName } = userCredential.user;
             const userRef = doc(db, 'users', uid);
             const userDoc = await getDoc(userRef);
@@ -52,39 +61,17 @@ const LoginScreen = () => {
             let profileData;
             if (!userDoc.exists()) {
                 profileData = { uid, name: displayName || '', email: authEmail };
-                await setDoc(userRef, profileData);
+                await setDoc(userRef, { name: displayName || '', email: authEmail }, { merge: true });
             } else {
                 profileData = { ...userDoc.data(), uid, email: authEmail };
-                await setDoc(userRef, { uid, email: authEmail }, { merge: true });
+                await setDoc(userRef, { email: authEmail }, { merge: true });
             }
 
             setProfile(profileData);
             Alert.alert('Success', 'Logged in successfully');
-            navigation.push('(tabs)');
+            navigation.replace('(tabs)');
         } catch (error) {
             Alert.alert('Login Error', error.message);
-        }
-    };
-
-    const handleRegister = async () => {
-        try {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            const { uid } = userCredential.user;
-            const profileData = {
-                uid,
-                name: '',
-                email,
-            };
-            const userRef = doc(db, 'users', uid);
-            await setDoc(userRef, profileData);
-            const userDoc = await getDoc(userRef);
-            if (userDoc.exists()) {
-                setProfile(userDoc.data());
-            }
-            Alert.alert('Success', 'Account created successfully');
-            navigation.push('(tabs)');
-        } catch (error) {
-            Alert.alert('Registration Error', error.message);
         }
     };
 
@@ -127,7 +114,7 @@ const LoginScreen = () => {
                 <Text style={{ ...Fonts.grayColor15Regular }}>
                     Don’t have an account? { }
                 </Text>
-                <Text onPress={handleRegister} style={{ ...Fonts.primaryColor15Medium }}>
+                <Text onPress={() => navigation.navigate('auth/registerScreen')} style={{ ...Fonts.primaryColor15Medium }}>
                     Sign Up
                 </Text>
             </Text>

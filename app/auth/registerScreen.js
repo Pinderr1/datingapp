@@ -1,19 +1,90 @@
-import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, TextInput } from 'react-native'
-import React, { useState, } from 'react'
+import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native'
+import React, { useState, useCallback } from 'react'
 import { Colors, Fonts, Sizes, CommonStyles } from '../../constants/styles'
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
+import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../../firebaseConfig';
+import { normalizeEmail } from '../../services/authService';
+import { useUser } from '../../context/userContext';
 
 const RegisterScreen = () => {
 
     const navigation = useNavigation();
+    const { setProfile } = useUser();
 
     const [fullName, setfullName] = useState('');
     const [phoneNumber, setphoneNumber] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setpassword] = useState('');
     const [showPassword, setshowPassword] = useState(false);
     const [agreeWithTerms, setagreeWithTerms] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleSignup = useCallback(async () => {
+        if (isSubmitting) {
+            return;
+        }
+
+        const normalizedEmail = normalizeEmail(email);
+        setEmail(normalizedEmail);
+
+        if (!normalizedEmail) {
+            Alert.alert('Invalid Email', 'Please enter a valid email address.');
+            return;
+        }
+
+        if (password.length < 6) {
+            Alert.alert('Weak Password', 'Password must be at least 6 characters long.');
+            return;
+        }
+
+        if (!agreeWithTerms) {
+            Alert.alert('Terms Required', 'Please agree to the Terms and Conditions to continue.');
+            return;
+        }
+
+        try {
+            setIsSubmitting(true);
+            const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
+            const { user } = userCredential;
+
+            if (fullName.trim()) {
+                await updateProfile(user, { displayName: fullName.trim() });
+            }
+
+            const userRef = doc(db, 'users', user.uid);
+            const profileData = {
+                email: normalizedEmail,
+            };
+
+            if (fullName.trim()) {
+                profileData.name = fullName.trim();
+            }
+
+            if (phoneNumber.trim()) {
+                profileData.phoneNumber = phoneNumber.trim();
+            }
+
+            await setDoc(userRef, profileData, { merge: true });
+
+            setProfile({ uid: user.uid, ...profileData });
+
+            try {
+                await sendEmailVerification(user);
+            } catch (verificationError) {
+                console.warn('Failed to send verification email.', verificationError);
+            }
+
+            navigation.replace('auth/verificationScreen');
+        } catch (error) {
+            Alert.alert('Registration Error', error.message);
+        } finally {
+            setIsSubmitting(false);
+        }
+    }, [agreeWithTerms, email, fullName, isSubmitting, navigation, password, phoneNumber, setProfile]);
 
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
@@ -24,6 +95,7 @@ const RegisterScreen = () => {
                     {registerInfo()}
                     {fullNameInfo()}
                     {phoneNumberField()}
+                    {emailField()}
                     {passwordField()}
                     {agreeWithTermsInfo()}
                     {signupButton()}
@@ -87,11 +159,15 @@ const RegisterScreen = () => {
         return (
             <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => { navigation.push('auth/verificationScreen') }}
-                style={styles.buttonStyle}
+                onPress={handleSignup}
+                disabled={isSubmitting}
+                style={{
+                    ...styles.buttonStyle,
+                    opacity: isSubmitting ? 0.6 : 1,
+                }}
             >
                 <Text style={{ ...Fonts.whiteColor20Medium }}>
-                    Sign Up
+                    {isSubmitting ? 'Signing Up...' : 'Sign Up'}
                 </Text>
             </TouchableOpacity>
         )
@@ -167,6 +243,26 @@ const RegisterScreen = () => {
         )
     }
 
+    function emailField() {
+        return (
+            <View style={{ ...styles.infoWrapStyle, marginBottom: Sizes.fixPadding * 2.5, borderColor: email ? Colors.primaryColor : Colors.bgColor }}>
+                <Feather name="mail" size={18} color={Colors.grayColor} />
+                <TextInput
+                    value={email}
+                    onChangeText={(value) => setEmail(value)}
+                    cursorColor={Colors.primaryColor}
+                    style={styles.textFieldStyle}
+                    numberOfLines={1}
+                    placeholder="Enter Email"
+                    placeholderTextColor={Colors.grayColor}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    selectionColor={Colors.primaryColor}
+                />
+            </View>
+        )
+    }
+
     function fullNameInfo() {
         return (
             <View style={{ ...styles.infoWrapStyle, marginBottom: Sizes.fixPadding * 2.5, borderColor: fullName ? Colors.primaryColor : Colors.bgColor }}>
@@ -203,7 +299,7 @@ export default RegisterScreen
 
 const styles = StyleSheet.create({
     textFieldStyle: {
-        padding:0,
+        padding: 0,
         flex: 1,
         ...Fonts.blackColor16Regular,
         marginLeft: Sizes.fixPadding + 2.0
