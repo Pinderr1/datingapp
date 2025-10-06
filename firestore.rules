@@ -48,6 +48,23 @@ service cloud.firestore {
                     isValidUserUpdate(request.resource.data, uid);
     }
 
+    match /emailVerifications/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+
+      allow create: if request.auth != null &&
+                    request.auth.uid == uid &&
+                    request.resource.data.keys().hasOnly([
+                      'status', 'createdAt', 'updatedAt', 'tokenHash', 'lastError'
+                    ]) &&
+                    request.resource.data.status == 'pending' &&
+                    request.resource.data.createdAt == request.time &&
+                    request.resource.data.updatedAt == request.time &&
+                    (!request.resource.data.keys().hasAny(['tokenHash']) || request.resource.data.tokenHash == null) &&
+                    (!request.resource.data.keys().hasAny(['lastError']) || request.resource.data.lastError == null);
+
+      allow update, delete: if request.auth != null && request.auth.token.admin == true;
+    }
+
     function isValidContactMessage(data) {
       return data.keys().hasOnly(['name', 'email', 'message', 'createdAt']) &&
              data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
