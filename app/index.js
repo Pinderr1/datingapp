@@ -16,8 +16,12 @@ const SplashScreen = () => {
         return;
       }
 
-      if (result.error?.code === 'email-not-verified') {
-        router.replace('/auth/verificationScreen');
+      const code = result.error?.code;
+      if (typeof code === 'string' && code.startsWith('email-verification')) {
+        router.replace({
+          pathname: '/auth/verificationScreen',
+          params: { reason: code },
+        });
         return;
       }
 
