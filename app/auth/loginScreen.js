@@ -68,8 +68,16 @@ const LoginScreen = () => {
             }
 
             setProfile(profileData);
-            Alert.alert('Success', 'Logged in successfully');
-            navigation.replace('(tabs)');
+
+            await userCredential.user.reload();
+            if (userCredential.user.emailVerified) {
+                Alert.alert('Success', 'Logged in successfully');
+                navigation.replace('(tabs)');
+            } else {
+                Alert.alert('Verify Email', 'Please verify your email before continuing.');
+                navigation.replace('auth/verificationScreen');
+                return;
+            }
         } catch (error) {
             Alert.alert('Login Error', error.message);
         }
