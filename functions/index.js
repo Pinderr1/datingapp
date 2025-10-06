@@ -17,6 +17,12 @@ const enforceAppCheck =
   typeof config.security.enforce_app_check !== 'undefined' &&
   String(config.security.enforce_app_check).toLowerCase() === 'true';
 
+function assertAppCheck(req) {
+  if (enforceAppCheck && !req.app?.appId) {
+    throw new HttpsError('failed-precondition', 'App Check required');
+  }
+}
+
 const PUBLIC_USER_FIELDS = [
   'name',
   'photoURL',
@@ -51,9 +57,7 @@ function mapPublicUserDoc(doc) {
 exports.getPublicUsers = onCall(async (request) => {
   const data = request.data ?? {};
 
-  if (enforceAppCheck && !request.app?.appId) {
-    throw new HttpsError('failed-precondition', 'App Check required');
-  }
+  assertAppCheck(request);
 
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Auth required');
@@ -118,9 +122,7 @@ exports.getPublicUsers = onCall(async (request) => {
 exports.getSwipeCandidates = onCall(async (request) => {
   const data = request.data ?? {};
 
-  if (enforceAppCheck && !request.app?.appId) {
-    throw new HttpsError('failed-precondition', 'App Check required');
-  }
+  assertAppCheck(request);
 
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Auth required');
@@ -310,9 +312,7 @@ exports.getSwipeCandidates = onCall(async (request) => {
 exports.likeUser = onCall(async (request) => {
   const data = request.data ?? {};
 
-  if (enforceAppCheck && !request.app?.appId) {
-    throw new HttpsError('failed-precondition', 'App Check required');
-  }
+  assertAppCheck(request);
 
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Auth required');
@@ -439,9 +439,7 @@ exports.likeUser = onCall(async (request) => {
 exports.sendMessage = onCall(async (request) => {
   const data = request.data ?? {};
 
-  if (enforceAppCheck && !request.app?.appId) {
-    throw new HttpsError('failed-precondition', 'App Check required');
-  }
+  assertAppCheck(request);
 
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Auth required');
