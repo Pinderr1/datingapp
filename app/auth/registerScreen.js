@@ -83,28 +83,43 @@ const RegisterScreen = () => {
 
             setProfile({ uid: user.uid, ...profileData });
 
-            const verificationResult = await requestEmailVerification();
+            let verificationParams = { reason: 'account-created' };
 
-            if (!verificationResult.ok) {
-                Alert.alert('Verification Email Issue', verificationResult.error?.message || 'We were unable to send a verification email. Please try again later.');
-                return;
+            try {
+                const verificationResult = await requestEmailVerification();
+
+                if (!verificationResult?.ok || !verificationResult.data) {
+                    const error = verificationResult?.error || new Error('Unable to request verification email.');
+                    throw error;
+                }
+
+                const verification = verificationResult.data;
+                const message = verification.status === 'sent'
+                    ? 'We sent a verification email. Please check your inbox.'
+                    : verification.message || 'Please review the verification details below.';
+
+                verificationParams = {
+                    ...verificationParams,
+                    status: verification.status,
+                    cooldown: verification.cooldownRemainingSeconds ?? 0,
+                    resendAllowed: verification.canRequest ?? false,
+                    message,
+                };
+            } catch (verificationError) {
+                console.warn('Email verification request failed', verificationError);
+                Alert.alert(
+                    'Verification Email Issue',
+                    'We were unable to send a verification email. Please try again from the verification screen.'
+                );
+
+                verificationParams = {
+                    reason: 'email-verification-delivery-failed',
+                    status: 'failed',
+                    resendAllowed: false,
+                };
             }
 
-            const verification = verificationResult.data;
-
-            if (verification.status === 'failed' || verification.lastDelivery?.failed) {
-                Alert.alert(
-                    'Email Delivery Issue',
-                    'We were unable to send a verification email to your address. Please try again from the verification screen.'
-                );
-            } else if (!verification.canRequest && verification.cooldownRemainingSeconds > 0) {
-                Alert.alert(
-                    'Verification Email Recently Sent',
-                    `Please check your inbox. You can request another email in ${verification.cooldownRemainingSeconds} seconds.`
-                );
-            }
-
-            router.replace({ pathname: '/auth/verificationScreen', params: { reason: 'account-created' } });
+            router.replace({ pathname: '/auth/verificationScreen', params: verificationParams });
         } catch (error) {
             Alert.alert('Registration Error', error.message);
         } finally {
