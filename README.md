@@ -82,35 +82,35 @@ To learn more about developing your project with Expo, look at the following res
 
 ## Firestore data model
 
+MVP uses Firebase Auth’s sendEmailVerification and client polling; Cloud Functions are optional and disabled on Spark.
+
 ### `emailVerifications` (top-level collection)
 
-Each document is stored at `emailVerifications/{uid}` and mirrors a single Firebase Auth user. New users get a document in `pending` status during registration.
+Each document is stored at `emailVerifications/{uid}` and mirrors a single Firebase Auth user when the backend is enabled. The client on Spark does not create or update these documents today; they remain reserved for future server-side workflows.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `status` | string enum | One of `pending`, `sent`, `verified`, or `failed`. Client writes are limited to the initial `pending` state. |
+| `status` | string enum | One of `pending`, `sent`, `verified`, or `failed`. Managed by backend processes when enabled. |
 | `createdAt` | timestamp | Server timestamp captured when the document is first created. |
 | `updatedAt` | timestamp | Last server-side update time. |
 | `tokenHash` | string or null | Hash of the email verification token managed by backend jobs. |
 | `lastError` | map or null | Optional error metadata with keys `code`, `message`, and `at` (a timestamp) recorded by backend processes when email delivery fails. |
 
-> **Note:** Aside from the initial `pending` document created by the client, all subsequent mutations (status transitions, timestamps, token hashing, error recording) must be performed by trusted server code using the Admin SDK or a service account with the `admin` custom claim. Corresponding Firestore security rules enforce this separation of responsibilities.
+> **Note:** When the Cloud Functions backend is enabled, all mutations (status transitions, timestamps, token hashing, error recording) must be performed by trusted server code using the Admin SDK or a service account with the `admin` custom claim. Corresponding Firestore security rules enforce this separation of responsibilities.
 
-## Manual email verification resend validation
+## Manual email verification validation
 
-Use the Firebase emulators to confirm the callable behaves correctly for both successful and failed deliveries.
+On Spark the client relies on Firebase Auth’s `sendEmailVerification` and local polling. To manually validate the experience:
 
-1. Start the emulators from the `functions` directory with `npm run serve` and authenticate with a test user that has an email address.
+1. Start the emulators from the `functions` directory with `npm run serve` (or run against Firebase Auth in a staging project) and authenticate with a test user that has an email address.
 2. **Happy path:**
-   - Ensure valid SendGrid credentials are configured via `firebase functions:config:set`.
-   - Invoke `requestEmailVerification` (for example with `firebase functions:shell`).
-   - Confirm the callable resolves, `emailVerifications/{uid}` shows `status: "sent"`, `lastDelivery.failed` is `false`, and no `lastError` is recorded.
+   - Ensure outbound email is configured for the environment.
+   - Trigger account creation in the app and confirm that a verification email arrives for the test user.
+   - From the verification screen, poll for `auth.currentUser.emailVerified` until it becomes `true`, then continue the flow.
 3. **Delivery failure path:**
-   - Temporarily unset or invalidate the SendGrid API key (e.g. `firebase functions:config:unset sendgrid.api_key`).
-   - Invoke `requestEmailVerification` again.
-   - Verify the callable rejects with `Failed to send verification email`, Firestore captures `status: "failed"`, the latest `lastDelivery.failed` is `true`, and `lastError` contains the SendGrid error payload.
-
-Restore valid mail settings after completing the checks.
+   - Temporarily misconfigure email delivery (for example by using an invalid SMTP or SendGrid credential).
+   - Trigger account creation again and confirm the user receives the in-app warning about verification email delivery issues.
+   - Restore valid mail settings after completing the checks.
 
 ## Join the community
 

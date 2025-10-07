@@ -725,6 +725,8 @@ exports.sendMessage = onCall(async (request) => {
   }
 });
 
+// Deprecated: callable email verification requests are disabled on Spark.
+// TODO(blaze-migration): Re-enable when moving to Blaze.
 exports.requestEmailVerification = onCall(async (request) => {
   assertAppCheck(request);
 
@@ -893,6 +895,8 @@ exports.requestEmailVerification = onCall(async (request) => {
   }
 });
 
+// Deprecated: callable email verification status checks are disabled on Spark.
+// TODO(blaze-migration): Re-enable when moving to Blaze.
 exports.checkEmailVerificationStatus = onCall(async (request) => {
   assertAppCheck(request);
 
