@@ -79,7 +79,6 @@ function normalizeVerificationData(data = {}) {
     canRequest: Boolean(data.canRequest),
     lastError: normalizeErrorPayload(data.lastError),
     lastDelivery: normalizeDeliveryPayload(data.lastDelivery),
-    link: typeof data.link === 'string' ? data.link : null,
   };
 }
 

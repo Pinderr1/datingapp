@@ -882,7 +882,6 @@ exports.requestEmailVerification = onCall(async (request) => {
       emailVerified: false,
       cooldownSeconds,
       cooldown: postCooldown,
-      additional: { link: sendResult.link },
     });
   } catch (err) {
     console.error('requestEmailVerification error', uid, err);
