@@ -148,6 +148,14 @@ const VerificationScreen = () => {
         }
     }, [cooldown, isLoading, verification]);
 
+    const handleSkipDev = useCallback(() => {
+        if (!__DEV__) {
+            return;
+        }
+
+        router.replace('/(tabs)/home/homeScreen');
+    }, [router]);
+
     const statusMessage = useMemo(() => {
         if (verification?.emailVerified) {
             return 'Your email has been verified. Redirecting you to the app...';
@@ -199,6 +207,7 @@ const VerificationScreen = () => {
                     {verificationInfo()}
                     {resendInfo()}
                     {verifyButton()}
+                    {skipDevButton()}
                     {statusFeedback()}
                 </ScrollView>
                 {loadingDialog()}
@@ -254,6 +263,28 @@ const VerificationScreen = () => {
             >
                 <Text style={{ ...Fonts.whiteColor20Medium }}>
                     {isLoading ? 'Verifying...' : 'Verify'}
+                </Text>
+            </TouchableOpacity>
+        )
+    }
+
+    function skipDevButton() {
+        if (!__DEV__) {
+            return null;
+        }
+
+        return (
+            <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleSkipDev}
+                style={{
+                    ...styles.buttonStyle,
+                    backgroundColor: Colors.bgColor,
+                    marginTop: -Sizes.fixPadding,
+                }}
+            >
+                <Text style={{ ...Fonts.blackColor17Medium }}>
+                    Skip verification (dev)
                 </Text>
             </TouchableOpacity>
         )
