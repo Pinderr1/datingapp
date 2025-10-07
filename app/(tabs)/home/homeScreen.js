@@ -15,6 +15,7 @@ import { useNavigation } from 'expo-router'
 import TinderCard from 'react-tinder-card'
 import { LinearGradient } from 'expo-linear-gradient'
 import { fetchSwipeCandidates, likeUser } from '../../../services/userService'
+import { getUserImageSource } from '../../../utils/imageSource'
 
 const HomeScreen = () => {
 
@@ -24,8 +25,6 @@ const HomeScreen = () => {
     const [search, setsearch] = useState('');
     const searchFieldRef = useRef(null);
     const seenStateRef = useRef({ key: null, set: new Set() })
-    const defaultUserImage = require('../../../assets/images/users/user1.png');
-
     const getTodayKey = () => {
         const today = new Date()
         const isoDate = today.toISOString().split('T')[0]
@@ -158,26 +157,6 @@ const HomeScreen = () => {
                 return item
             }
         }));
-    }
-
-    function getUserImageSource(user) {
-        if (!user) {
-            return defaultUserImage;
-        }
-
-        if (typeof user.image === 'number') {
-            return user.image;
-        }
-
-        if (user.image) {
-            return { uri: user.image };
-        }
-
-        if (user.photoURL) {
-            return { uri: user.photoURL };
-        }
-
-        return defaultUserImage;
     }
 
     function usersInfo() {

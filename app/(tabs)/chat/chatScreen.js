@@ -6,8 +6,7 @@ import { useNavigation } from 'expo-router';
 import { useUser } from '../../../context/userContext';
 import { auth, db } from '../../../firebaseConfig';
 import { collection, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore';
-
-const defaultUserImage = require('../../../assets/images/users/user1.png');
+import { getUserImageSource } from '../../../utils/imageSource';
 
 const ChatScreen = () => {
 
@@ -246,26 +245,6 @@ const ChatScreen = () => {
             </View>
         )
     }
-}
-
-function getUserImageSource(user) {
-    if (!user) {
-        return defaultUserImage;
-    }
-
-    if (typeof user.image === 'number') {
-        return user.image;
-    }
-
-    if (user.image) {
-        return { uri: user.image };
-    }
-
-    if (user.photoURL) {
-        return { uri: user.photoURL };
-    }
-
-    return defaultUserImage;
 }
 
 function formatTimestamp(timestamp) {
