@@ -1,7 +1,6 @@
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { success, failure } from './result';
-import { checkEmailVerificationStatus, deriveVerificationCode } from './emailVerificationService';
 
 let authInitPromise;
 
@@ -37,52 +36,28 @@ export async function ensureAuth(options = {}) {
     return failure('no-auth');
   }
 
+  const verifiedPayload = includeVerificationStatus
+    ? { user: refreshedUser, verification: { emailVerified: true } }
+    : { user: refreshedUser };
+
   if (refreshedUser.emailVerified) {
-    return success({ user: refreshedUser });
-  }
-
-  if (!includeVerificationStatus) {
-    return allowUnverified
-      ? success({ user: refreshedUser })
-      : failure('email-verification-required');
-  }
-
-  const statusResult = await checkEmailVerificationStatus();
-
-  if (!statusResult.ok) {
-    if (allowUnverified) {
-      return success({ user: refreshedUser, verification: null });
-    }
-
-    const error = statusResult.error;
-    return failure(
-      error?.code || 'email-verification-status-failed',
-      error?.message || 'We could not verify your email status. Please try again.',
-      error?.details,
-    );
-  }
-
-  const verification = statusResult.data;
-
-  if (verification.emailVerified) {
-    return success({ user: auth.currentUser ?? refreshedUser });
+    return success(verifiedPayload);
   }
 
   if (allowUnverified) {
-    return success({ user: refreshedUser, verification });
+    const unverifiedPayload = includeVerificationStatus
+      ? { user: refreshedUser, verification: { emailVerified: false } }
+      : { user: refreshedUser };
+    return success(unverifiedPayload);
   }
 
-  const code = deriveVerificationCode(verification);
+  const details = includeVerificationStatus ? { verification: { emailVerified: false } } : undefined;
 
-  let message = 'Please verify your email address to continue.';
-  if (code === 'email-verification-cooldown') {
-    message = 'Please check your inbox. You can request another verification email once the cooldown ends.';
-  } else if (code === 'email-verification-delivery-failed') {
-    message =
-      'We had trouble sending a verification email to your address. Please try resending it from the verification screen.';
-  }
-
-  return failure(code, message, { verification });
+  return failure(
+    'email-verification-required',
+    'Please verify your email address to continue.',
+    details,
+  );
 }
 
 export function normalizeEmail(email) {
