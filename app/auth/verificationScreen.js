@@ -4,7 +4,8 @@ import { MaterialIcons } from '@expo/vector-icons'
 import { Colors, Fonts, Sizes, CommonStyles } from '../../constants/styles'
 import MyStatusBar from '../../components/myStatusBar';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { checkEmailVerificationStatus, requestEmailVerification } from '../../services/emailVerificationService';
+import { sendEmailVerification } from 'firebase/auth';
+import { auth } from '../../firebaseConfig';
 
 const VerificationScreen = () => {
 
@@ -13,7 +14,7 @@ const VerificationScreen = () => {
     const params = useLocalSearchParams();
 
     const [isLoading, setisLoading] = useState(false);
-    const [verification, setVerification] = useState(null);
+    const [emailVerified, setEmailVerified] = useState(Boolean(auth.currentUser?.emailVerified));
     const [cooldown, setCooldown] = useState(0);
     const [statusError, setStatusError] = useState(null);
 
@@ -45,23 +46,42 @@ const VerificationScreen = () => {
                 setisLoading(true);
             }
 
+            const currentUser = auth.currentUser;
+
+            if (!currentUser) {
+                setEmailVerified(false);
+                setStatusError('You are not signed in. Please log in again.');
+                if (showLoader) {
+                    setisLoading(false);
+                }
+                return { ok: false, error: new Error('no-auth') };
+            }
+
             try {
-                const result = await checkEmailVerificationStatus();
-                if (result.ok) {
-                    const data = result.data;
-                    setVerification(data);
-                    setStatusError(null);
-                    setCooldown(data.cooldownRemainingSeconds ?? 0);
+                await currentUser.reload();
+                const updatedUser = auth.currentUser ?? currentUser;
 
-                    if (data.emailVerified) {
-                        router.replace('/(tabs)/home/homeScreen');
-                    }
-
-                    return { ok: true, data };
+                if (!updatedUser) {
+                    setEmailVerified(false);
+                    setStatusError('You are not signed in. Please log in again.');
+                    return { ok: false, error: new Error('no-auth') };
                 }
 
-                setStatusError(result.error?.message || 'Unable to check verification status. Please try again.');
-                return { ok: false, error: result.error };
+                if (updatedUser.emailVerified) {
+                    setEmailVerified(true);
+                    setStatusError(null);
+                    setCooldown(0);
+                    router.replace('/(tabs)/home/homeScreen');
+                } else {
+                    setEmailVerified(false);
+                    setStatusError(null);
+                }
+
+                return { ok: true, data: updatedUser };
+            } catch (error) {
+                console.warn('Failed to reload auth user.', error);
+                setStatusError(error?.message || 'Unable to refresh your verification status right now.');
+                return { ok: false, error };
             } finally {
                 if (showLoader) {
                     setisLoading(false);
@@ -76,12 +96,16 @@ const VerificationScreen = () => {
     }, [refreshStatus]);
 
     useEffect(() => {
+        if (emailVerified) {
+            return;
+        }
+
         const interval = setInterval(() => {
             refreshStatus();
         }, 5000);
 
         return () => clearInterval(interval);
-    }, [refreshStatus]);
+    }, [emailVerified, refreshStatus]);
 
     useEffect(() => {
         if (cooldown <= 0) {
@@ -93,7 +117,7 @@ const VerificationScreen = () => {
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [cooldown > 0]);
+    }, [cooldown]);
 
     const handleVerify = useCallback(async () => {
         if (isLoading) {
@@ -109,44 +133,30 @@ const VerificationScreen = () => {
     }, [isLoading, refreshStatus]);
 
     const handleResend = useCallback(async () => {
-        if (isLoading) {
+        if (isLoading || emailVerified || cooldown > 0) {
             return;
         }
 
-        if (cooldown > 0 || verification?.canRequest === false) {
+        const currentUser = auth.currentUser;
+
+        if (!currentUser) {
+            Alert.alert('Verification Email Issue', 'You are not signed in. Please log in again.');
             return;
         }
 
         setisLoading(true);
         try {
-            const payload = {};
-            if (verification?.cooldownSeconds) {
-                payload.cooldownSeconds = verification.cooldownSeconds;
-            }
-
-            const result = await requestEmailVerification(payload);
-            if (!result.ok) {
-                Alert.alert('Verification Email Issue', result.error?.message || 'We were unable to send a verification email.');
-                return;
-            }
-
-            const data = result.data;
-            setVerification(data);
+            await sendEmailVerification(currentUser);
+            setCooldown(60);
             setStatusError(null);
-            setCooldown(data.cooldownRemainingSeconds ?? 0);
-
-            if (data.status === 'failed' || data.lastDelivery?.failed) {
-                Alert.alert(
-                    'Email Delivery Issue',
-                    'We attempted to resend the verification email, but the delivery failed. Please try again later.'
-                );
-            } else {
-                Alert.alert('Email Sent', 'We sent a new verification email. Please check your inbox.');
-            }
+            Alert.alert('Email Sent', 'We sent a new verification email. Please check your inbox.');
+        } catch (error) {
+            console.warn('Email verification resend failed', error);
+            Alert.alert('Verification Email Issue', error?.message || 'We were unable to send a verification email.');
         } finally {
             setisLoading(false);
         }
-    }, [cooldown, isLoading, verification]);
+    }, [cooldown, emailVerified, isLoading]);
 
     const handleSkipDev = useCallback(() => {
         if (!__DEV__) {
@@ -157,12 +167,8 @@ const VerificationScreen = () => {
     }, [router]);
 
     const statusMessage = useMemo(() => {
-        if (verification?.emailVerified) {
+        if (emailVerified) {
             return 'Your email has been verified. Redirecting you to the app...';
-        }
-
-        if (verification?.status === 'failed' || verification?.lastDelivery?.failed) {
-            return 'We could not deliver the last verification email. Please request another one.';
         }
 
         if (cooldown > 0) {
@@ -191,12 +197,8 @@ const VerificationScreen = () => {
             return `A verification email was recently sent. You can request another in ${seconds} seconds.`;
         }
 
-        if (verification?.status === 'sent') {
-            return 'We sent a verification email. Please check your inbox and follow the link.';
-        }
-
         return 'Your email verification is pending. Please check your inbox for the verification link.';
-    }, [cooldown, verification]);
+    }, [cooldown, emailVerified]);
 
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
@@ -291,21 +293,21 @@ const VerificationScreen = () => {
     }
 
     function resendInfo() {
-        const resendDisabled = isLoading || cooldown > 0 || verification?.canRequest === false;
-        const resendLabel = verification?.emailVerified
+        const resendDisabled = isLoading || cooldown > 0 || emailVerified;
+        const resendLabel = emailVerified
             ? 'Email Verified'
             : cooldown > 0
-            ? `Resend in ${cooldown}s`
-            : 'Resend Email';
+                ? `Resend in ${cooldown}s`
+                : 'Resend Email';
 
         return (
             <Text style={{ marginHorizontal: Sizes.fixPadding * 2.0, ...Fonts.grayColor14Regular }}>
                 Didn’t receive the email? { }
                 <Text
-                    onPress={resendDisabled || verification?.emailVerified ? undefined : handleResend}
+                    onPress={resendDisabled ? undefined : handleResend}
                     style={{
                         ...Fonts.primaryColor15Medium,
-                        opacity: resendDisabled || verification?.emailVerified ? 0.5 : 1,
+                        opacity: resendDisabled ? 0.5 : 1,
                     }}
                 >
                     {resendLabel}
@@ -338,17 +340,7 @@ const VerificationScreen = () => {
     }
 
     function statusFeedback() {
-        if (!verification?.lastError) {
-            return null;
-        }
-
-        return (
-            <View style={{ marginHorizontal: Sizes.fixPadding * 2.0, marginBottom: Sizes.fixPadding * 2.0 }}>
-                <Text style={{ ...Fonts.dangerColor14Medium }}>
-                    {verification.lastError.message || 'The last verification attempt reported an error. Please try resending.'}
-                </Text>
-            </View>
-        );
+        return null;
     }
 
     function backArrow() {

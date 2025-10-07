@@ -4,12 +4,11 @@ import { Colors, Fonts, Sizes, CommonStyles } from '../../constants/styles'
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation, useRouter } from 'expo-router';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from 'firebase/auth';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../firebaseConfig';
 import { normalizeEmail } from '../../services/authService';
 import { useUser } from '../../context/userContext';
-import { requestEmailVerification } from '../../services/emailVerificationService';
 
 const RegisterScreen = () => {
 
@@ -84,43 +83,20 @@ const RegisterScreen = () => {
 
             setProfile({ ...profileData });
 
-            let verificationParams = { reason: 'account-created' };
-
             try {
-                const verificationResult = await requestEmailVerification();
-
-                if (!verificationResult?.ok || !verificationResult.data) {
-                    const error = verificationResult?.error || new Error('Unable to request verification email.');
-                    throw error;
+                const currentUser = auth.currentUser;
+                if (currentUser) {
+                    await sendEmailVerification(currentUser);
                 }
-
-                const verification = verificationResult.data;
-                const message = verification.status === 'sent'
-                    ? 'We sent a verification email. Please check your inbox.'
-                    : verification.message || 'Please review the verification details below.';
-
-                verificationParams = {
-                    ...verificationParams,
-                    status: verification.status,
-                    cooldown: verification.cooldownRemainingSeconds ?? 0,
-                    resendAllowed: verification.canRequest ?? false,
-                    message,
-                };
             } catch (verificationError) {
                 console.warn('Email verification request failed', verificationError);
                 Alert.alert(
                     'Verification Email Issue',
-                    'We were unable to send a verification email. Please try again from the verification screen.'
+                    'We were unable to send a verification email. You can try resending it from the verification screen.'
                 );
-
-                verificationParams = {
-                    reason: 'email-verification-delivery-failed',
-                    status: 'failed',
-                    resendAllowed: false,
-                };
             }
 
-            router.replace({ pathname: '/auth/verificationScreen', params: verificationParams });
+            router.replace({ pathname: '/auth/verificationScreen', params: { reason: 'account-created' } });
         } catch (error) {
             Alert.alert('Registration Error', error.message);
         } finally {
