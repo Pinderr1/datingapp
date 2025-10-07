@@ -5,7 +5,7 @@ service cloud.firestore {
     function hasOnlyAllowedUserKeys(data) {
       return data.keys().hasOnly([
         'uid', 'name', 'email', 'age', 'gender', 'photoURL', 'bio',
-        'image', 'address', 'distance', 'profession', 'isFavorite'
+        'image', 'address', 'distance', 'profession', 'isFavorite', 'phoneNumber'
       ]);
     }
 
@@ -14,7 +14,8 @@ service cloud.firestore {
       return data.keys().hasAll(['uid', 'email']) &&
              data.uid == uid &&
              data.email is string &&
-             (!data.keys().hasAny(['name']) || data.name is string);
+             (!data.keys().hasAny(['name']) || data.name is string) &&
+             (!data.keys().hasAny(['phoneNumber']) || data.phoneNumber is string);
     }
 
     function isValidUserUpdate(data, uid) {
@@ -30,7 +31,8 @@ service cloud.firestore {
              (!data.keys().hasAny(['address']) || data.address is string) &&
              (!data.keys().hasAny(['distance']) || (data.distance is number && data.distance >= 0)) &&
              (!data.keys().hasAny(['profession']) || data.profession is string) &&
-             (!data.keys().hasAny(['isFavorite']) || data.isFavorite is bool);
+             (!data.keys().hasAny(['isFavorite']) || data.isFavorite is bool) &&
+             (!data.keys().hasAny(['phoneNumber']) || data.phoneNumber is string);
     }
 
     match /users/{uid} {
