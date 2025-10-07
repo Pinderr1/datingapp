@@ -59,13 +59,38 @@ const LoginScreen = () => {
             const userRef = doc(db, 'users', uid);
             const userDoc = await getDoc(userRef);
 
+            const trimmedDisplayName = displayName ? displayName.trim() : '';
+            const trimmedPhoneNumber = phoneNumber ? phoneNumber.trim() : '';
+            const baseProfile = { uid, email: authEmail };
+
             let profileData;
             if (!userDoc.exists()) {
-                profileData = { uid, name: displayName || '', email: authEmail };
-                await setDoc(userRef, { name: displayName || '', email: authEmail }, { merge: true });
+                const newProfileData = { ...baseProfile };
+
+                if (trimmedDisplayName) {
+                    newProfileData.name = trimmedDisplayName;
+                }
+
+                if (trimmedPhoneNumber) {
+                    newProfileData.phoneNumber = trimmedPhoneNumber;
+                }
+
+                await setDoc(userRef, newProfileData, { merge: true });
+                profileData = newProfileData;
             } else {
-                profileData = { ...userDoc.data(), uid, email: authEmail };
-                await setDoc(userRef, { email: authEmail }, { merge: true });
+                const existingData = userDoc.data() || {};
+                const updates = { ...baseProfile };
+
+                if (trimmedPhoneNumber) {
+                    updates.phoneNumber = trimmedPhoneNumber;
+                }
+
+                if (trimmedDisplayName && !existingData.name) {
+                    updates.name = trimmedDisplayName;
+                }
+
+                await setDoc(userRef, updates, { merge: true });
+                profileData = { ...existingData, ...updates };
             }
 
             setProfile(profileData);

@@ -59,6 +59,7 @@ const RegisterScreen = () => {
 
             const userRef = doc(db, 'users', user.uid);
             const profileData = {
+                uid: user.uid,
                 email: normalizedEmail,
             };
 
@@ -81,7 +82,7 @@ const RegisterScreen = () => {
                 lastError: null,
             });
 
-            setProfile({ uid: user.uid, ...profileData });
+            setProfile({ ...profileData });
 
             let verificationParams = { reason: 'account-created' };
 
