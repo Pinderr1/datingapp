@@ -5,68 +5,8 @@ import { MaterialIcons } from '@expo/vector-icons'
 import { ScrollView } from 'react-native';
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
-
-const searchResults = [
-    {
-        id: '1',
-        image: require('../../assets/images/users/user11.png'),
-        name: 'Samantha Smith',
-        profession: 'Software Engineer',
-        distance: '3.0km',
-    },
-    {
-        id: '2',
-        image: require('../../assets/images/users/user12.png'),
-        name: 'Matilda Burch',
-        profession: 'UI/UX Designer',
-        distance: '3.0km',
-    },
-    {
-        id: '3',
-        image: require('../../assets/images/users/user13.png'),
-        name: 'James Lamb',
-        profession: 'Junior Front-End Developer',
-        distance: '3.0km',
-    },
-    {
-        id: '4',
-        image: require('../../assets/images/users/user14.png'),
-        name: 'Antonia Mcdaniel',
-        profession: 'Senior Back-End Developer',
-        distance: '3.0km',
-    },
-];
-
-const similarProfiles = [
-    {
-        id: '1',
-        image: require('../../assets/images/users/user3.png')
-    },
-    {
-        id: '2',
-        image: require('../../assets/images/users/user4.png')
-    },
-    {
-        id: '3',
-        image: require('../../assets/images/users/user6.png')
-    },
-    {
-        id: '4',
-        image: require('../../assets/images/users/user7.png')
-    },
-    {
-        id: '5',
-        image: require('../../assets/images/users/user3.png')
-    },
-    {
-        id: '6',
-        image: require('../../assets/images/users/user4.png')
-    },
-    {
-        id: '7',
-        image: require('../../assets/images/users/user6.png')
-    },
-];
+import ProfileListSection from '../../components/ProfileListSection';
+import { searchResultProfiles, similarProfiles } from '../../constants/mockProfiles';
 
 const SearchResultsScreen = () => {
 
@@ -116,34 +56,18 @@ const SearchResultsScreen = () => {
 
     function resultProfiles() {
         return (
-            <View style={{ marginHorizontal: Sizes.fixPadding * 2.0, }}>
-                <Text style={{ ...Fonts.grayColor15Regular }}>
-                    {searchResults.length} Profile found
-                </Text>
-                {
-                    searchResults.map((item) => (
-                        <TouchableOpacity
-                            activeOpacity={0.7}
-                            onPress={() => { navigation.push('profileDetail/profileDetailScreen') }}
-                            key={`${item.id}`}
-                            style={styles.searchResultWrapStyle}
-                        >
-                            <Image
-                                source={item.image}
-                                style={styles.profileImageStyle}
-                            />
-                            <View style={{ flex: 1, marginLeft: Sizes.fixPadding + 5.0, }}>
-                                <Text numberOfLines={1} style={{ ...Fonts.blackColor17Medium }}>
-                                    {item.name}
-                                </Text>
-                                <Text numberOfLines={1} style={{ ...Fonts.grayColor15Regular, marginTop: Sizes.fixPadding - 8.0, }}>
-                                    {item.profession} • {item.distance}
-                                </Text>
-                            </View>
-                        </TouchableOpacity>
-                    ))
-                }
-            </View>
+            <ProfileListSection
+                profiles={searchResultProfiles}
+                onPressProfile={() => { navigation.push('profileDetail/profileDetailScreen') }}
+                containerStyle={{ marginHorizontal: Sizes.fixPadding * 2.0 }}
+                contentContainerStyle={{ paddingTop: Sizes.fixPadding }}
+                itemStyle={{ marginHorizontal: 0, marginBottom: Sizes.fixPadding * 2.0 }}
+                renderHeader={() => (
+                    <Text style={{ ...Fonts.grayColor15Regular }}>
+                        {searchResultProfiles.length} Profile found
+                    </Text>
+                )}
+            />
         )
     }
 
@@ -176,14 +100,6 @@ const styles = StyleSheet.create({
         borderRadius: 20.0,
         alignItems: 'center',
         justifyContent: 'center'
-    },
-    searchResultWrapStyle: {
-        backgroundColor: Colors.bgColor,
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: Sizes.fixPadding + 5.0,
-        borderRadius: Sizes.fixPadding,
-        marginTop: Sizes.fixPadding * 2.0,
     },
     profileImageStyle: {
         width: screenWidth / 6.0,

@@ -1,47 +1,11 @@
-import { StyleSheet, Text, View, FlatList, Image, TouchableOpacity } from 'react-native'
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native'
 import React from 'react'
 import { Colors, Fonts, screenWidth, Sizes } from '../../constants/styles'
 import { MaterialIcons } from '@expo/vector-icons'
 import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
-
-const profiles = [
-    {
-        id: '1',
-        image: require('../../assets/images/users/user11.png'),
-        name: 'Samantha Smith',
-        profession: 'Software Engineer',
-        distance: '3.0km',
-    },
-    {
-        id: '2',
-        image: require('../../assets/images/users/user12.png'),
-        name: 'Matilda Burch',
-        profession: 'UI/UX Designer',
-        distance: '4.5km',
-    },
-    {
-        id: '3',
-        image: require('../../assets/images/users/user13.png'),
-        name: 'James Lamb',
-        profession: 'Junior Front-End Developer',
-        distance: '5.5km',
-    },
-    {
-        id: '4',
-        image: require('../../assets/images/users/user14.png'),
-        name: 'Antonia Mcdaniel',
-        profession: 'Senior Back-End Developer',
-        distance: '3.0km',
-    },
-    {
-        id: '5',
-        image: require('../../assets/images/users/user12.png'),
-        name: 'Matilda Burch',
-        profession: 'UI/UX Designer',
-        distance: '4.5km',
-    },
-];
+import ProfileListSection from '../../components/ProfileListSection';
+import { profileViewProfiles } from '../../constants/mockProfiles';
 
 const ProfileViewsScreen = () => {
 
@@ -58,33 +22,10 @@ const ProfileViewsScreen = () => {
     )
 
     function profilesInfo() {
-        const renderItem = ({ item }) => (
-            <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => { navigation.push('profileDetail/profileDetailScreen') }}
-                key={`${item.id}`}
-                style={styles.searchResultWrapStyle}
-            >
-                <Image
-                    source={item.image}
-                    style={styles.profileImageStyle}
-                />
-                <View style={{ flex: 1, marginLeft: Sizes.fixPadding + 5.0, }}>
-                    <Text numberOfLines={1} style={{ ...Fonts.blackColor17Medium }}>
-                        {item.name}
-                    </Text>
-                    <Text numberOfLines={1} style={{ ...Fonts.grayColor15Regular, marginTop: Sizes.fixPadding - 8.0, }}>
-                        {item.profession} • {item.distance}
-                    </Text>
-                </View>
-            </TouchableOpacity>
-        )
         return (
-            <FlatList
-                data={profiles}
-                keyExtractor={(item) => `${item.id}`}
-                renderItem={renderItem}
-                showsVerticalScrollIndicator={false}
+            <ProfileListSection
+                profiles={profileViewProfiles}
+                onPressProfile={() => { navigation.push('profileDetail/profileDetailScreen') }}
                 contentContainerStyle={{ paddingTop: Sizes.fixPadding }}
             />
         )
@@ -120,18 +61,4 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center'
     },
-    searchResultWrapStyle: {
-        backgroundColor: Colors.bgColor,
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: Sizes.fixPadding + 5.0,
-        borderRadius: Sizes.fixPadding,
-        marginBottom: Sizes.fixPadding * 2.0,
-        marginHorizontal: Sizes.fixPadding * 2.0,
-    },
-    profileImageStyle: {
-        width: screenWidth / 6.0,
-        height: screenWidth / 6.0,
-        borderRadius: Sizes.fixPadding
-    }
 })
