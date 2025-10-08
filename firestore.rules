@@ -43,6 +43,14 @@ service cloud.firestore {
              (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp);
     }
 
+    function isValidContactMessage(data) {
+      return data.keys().hasOnly(['name', 'email', 'message', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 &&
+             data.email is string && data.email.size() > 0 &&
+             data.message is string && data.message.size() > 0 &&
+             (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp);
+    }
+
     match /users/{uid} {
       allow get: if isOwner(uid);
       allow create, update: if isOwner(uid) && isValidUserData(request.resource.data);
@@ -57,15 +65,19 @@ service cloud.firestore {
                       request.resource.data.liked is bool &&
                       (!request.resource.data.keys().hasAny(['createdAt']) || request.resource.data.createdAt is timestamp) &&
                       (!request.resource.data.keys().hasAny(['updatedAt']) || request.resource.data.updatedAt is timestamp);
+      allow update: if isOwner(uid) &&
+                      request.auth.uid != targetId &&
+                      request.resource.data.keys().hasOnly(['liked', 'createdAt', 'updatedAt']) &&
+                      request.resource.data.liked is bool &&
+                      (!request.resource.data.keys().hasAny(['createdAt']) || request.resource.data.createdAt is timestamp) &&
+                      (!request.resource.data.keys().hasAny(['updatedAt']) || request.resource.data.updatedAt is timestamp);
       allow delete: if isOwner(uid);
     }
 
     match /matches/{matchId} {
-      allow get: if isMatchParticipant(resource.data.users);
-      allow list: if isSignedIn() &&
-                   request.query != null &&
-                   request.query.where('users', 'array-contains', request.auth.uid);
+      allow get, list: if isMatchParticipant(resource.data.users);
       allow create: if isSignedIn() &&
+                     request.resource.data.keys().hasOnly(['users', 'createdAt', 'updatedAt']) &&
                      isValidMatchUsers(request.resource.data.users) &&
                      request.resource.data.users.hasAny([request.auth.uid]) &&
                      (let otherUid = request.auth.uid == request.resource.data.users[0]
@@ -84,6 +96,10 @@ service cloud.firestore {
         allow create: if isMatchParticipant(matchUsers(matchId)) &&
                        isValidMessageData(request.resource.data);
       }
+    }
+
+    match /contactMessages/{messageId} {
+      allow create: if isSignedIn() && isValidContactMessage(request.resource.data);
     }
   }
 }
