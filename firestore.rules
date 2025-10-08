@@ -2,6 +2,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
     function hasOnlyAllowedUserKeys(data) {
       return data.keys().hasOnly([
         'uid', 'name', 'email', 'age', 'gender', 'photoURL', 'bio',
@@ -33,19 +41,82 @@ service cloud.firestore {
              (!data.keys().hasAny(['isFavorite']) || data.isFavorite is bool);
     }
 
+    function isMatchParticipant(users) {
+      return isSignedIn() && users is list &&
+             users.size() > 0 && users.size() <= 10 &&
+             users.hasAny([request.auth.uid]);
+    }
+
+    function isValidMatchData(data) {
+      return data.keys().hasOnly([
+               'users', 'matchedAt', 'profiles', 'lastMessage',
+               'lastMessageCreatedAt', 'lastMessageSenderId'
+             ]) &&
+             data.users is list && data.users.size() == 2 &&
+             data.users[0] is string && data.users[1] is string &&
+             isMatchParticipant(data.users) &&
+             (!data.keys().hasAny(['matchedAt']) || data.matchedAt is timestamp) &&
+             (!data.keys().hasAny(['profiles']) || data.profiles is map) &&
+             (!data.keys().hasAny(['lastMessage']) || data.lastMessage is string) &&
+             (!data.keys().hasAny(['lastMessageCreatedAt']) || data.lastMessageCreatedAt is timestamp) &&
+             (!data.keys().hasAny(['lastMessageSenderId']) || data.lastMessageSenderId is string);
+    }
+
+    function matchUsers(matchId) {
+      return get(/databases/$(database)/documents/matches/$(matchId)).data.users;
+    }
+
+    function isValidLikeData(data, userId) {
+      return data.keys().hasOnly(['liked', 'createdAt', 'updatedAt']) &&
+             data.liked is bool &&
+             isOwner(userId) &&
+             (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp) &&
+             (!data.keys().hasAny(['updatedAt']) || data.updatedAt is timestamp);
+    }
+
+    function isValidMessageData(data) {
+      return data.keys().hasOnly(['senderId', 'content', 'createdAt']) &&
+             data.senderId is string &&
+             data.content is string && data.content.size() > 0 &&
+             data.senderId == request.auth.uid &&
+             (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp);
+    }
+
     match /users/{uid} {
       // Read own profile
-      allow get: if request.auth != null && request.auth.uid == uid;
+      allow get: if isOwner(uid);
 
       // First-time create: allow minimal shape
-      allow create: if request.auth != null &&
-                    request.auth.uid == uid &&
+      allow create: if isOwner(uid) &&
                     isValidUserCreate(request.resource.data, uid);
 
       // Updates/overwrites: validate full shape/types
-      allow update: if request.auth != null &&
-                    request.auth.uid == uid &&
+      allow update: if isOwner(uid) &&
                     isValidUserUpdate(request.resource.data, uid);
+    }
+
+    match /likes/{userId}/outgoing/{likedId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) &&
+                             isValidLikeData(request.resource.data, userId);
+      allow delete: if isOwner(userId);
+    }
+
+    match /matches/{matchId} {
+      allow get: if isMatchParticipant(resource.data.users);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidMatchData(request.resource.data);
+      allow update: if isMatchParticipant(resource.data.users) &&
+                    isValidMatchData(request.resource.data);
+      allow delete: if isMatchParticipant(resource.data.users);
+
+      match /messages/{messageId} {
+        allow get: if isMatchParticipant(matchUsers(matchId));
+        allow list: if isSignedIn();
+        allow create: if isMatchParticipant(matchUsers(matchId)) &&
+                      isValidMessageData(request.resource.data);
+        allow update, delete: if false;
+      }
     }
 
     function isValidContactMessage(data) {
