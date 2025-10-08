@@ -1,19 +1,19 @@
+// Firestore Security Rules — Pinged MVP
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
     function isSignedIn() {
       return request.auth != null;
     }
-
     function isOwner(uid) {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    // Safe: returns [] if match missing
     function matchUsers(matchId) {
-      let matchDoc = get(/databases/$(database)/documents/matches/$(matchId));
-      return matchDoc.data != null && matchDoc.data.users != null
-        ? matchDoc.data.users
-        : [];
+      let m = get(/databases/$(database)/documents/matches/$(matchId));
+      return m.data != null && m.data.users != null ? m.data.users : [];
     }
 
     function isValidUserData(data) {
@@ -22,22 +22,21 @@ service cloud.firestore {
              (!data.keys().hasAny(['bio']) ||
               (data.bio is string && data.bio.size() <= 300)) &&
              (!data.keys().hasAny(['photoURLs']) ||
-              (data.photoURLs is list && data.photoURLs.all(url, url is string)));
+              (data.photoURLs is list && data.photoURLs.all(u, u is string)));
     }
 
     function isMatchParticipant(users) {
       return isSignedIn() && users is list && users.hasAny([request.auth.uid]);
     }
-
     function isValidMatchUsers(users) {
       return users is list &&
              users.size() == 2 &&
-             users.all(user, user is string) &&
+             users.all(u, u is string) &&
              users[0] != users[1];
     }
 
     function isValidMessageData(data) {
-      return data.keys().hasOnly(['senderId', 'content', 'createdAt']) &&
+      return data.keys().hasOnly(['senderId','content','createdAt']) &&
              data.senderId is string &&
              data.senderId == request.auth.uid &&
              data.content is string &&
@@ -47,40 +46,38 @@ service cloud.firestore {
     }
 
     function isValidContactMessage(data) {
-      return data.keys().hasOnly(['name', 'email', 'message', 'createdAt']) &&
+      return data.keys().hasOnly(['name','email','message','createdAt']) &&
              data.name is string && data.name.size() > 0 &&
              data.email is string && data.email.size() > 0 &&
              data.message is string && data.message.size() > 0 &&
              (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp);
     }
 
+    // --- USERS: read for signed-in (for swipe feed); write only by owner ---
     match /users/{uid} {
       allow get, list: if isSignedIn();
       allow create, update: if isOwner(uid) && isValidUserData(request.resource.data);
       allow delete: if isOwner(uid);
     }
 
+    // --- LIKES: owner-only; no self-like ---
     match /likes/{uid}/outgoing/{targetId} {
       allow read: if isOwner(uid);
-      allow create: if isOwner(uid) &&
-                      request.auth.uid != targetId &&
-                      request.resource.data.keys().hasOnly(['liked', 'createdAt', 'updatedAt']) &&
-                      request.resource.data.liked is bool &&
-                      (!request.resource.data.keys().hasAny(['createdAt']) || request.resource.data.createdAt is timestamp) &&
-                      (!request.resource.data.keys().hasAny(['updatedAt']) || request.resource.data.updatedAt is timestamp);
-      allow update: if isOwner(uid) &&
-                      request.auth.uid != targetId &&
-                      request.resource.data.keys().hasOnly(['liked', 'createdAt', 'updatedAt']) &&
-                      request.resource.data.liked is bool &&
-                      (!request.resource.data.keys().hasAny(['createdAt']) || request.resource.data.createdAt is timestamp) &&
-                      (!request.resource.data.keys().hasAny(['updatedAt']) || request.resource.data.updatedAt is timestamp);
+      allow create, update: if isOwner(uid) &&
+                            request.auth.uid != targetId &&
+                            request.resource.data.keys().hasOnly(['liked','createdAt','updatedAt']) &&
+                            request.resource.data.liked is bool &&
+                            (!request.resource.data.keys().hasAny(['createdAt']) || request.resource.data.createdAt is timestamp) &&
+                            (!request.resource.data.keys().hasAny(['updatedAt']) || request.resource.data.updatedAt is timestamp);
       allow delete: if isOwner(uid);
     }
 
+    // --- MATCHES: participants-only visibility; reciprocal-like creation ---
     match /matches/{matchId} {
       allow get, list: if isMatchParticipant(resource.data.users);
+
       allow create: if isSignedIn() &&
-                     request.resource.data.keys().hasOnly(['users', 'createdAt', 'updatedAt']) &&
+                     request.resource.data.keys().hasOnly(['users','createdAt','updatedAt']) &&
                      isValidMatchUsers(request.resource.data.users) &&
                      request.resource.data.users.hasAny([request.auth.uid]) &&
                      (let otherUid = request.auth.uid == request.resource.data.users[0]
@@ -89,12 +86,16 @@ service cloud.firestore {
                       otherUid is string &&
                       otherUid != request.auth.uid &&
                       get(/databases/$(database)/documents/likes/$(otherUid)/outgoing/$(request.auth.uid)).exists());
+
+      // Keep pair immutable; only timestamps/metadata allowed
       allow update: if isMatchParticipant(resource.data.users) &&
-                     request.resource.data.keys().hasOnly(['users', 'createdAt', 'updatedAt']) &&
+                     request.resource.data.keys().hasOnly(['users','createdAt','updatedAt']) &&
                      isValidMatchUsers(request.resource.data.users) &&
                      request.resource.data.users == resource.data.users;
+
       allow delete: if isMatchParticipant(resource.data.users);
 
+      // --- MESSAGES: participants only; text limits; no edits/deletes ---
       match /messages/{msgId} {
         allow get, list: if isMatchParticipant(matchUsers(matchId));
         allow create: if isMatchParticipant(matchUsers(matchId)) &&
@@ -102,6 +103,7 @@ service cloud.firestore {
       }
     }
 
+    // --- CONTACT: public create with basic field checks ---
     match /contactMessages/{messageId} {
       allow create: if isValidContactMessage(request.resource.data);
     }

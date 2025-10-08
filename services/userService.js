@@ -7,31 +7,27 @@ import {
   limit as limitQuery,
   startAfter as startAfterConstraint,
   getDocs,
-  getDoc,
   addDoc,
+  setDoc,
+  updateDoc,
   serverTimestamp,
-  runTransaction,
   documentId,
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { ensureAuth } from './authService';
 import { success, failure } from './result';
 
+/** Fetch swipe candidates (reads /users; excludes self; paginates by doc ID). */
 export async function fetchSwipeCandidates({
   limit = 20,
   startAfter: startAfterCursor,
   cooldownDays: _cooldownDays,
 } = {}) {
   const authResult = await ensureAuth();
-  if (!authResult.ok) {
-    return authResult;
-  }
+  if (!authResult.ok) return authResult;
 
-  const {
-    data: { user },
-  } = authResult;
+  const { data: { user } } = authResult;
   const currentUserId = user?.uid;
-
   if (!currentUserId) {
     return failure('fetch-candidates-failed', 'You must be signed in to view candidates.');
   }
@@ -50,17 +46,14 @@ export async function fetchSwipeCandidates({
       orderBy(documentId()),
       limitQuery(clampedLimit),
     ];
-
-    if (cursorValue) {
-      constraints.push(startAfterConstraint(cursorValue));
-    }
+    if (cursorValue) constraints.push(startAfterConstraint(cursorValue));
 
     const usersQuery = query(usersRef, ...constraints);
     const snapshot = await getDocs(usersQuery);
 
     const users = snapshot.docs
-      .map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() ?? {}) }))
-      .filter((candidate) => candidate.id && candidate.id !== currentUserId);
+      .map((s) => ({ id: s.id, ...(s.data() ?? {}) }))
+      .filter((c) => c.id && c.id !== currentUserId);
 
     const lastVisible = snapshot.docs[snapshot.docs.length - 1];
     const hasMore = snapshot.docs.length === clampedLimit;
@@ -78,136 +71,75 @@ export async function fetchSwipeCandidates({
 
 export const fetchUsers = fetchSwipeCandidates;
 
+/** Like a user and try to create a match. Rules enforce reciprocity. */
 export async function likeUser({ targetUserId, liked }) {
   const authResult = await ensureAuth();
-  if (!authResult.ok) {
-    return authResult;
-  }
+  if (!authResult.ok) return authResult;
 
-  const {
-    data: { user },
-  } = authResult;
+  const { data: { user } } = authResult;
   const currentUserId = user?.uid;
 
   if (typeof targetUserId !== 'string' || targetUserId.trim().length === 0) {
     return failure('like-user-failed', 'A valid user must be selected.');
   }
-
   if (typeof liked !== 'boolean') {
     return failure('like-user-failed', 'Invalid like state provided.');
   }
 
   const trimmedTargetId = targetUserId.trim();
-
   if (!currentUserId || currentUserId === trimmedTargetId) {
     return failure('like-user-failed', 'Unable to update like for this user.');
   }
 
-  const outgoingLikeRef = doc(db, 'likes', currentUserId, 'outgoing', trimmedTargetId);
-  const reciprocalLikeRef = doc(db, 'likes', trimmedTargetId, 'outgoing', currentUserId);
-  const [firstUser, secondUser] = [currentUserId, trimmedTargetId].sort();
-  const matchId = `${firstUser}_${secondUser}`;
-  const matchRef = doc(db, 'matches', matchId);
-  const currentUserRef = doc(db, 'users', currentUserId);
-  const targetUserRef = doc(db, 'users', trimmedTargetId);
-
   try {
-    const matchCreated = await runTransaction(db, async (transaction) => {
-      const [
-        existingOutgoing,
-        reciprocalDoc,
-        existingMatchDoc,
-        currentProfileDoc,
-        targetProfileDoc,
-      ] = await Promise.all([
-        transaction.get(outgoingLikeRef),
-        transaction.get(reciprocalLikeRef),
-        transaction.get(matchRef),
-        transaction.get(currentUserRef),
-        transaction.get(targetUserRef),
-      ]);
+    // owner-only path per rules
+    const outgoingLikeRef = doc(db, 'likes', currentUserId, 'outgoing', trimmedTargetId);
+    await setDoc(
+      outgoingLikeRef,
+      { liked, updatedAt: serverTimestamp(), createdAt: serverTimestamp() },
+      { merge: true }
+    );
 
-      const likePayload = {
-        liked,
-        updatedAt: serverTimestamp(),
-      };
+    if (!liked) return success({ match: false });
 
-      if (!existingOutgoing.exists) {
-        likePayload.createdAt = serverTimestamp();
-      }
+    // Attempt to create the match; permission-denied = not mutual yet
+    const [a, b] = [currentUserId, trimmedTargetId].sort();
+    const matchId = `${a}_${b}`;
+    const matchRef = doc(db, 'matches', matchId);
 
-      transaction.set(outgoingLikeRef, likePayload, { merge: true });
-
-      if (!liked) {
-        return false;
-      }
-
-      const hasReciprocalLike = reciprocalDoc.exists && reciprocalDoc.data()?.liked === true;
-
-      if (!hasReciprocalLike) {
-        return false;
-      }
-
-      const currentProfileData = currentProfileDoc.exists ? currentProfileDoc.data() ?? {} : {};
-      const targetProfileData = targetProfileDoc.exists ? targetProfileDoc.data() ?? {} : {};
-
-      const matchData = {
-        users: [firstUser, secondUser],
-      };
-
-      if (!existingMatchDoc.exists) {
-        matchData.matchedAt = serverTimestamp();
-        transaction.set(matchRef, matchData);
-      } else {
-        transaction.set(matchRef, matchData, { merge: true });
-      }
-
-      transaction.set(
+    let matchCreated = false;
+    try {
+      await setDoc(
         matchRef,
-        {
-          profiles: {
-            [currentUserId]: {
-              name: currentProfileData?.name ?? '',
-              photoURL: currentProfileData?.photoURL ?? null,
-            },
-            [trimmedTargetId]: {
-              name: targetProfileData?.name ?? '',
-              photoURL: targetProfileData?.photoURL ?? null,
-            },
-          },
-        },
+        { users: [a, b], createdAt: serverTimestamp(), updatedAt: serverTimestamp() },
         { merge: true }
       );
-
-      return !existingMatchDoc.exists;
-    });
+      matchCreated = true;
+    } catch (_) {
+      matchCreated = false;
+    }
 
     return success({ match: matchCreated, matchId });
   } catch (e) {
-    console.error('Failed to update user like status. Please try again later.', e);
-    return failure('like-user-failed', 'Failed to update user like status. Please try again later.');
+    console.error('Failed to update like.', e);
+    return failure('like-user-failed', 'Failed to update like. Please try again later.');
   }
 }
 
+/** Send a message in a match. Rules enforce participant-only writes. */
 export async function sendMessage(matchId, content) {
   const authResult = await ensureAuth();
-  if (!authResult.ok) {
-    return authResult;
-  }
+  if (!authResult.ok) return authResult;
 
-  const {
-    data: { user },
-  } = authResult;
+  const { data: { user } } = authResult;
   const currentUserId = user?.uid;
 
   if (typeof matchId !== 'string' || matchId.trim().length === 0) {
     return failure('send-message-failed', 'A valid match must be selected.');
   }
-
   if (typeof content !== 'string' || content.trim().length === 0) {
     return failure('send-message-failed', 'Message content cannot be empty.');
   }
-
   if (!currentUserId) {
     return failure('send-message-failed', 'You must be signed in to send a message.');
   }
@@ -216,18 +148,6 @@ export async function sendMessage(matchId, content) {
   const trimmedContent = content.trim();
 
   try {
-    const matchRef = doc(db, 'matches', trimmedMatchId);
-    const matchSnap = await getDoc(matchRef);
-
-    if (!matchSnap.exists()) {
-      return failure('send-message-failed', 'Match not found.');
-    }
-
-    const users = matchSnap.data()?.users;
-    if (!Array.isArray(users) || !users.includes(currentUserId)) {
-      return failure('send-message-failed', 'You are not part of this match.');
-    }
-
     const messagesRef = collection(db, 'matches', trimmedMatchId, 'messages');
     await addDoc(messagesRef, {
       senderId: currentUserId,
@@ -235,9 +155,16 @@ export async function sendMessage(matchId, content) {
       createdAt: serverTimestamp(),
     });
 
+    // inbox ordering
+    const matchRef = doc(db, 'matches', trimmedMatchId);
+    await updateDoc(matchRef, {
+      lastMessage: trimmedContent,
+      updatedAt: serverTimestamp(),
+    });
+
     return success({ success: true });
   } catch (e) {
-    console.error('Failed to send message. Please try again later.', e);
+    console.error('Failed to send message.', e);
     return failure('send-message-failed', 'Failed to send message. Please try again later.');
   }
 }
