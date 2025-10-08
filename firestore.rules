@@ -10,7 +10,10 @@ service cloud.firestore {
     }
 
     function matchUsers(matchId) {
-      return get(/databases/$(database)/documents/matches/$(matchId)).data.users;
+      let matchDoc = get(/databases/$(database)/documents/matches/$(matchId));
+      return matchDoc.data != null && matchDoc.data.users != null
+        ? matchDoc.data.users
+        : [];
     }
 
     function isValidUserData(data) {
@@ -52,7 +55,7 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow get: if isOwner(uid);
+      allow get, list: if isOwner(uid);
       allow create, update: if isOwner(uid) && isValidUserData(request.resource.data);
       allow delete: if isOwner(uid);
     }
@@ -87,6 +90,7 @@ service cloud.firestore {
                       otherUid != request.auth.uid &&
                       get(/databases/$(database)/documents/likes/$(otherUid)/outgoing/$(request.auth.uid)).exists());
       allow update: if isMatchParticipant(resource.data.users) &&
+                     request.resource.data.keys().hasOnly(['users', 'createdAt', 'updatedAt']) &&
                      isValidMatchUsers(request.resource.data.users) &&
                      request.resource.data.users == resource.data.users;
       allow delete: if isMatchParticipant(resource.data.users);
@@ -99,7 +103,7 @@ service cloud.firestore {
     }
 
     match /contactMessages/{messageId} {
-      allow create: if isSignedIn() && isValidContactMessage(request.resource.data);
+      allow create: if isValidContactMessage(request.resource.data);
     }
   }
 }
