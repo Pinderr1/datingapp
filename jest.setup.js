@@ -39,13 +39,6 @@ jest.mock('firebase/firestore', () => ({
   setDoc: jest.fn(() => Promise.resolve()),
 }));
 
-jest.mock('firebase/functions', () => ({
-  getFunctions: jest.fn(),
-  httpsCallable: jest.fn(() => async () => ({
-    data: { users: [], nextCursor: null },
-  })),
-}));
-
 jest.mock('expo', () => ({}));
 
 jest.mock('expo-linear-gradient', () => ({
