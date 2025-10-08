@@ -1,7 +1,6 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
     function isSignedIn() {
       return request.auth != null;
     }
@@ -10,125 +9,81 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
-    function hasOnlyAllowedUserKeys(data) {
-      return data.keys().hasOnly([
-        'uid', 'name', 'email', 'age', 'gender', 'photoURL', 'bio',
-        'image', 'address', 'distance', 'profession', 'isFavorite'
-      ]);
-    }
-
-    function isValidUserCreate(data, uid) {
-      // Create may be minimal at first login
-      return data.keys().hasAll(['uid', 'email']) &&
-             data.uid == uid &&
-             data.email is string &&
-             (!data.keys().hasAny(['name']) || data.name is string);
-    }
-
-    function isValidUserUpdate(data, uid) {
-      return hasOnlyAllowedUserKeys(data) &&
-             data.uid == uid &&
-             data.email is string &&
-             (!data.keys().hasAny(['name']) || data.name is string) &&
-             (!data.keys().hasAny(['age']) || (data.age is int && data.age >= 18 && data.age <= 120)) &&
-             (!data.keys().hasAny(['gender']) || data.gender is string) &&
-             (!data.keys().hasAny(['photoURL']) || data.photoURL is string) &&
-             (!data.keys().hasAny(['bio']) || data.bio is string) &&
-             (!data.keys().hasAny(['image']) || data.image is string) &&
-             (!data.keys().hasAny(['address']) || data.address is string) &&
-             (!data.keys().hasAny(['distance']) || (data.distance is number && data.distance >= 0)) &&
-             (!data.keys().hasAny(['profession']) || data.profession is string) &&
-             (!data.keys().hasAny(['isFavorite']) || data.isFavorite is bool);
-    }
-
-    function isMatchParticipant(users) {
-      return isSignedIn() && users is list &&
-             users.size() > 0 && users.size() <= 10 &&
-             users.hasAny([request.auth.uid]);
-    }
-
-    function isValidMatchData(data) {
-      return data.keys().hasOnly([
-               'users', 'matchedAt', 'profiles', 'lastMessage',
-               'lastMessageCreatedAt', 'lastMessageSenderId'
-             ]) &&
-             data.users is list && data.users.size() == 2 &&
-             data.users[0] is string && data.users[1] is string &&
-             isMatchParticipant(data.users) &&
-             (!data.keys().hasAny(['matchedAt']) || data.matchedAt is timestamp) &&
-             (!data.keys().hasAny(['profiles']) || data.profiles is map) &&
-             (!data.keys().hasAny(['lastMessage']) || data.lastMessage is string) &&
-             (!data.keys().hasAny(['lastMessageCreatedAt']) || data.lastMessageCreatedAt is timestamp) &&
-             (!data.keys().hasAny(['lastMessageSenderId']) || data.lastMessageSenderId is string);
-    }
-
     function matchUsers(matchId) {
       return get(/databases/$(database)/documents/matches/$(matchId)).data.users;
     }
 
-    function isValidLikeData(data, userId) {
-      return data.keys().hasOnly(['liked', 'createdAt', 'updatedAt']) &&
-             data.liked is bool &&
-             isOwner(userId) &&
-             (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp) &&
-             (!data.keys().hasAny(['updatedAt']) || data.updatedAt is timestamp);
+    function isValidUserData(data) {
+      return (!data.keys().hasAny(['displayName']) ||
+              (data.displayName is string && data.displayName.size() <= 40)) &&
+             (!data.keys().hasAny(['bio']) ||
+              (data.bio is string && data.bio.size() <= 300)) &&
+             (!data.keys().hasAny(['photoURLs']) ||
+              (data.photoURLs is list && data.photoURLs.all(url, url is string)));
+    }
+
+    function isMatchParticipant(users) {
+      return isSignedIn() && users is list && users.hasAny([request.auth.uid]);
+    }
+
+    function isValidMatchUsers(users) {
+      return users is list &&
+             users.size() == 2 &&
+             users.all(user, user is string) &&
+             users[0] != users[1];
     }
 
     function isValidMessageData(data) {
       return data.keys().hasOnly(['senderId', 'content', 'createdAt']) &&
              data.senderId is string &&
-             data.content is string && data.content.size() > 0 &&
              data.senderId == request.auth.uid &&
+             data.content is string &&
+             data.content.size() > 0 &&
+             data.content.size() <= 1000 &&
              (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp);
     }
 
     match /users/{uid} {
-      // Read own profile
       allow get: if isOwner(uid);
-
-      // First-time create: allow minimal shape
-      allow create: if isOwner(uid) &&
-                    isValidUserCreate(request.resource.data, uid);
-
-      // Updates/overwrites: validate full shape/types
-      allow update: if isOwner(uid) &&
-                    isValidUserUpdate(request.resource.data, uid);
+      allow create, update: if isOwner(uid) && isValidUserData(request.resource.data);
+      allow delete: if isOwner(uid);
     }
 
-    match /likes/{userId}/outgoing/{likedId} {
-      allow read: if isOwner(userId);
-      allow create, update: if isOwner(userId) &&
-                             isValidLikeData(request.resource.data, userId);
-      allow delete: if isOwner(userId);
+    match /likes/{uid}/outgoing/{targetId} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) &&
+                      request.auth.uid != targetId &&
+                      request.resource.data.keys().hasOnly(['liked', 'createdAt', 'updatedAt']) &&
+                      request.resource.data.liked is bool &&
+                      (!request.resource.data.keys().hasAny(['createdAt']) || request.resource.data.createdAt is timestamp) &&
+                      (!request.resource.data.keys().hasAny(['updatedAt']) || request.resource.data.updatedAt is timestamp);
+      allow delete: if isOwner(uid);
     }
 
     match /matches/{matchId} {
       allow get: if isMatchParticipant(resource.data.users);
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidMatchData(request.resource.data);
+      allow list: if isSignedIn() &&
+                   request.query != null &&
+                   request.query.where('users', 'array-contains', request.auth.uid);
+      allow create: if isSignedIn() &&
+                     isValidMatchUsers(request.resource.data.users) &&
+                     request.resource.data.users.hasAny([request.auth.uid]) &&
+                     (let otherUid = request.auth.uid == request.resource.data.users[0]
+                                     ? request.resource.data.users[1]
+                                     : request.resource.data.users[0];
+                      otherUid is string &&
+                      otherUid != request.auth.uid &&
+                      get(/databases/$(database)/documents/likes/$(otherUid)/outgoing/$(request.auth.uid)).exists());
       allow update: if isMatchParticipant(resource.data.users) &&
-                    isValidMatchData(request.resource.data);
+                     isValidMatchUsers(request.resource.data.users) &&
+                     request.resource.data.users == resource.data.users;
       allow delete: if isMatchParticipant(resource.data.users);
 
-      match /messages/{messageId} {
-        allow get: if isMatchParticipant(matchUsers(matchId));
-        allow list: if isSignedIn();
+      match /messages/{msgId} {
+        allow get, list: if isMatchParticipant(matchUsers(matchId));
         allow create: if isMatchParticipant(matchUsers(matchId)) &&
-                      isValidMessageData(request.resource.data);
-        allow update, delete: if false;
+                       isValidMessageData(request.resource.data);
       }
-    }
-
-    function isValidContactMessage(data) {
-      return data.keys().hasOnly(['name', 'email', 'message', 'createdAt']) &&
-             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
-             data.email is string && data.email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$") &&
-             data.message is string && data.message.size() > 0 && data.message.size() <= 2000 &&
-             (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp);
-    }
-
-    match /contactMessages/{messageId} {
-      allow create: if request.auth != null && isValidContactMessage(request.resource.data);
     }
   }
 }
