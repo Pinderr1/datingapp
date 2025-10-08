@@ -55,7 +55,7 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow get, list: if isOwner(uid);
+      allow get: if isOwner(uid);
       allow create, update: if isOwner(uid) && isValidUserData(request.resource.data);
       allow delete: if isOwner(uid);
     }
