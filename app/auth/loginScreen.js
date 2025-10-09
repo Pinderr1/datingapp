@@ -88,6 +88,20 @@ const LoginScreen = () => {
         }
     };
 
+    const handleDevBypass = () => {
+        console.log('Dev bypass activated');
+        const mockProfile = {
+            uid: 'dev-user',
+            email: 'dev@example.com',
+            name: 'Dev Tester',
+        };
+        setProfile(mockProfile);
+        setPhoneNumber('');
+        setEmail('');
+        setPassword('');
+        navigation.push('(tabs)');
+    };
+
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
             <MyStatusBar />
@@ -99,6 +113,7 @@ const LoginScreen = () => {
                     {passwordField()}
                     {forgetPasswordText()}
                     {loginButton()}
+                    {__DEV__ && devBypassButton()}
                     {otherOptions()}
                 </ScrollView>
             </View>
@@ -167,6 +182,20 @@ const LoginScreen = () => {
             >
                 <Text style={{ ...Fonts.whiteColor20Medium }}>
                     Login
+                </Text>
+            </TouchableOpacity>
+        )
+    }
+
+    function devBypassButton() {
+        return (
+            <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleDevBypass}
+                style={[styles.buttonStyle, styles.devBypassButtonStyle]}
+            >
+                <Text style={{ ...Fonts.whiteColor20Medium }}>
+                    Skip for Dev
                 </Text>
             </TouchableOpacity>
         )
@@ -286,6 +315,10 @@ const styles = StyleSheet.create({
         padding: Sizes.fixPadding + 8.0,
         elevation: 1.0,
         ...CommonStyles.buttonShadow
+    },
+    devBypassButtonStyle: {
+        backgroundColor: Colors.grayColor,
+        marginTop: 0,
     },
     socialMediaIconWrapStyle: {
         flex: 1,
