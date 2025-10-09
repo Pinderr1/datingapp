@@ -7,7 +7,7 @@ import MyStatusBar from '../../components/myStatusBar';
 import { useNavigation } from 'expo-router';
 import { useUser } from '../../context/userContext';
 import { auth, db } from '../../firebaseConfig';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 
 const agesList = [
     { label: '25 Years' },
@@ -91,6 +91,7 @@ const EditProfileScreen = () => {
                                 gender: trimmedGender,
                                 bio: trimmedBio,
                                 age: parsedAge,
+                                updatedAt: serverTimestamp(),
                             },
                             { merge: true }
                         );

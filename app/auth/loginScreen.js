@@ -8,7 +8,7 @@ import { useNavigation } from 'expo-router';
 import { useUser } from '../../context/userContext';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../../firebaseConfig';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const LoginScreen = () => {
 
@@ -47,18 +47,33 @@ const LoginScreen = () => {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const { uid, email: authEmail, displayName } = userCredential.user;
             const userRef = doc(db, 'users', uid);
-            const userDoc = await getDoc(userRef);
+            const existingDoc = await getDoc(userRef);
 
-            let profileData;
-            if (!userDoc.exists()) {
-                profileData = { uid, name: displayName || '', email: authEmail };
-                await setDoc(userRef, profileData);
+            if (!existingDoc.exists()) {
+                const trimmedDisplayName = displayName ? displayName.trim() : '';
+                await setDoc(userRef, {
+                    uid,
+                    email: authEmail ?? email,
+                    name: trimmedDisplayName,
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp(),
+                });
             } else {
-                profileData = { ...userDoc.data(), uid, email: authEmail };
-                await setDoc(userRef, { uid, email: authEmail }, { merge: true });
+                await setDoc(
+                    userRef,
+                    {
+                        uid,
+                        email: authEmail ?? email,
+                        updatedAt: serverTimestamp(),
+                    },
+                    { merge: true }
+                );
             }
 
-            setProfile(profileData);
+            const refreshedDoc = await getDoc(userRef);
+            if (refreshedDoc.exists()) {
+                setProfile(refreshedDoc.data());
+            }
             Alert.alert('Success', 'Logged in successfully');
             navigation.push('(tabs)');
         } catch (error) {
@@ -69,14 +84,18 @@ const LoginScreen = () => {
     const handleRegister = async () => {
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            const { uid } = userCredential.user;
-            const profileData = {
-                uid,
-                name: '',
-                email,
-            };
+            const { uid, email: authEmail, displayName } = userCredential.user;
             const userRef = doc(db, 'users', uid);
-            await setDoc(userRef, profileData);
+            const trimmedDisplayName = displayName ? displayName.trim() : '';
+
+            await setDoc(userRef, {
+                uid,
+                email: authEmail ?? email,
+                name: trimmedDisplayName,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            });
+
             const userDoc = await getDoc(userRef);
             if (userDoc.exists()) {
                 setProfile(userDoc.data());

@@ -26,6 +26,12 @@ service cloud.firestore {
       return (!data.keys().hasAny([key])) ||
              (data[key] is list && data[key].all(u, u is string && u.size() > 0 && u.size() <= 2048));
     }
+    function isOptionalNumberInRange(data, key, min, max) {
+      return (!data.keys().hasAny([key])) ||
+             ((data[key] is int || data[key] is float) &&
+              data[key] >= min &&
+              data[key] <= max);
+    }
 
     // Allow only the user profile fields we actually use.
     function isValidUserData(data) {
@@ -34,10 +40,13 @@ service cloud.firestore {
         'uid',
         'email',
         'displayName',
+        'name',
         'photoURL',
         'phoneNumber',
         'providerId',
         'bio',
+        'gender',
+        'age',
         'photoURLs',
         'createdAt',
         'updatedAt'
@@ -47,10 +56,13 @@ service cloud.firestore {
       isOptionalString(data, 'uid', 1, 128) &&
       isOptionalString(data, 'email', 3, 320) &&
       isOptionalString(data, 'displayName', 0, 40) &&
+      isOptionalString(data, 'name', 0, 80) &&
       isOptionalString(data, 'photoURL', 0, 2048) &&
       isOptionalString(data, 'phoneNumber', 7, 20) &&
       isOptionalString(data, 'providerId', 0, 100) &&
       isOptionalString(data, 'bio', 0, 300) &&
+      isOptionalString(data, 'gender', 0, 40) &&
+      isOptionalNumberInRange(data, 'age', 18, 120) &&
       isOptionalUrlList(data, 'photoURLs') &&
       isOptionalTimestamp(data, 'createdAt') &&
       isOptionalTimestamp(data, 'updatedAt');
