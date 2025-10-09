@@ -1,3 +1,4 @@
+// firebaseConfig.js
 import { initializeApp, getApp, getApps } from "firebase/app";
 import {
   getAuth,
@@ -21,12 +22,16 @@ const firebaseConfig = {
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
+// Helpful sanity log (shows in Metro)
+console.log("FB project:", process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID);
+
 const auth =
   Platform.OS === "web"
     ? getAuth(app)
     : initializeAuth(app, {
         persistence: getReactNativePersistence(AsyncStorage),
       });
+
 const db = getFirestore(app);
 const storage = getStorage(app);
 

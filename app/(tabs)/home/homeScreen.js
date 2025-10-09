@@ -1,3 +1,7 @@
+// app/(tabs)/home/homeScreen.js
+// React Native swipe deck (no web deps). Keeps your design & hooks likeUser.
+
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,14 +12,16 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import React, { useState, useRef, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Swiper from 'react-native-deck-swiper';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from 'expo-router';
 import { Colors, Fonts, screenWidth, Sizes } from '../../../constants/styles';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from 'expo-router';
-import TinderCard from 'react-tinder-card';
-import { LinearGradient } from 'expo-linear-gradient';
+import { auth } from '../../../firebaseConfig';
 import { fetchSwipeCandidates, likeUser } from '../../../services/userService';
+
+const PAGE_SIZE = 20;
 
 const HomeScreen = () => {
   const navigation = useNavigation();
@@ -27,19 +33,18 @@ const HomeScreen = () => {
   const [search, setSearch] = useState('');
 
   const searchFieldRef = useRef(null);
-  const seenStateRef = useRef({ key: null, set: new Set() });
+  const swiperRef = useRef(null);
   const defaultUserImage = require('../../../assets/images/users/user1.png');
 
+  // Persist “seen” for the day so we don’t re-show them
+  const seenStateRef = useRef({ key: null, set: new Set() });
   const getTodayKey = () => {
-    const today = new Date();
-    const isoDate = today.toISOString().split('T')[0];
+    const isoDate = new Date().toISOString().split('T')[0];
     return `seenCandidates:${isoDate}`;
   };
-
   const ensureSeenState = async () => {
     const todayKey = getTodayKey();
     if (seenStateRef.current.key === todayKey) return seenStateRef.current;
-
     try {
       const stored = await AsyncStorage.getItem(todayKey);
       let parsed = [];
@@ -47,18 +52,14 @@ const HomeScreen = () => {
         try {
           const data = JSON.parse(stored);
           if (Array.isArray(data)) parsed = data.filter((v) => typeof v === 'string');
-        } catch (error) {
-          console.error('Failed to parse seen candidates', error);
-        }
+        } catch {}
       }
       seenStateRef.current = { key: todayKey, set: new Set(parsed) };
-    } catch (error) {
-      console.error('Failed to load seen candidates', error);
+    } catch {
       seenStateRef.current = { key: todayKey, set: new Set() };
     }
     return seenStateRef.current;
   };
-
   const markCandidateSeen = async (id) => {
     if (!id) return;
     const { key, set } = await ensureSeenState();
@@ -66,19 +67,19 @@ const HomeScreen = () => {
     set.add(id);
     try {
       await AsyncStorage.setItem(key, JSON.stringify(Array.from(set)));
-    } catch (error) {
-      console.error('Failed to update seen candidates', error);
-    }
+    } catch {}
   };
 
+  // Load candidates (initial + pagination)
   const loadCandidates = async ({ reset = false } = {}) => {
     if (loading) return;
     setLoading(true);
     try {
+      console.log('current user uid', auth.currentUser?.uid);
       const seenState = await ensureSeenState();
       const result = await fetchSwipeCandidates({
         startAfter: reset ? null : nextCursor,
-        limit: 20,
+        limit: PAGE_SIZE,
       });
 
       if (result.ok && result.data?.users) {
@@ -88,7 +89,6 @@ const HomeScreen = () => {
         setUsers((prev) => (reset ? incoming : [...prev, ...incoming]));
         setNextCursor(result.data.nextCursor ?? null);
       } else if (!result.ok) {
-        console.error('Failed to load users', result.error);
         Alert.alert(
           'Unable to load profiles',
           result.error?.message ?? 'Please try again later.'
@@ -110,13 +110,13 @@ const HomeScreen = () => {
     };
   }, []);
 
+  // Remove a card from our local array + persist seen
   const removeCard = (id) => {
     setUsers((prev) => prev.filter((item) => item.id !== id));
-    markCandidateSeen(id).catch((e) =>
-      console.error('Failed to persist seen candidate', e)
-    );
+    markCandidateSeen(id).catch(() => {});
   };
 
+  // Like/Pass handler used by gestures & buttons
   const handleSwipe = async (direction, userId) => {
     if (!userId) return;
     const liked = direction === 'right';
@@ -126,24 +126,21 @@ const HomeScreen = () => {
       const result = await likeUser({ targetUserId: userId, liked });
 
       if (!result.ok) {
-        console.error('Failed to update like status', result.error);
-        Alert.alert(
-          'Action failed',
-          result.error?.message ?? 'Please try again later.'
-        );
+        Alert.alert('Action failed', result.error?.message ?? 'Please try again later.');
       } else if (result.data?.match) {
         Alert.alert("It's a match!");
-        // Navigate to chat (adjust route name if yours differs)
         const matchId = result.data.matchId;
         if (matchId) {
+          // Adjust route to your chat screen if different
           navigation.push('message/messageScreen', { matchId });
         }
       }
     } finally {
       setLikingId(null);
       removeCard(userId);
-      // If we’re low on cards and have a cursor, fetch more
-      if (users.length < 4 && nextCursor) {
+
+      // Top up when we’re getting low
+      if (users.length < 5 && nextCursor && !loading) {
         loadCandidates();
       }
     }
@@ -165,28 +162,101 @@ const HomeScreen = () => {
     return defaultUserImage;
   };
 
-  const usersInfo = () => {
+  const renderCard = (item) => {
+    if (!item) return <View style={styles.cardPlaceholder} />;
+
+    return (
+      <View style={styles.cardShell}>
+        <ImageBackground
+          source={getUserImageSource(item)}
+          style={{ height: '100%', width: '100%' }}
+          resizeMode="cover"
+          borderRadius={Sizes.fixPadding * 3.0}
+        >
+          <LinearGradient
+            colors={[
+              'rgba(0, 0, 0, 0.58)',
+              'rgba(0, 0, 0, 0)',
+              'rgba(0, 0, 0, 0)',
+              'rgba(0, 0, 0, 0.58)',
+            ]}
+            style={styles.cardGradient}
+          >
+            <View style={styles.locationRow}>
+              <MaterialIcons name="location-pin" size={18} color={Colors.whiteColor} />
+              <Text style={{ ...Fonts.whiteColor15Regular, marginLeft: Sizes.fixPadding - 5.0 }}>
+                {item.address ?? 'Nearby'} • {item.distance ?? ''}
+              </Text>
+            </View>
+
+            <View style={styles.userInfoWithOptionWrapper}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => swiperRef.current?.swipeLeft()}
+                style={styles.closeAndShortlistIconWrapStyle}
+                disabled={likingId === item.id}
+              >
+                <MaterialIcons name="close" size={24} color={Colors.primaryColor} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => navigation.push('profileDetail/profileDetailScreen')}
+                style={styles.centerNameWrap}
+              >
+                <Text numberOfLines={1} style={{ ...Fonts.whiteColor20Bold }}>
+                  {item.name ?? item.displayName ?? 'Someone'}, {item.age ?? ''}
+                </Text>
+                <Text numberOfLines={1} style={{ ...Fonts.whiteColor15Regular }}>
+                  {item.profession ?? ''}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => changeShortlist({ id: item.id })}
+                style={styles.closeAndShortlistIconWrapStyle}
+                disabled={likingId === item.id}
+              >
+                <MaterialIcons
+                  name={item.isFavorite ? 'favorite' : 'favorite-border'}
+                  size={24}
+                  color={Colors.primaryColor}
+                />
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </ImageBackground>
+      </View>
+    );
+  };
+
+  const deckArea = () => {
+    if (!auth.currentUser) {
+      return (
+        <View style={styles.centerWrap}>
+          <ActivityIndicator />
+          <Text style={{ ...Fonts.grayColor15Regular, marginTop: 8 }}>Connecting…</Text>
+        </View>
+      );
+    }
+
     if (loading && users.length === 0) {
       return (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={styles.centerWrap}>
           <ActivityIndicator />
-          <Text style={{ ...Fonts.grayColor15Regular, marginTop: 8 }}>
-            Loading profiles…
-          </Text>
+          <Text style={{ ...Fonts.grayColor15Regular, marginTop: 8 }}>Loading profiles…</Text>
         </View>
       );
     }
 
     if (!loading && users.length === 0) {
       return (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={styles.centerWrap}>
           <Text style={{ ...Fonts.grayColor15Regular, marginBottom: 12 }}>
             No more profiles right now.
           </Text>
-          <TouchableOpacity
-            onPress={() => loadCandidates({ reset: true })}
-            style={styles.filterButtonStyle}
-          >
+          <TouchableOpacity onPress={() => loadCandidates({ reset: true })} style={styles.filterButtonStyle}>
             <MaterialCommunityIcons name="refresh" size={26} color={Colors.whiteColor} />
           </TouchableOpacity>
         </View>
@@ -197,110 +267,34 @@ const HomeScreen = () => {
       <View style={{ flex: 1, alignItems: 'center' }}>
         <View style={styles.imageBottomContainre1}>
           <View style={styles.imageBottomContainre2}>
-            {users.length > 0 &&
-              users.map((item) => (
-                <View key={`${item.id}`} style={styles.tinderCardWrapper}>
-                  <TinderCard
-                    onSwipe={(direction) =>
-                      likingId ? null : handleSwipe(direction, item.id)
-                    }
-                    onCardLeftScreen={() => {}}
-                    preventSwipe={likingId === item.id ? ['left', 'right'] : []}
-                  >
-                    <ImageBackground
-                      source={getUserImageSource(item)}
-                      style={{ height: '100%', width: '100%' }}
-                      resizeMode="cover"
-                      borderRadius={Sizes.fixPadding * 3.0}
-                    >
-                      <LinearGradient
-                        colors={[
-                          'rgba(0, 0, 0, 0.58)',
-                          'rgba(0, 0, 0, 0)',
-                          'rgba(0, 0, 0, 0)',
-                          'rgba(0, 0, 0, 0.58)',
-                        ]}
-                        style={{
-                          flex: 1,
-                          justifyContent: 'space-between',
-                          borderRadius: Sizes.fixPadding * 3.0,
-                        }}
-                      >
-                        <View
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'flex-end',
-                            margin: Sizes.fixPadding,
-                          }}
-                        >
-                          <MaterialIcons
-                            name="location-pin"
-                            size={18}
-                            color={Colors.whiteColor}
-                          />
-                          <Text
-                            style={{
-                              ...Fonts.whiteColor15Regular,
-                              marginLeft: Sizes.fixPadding - 5.0,
-                            }}
-                          >
-                            {item.address} • {item.distance}
-                          </Text>
-                        </View>
-
-                        <View style={styles.userInfoWithOptionWrapper}>
-                          <TouchableOpacity
-                            activeOpacity={0.8}
-                            onPress={() => (likingId ? null : handleSwipe('left', item.id))}
-                            style={styles.closeAndShortlistIconWrapStyle}
-                            disabled={likingId === item.id}
-                          >
-                            <MaterialIcons
-                              name="close"
-                              size={24}
-                              color={Colors.primaryColor}
-                            />
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            activeOpacity={0.8}
-                            onPress={() => {
-                              navigation.push('profileDetail/profileDetailScreen');
-                            }}
-                            style={{
-                              maxWidth: screenWidth - 190,
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              marginHorizontal: Sizes.fixPadding,
-                            }}
-                          >
-                            <Text numberOfLines={1} style={{ ...Fonts.whiteColor20Bold }}>
-                              {item.name}, {item.age}
-                            </Text>
-                            <Text numberOfLines={1} style={{ ...Fonts.whiteColor15Regular }}>
-                              {item.profession}
-                            </Text>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            activeOpacity={0.8}
-                            onPress={() => changeShortlist({ id: item.id })}
-                            style={styles.closeAndShortlistIconWrapStyle}
-                            disabled={likingId === item.id}
-                          >
-                            <MaterialIcons
-                              name={item.isFavorite ? 'favorite' : 'favorite-border'}
-                              size={24}
-                              color={Colors.primaryColor}
-                            />
-                          </TouchableOpacity>
-                        </View>
-                      </LinearGradient>
-                    </ImageBackground>
-                  </TinderCard>
-                </View>
-              ))}
+            <Swiper
+              ref={swiperRef}
+              cards={users}
+              renderCard={renderCard}
+              backgroundColor="transparent"
+              cardHorizontalMargin={0}
+              stackSize={3}
+              stackSeparation={12}
+              animateCardOpacity
+              onSwipedLeft={(index) => {
+                const u = users[index];
+                if (u?.id) handleSwipe('left', u.id);
+              }}
+              onSwipedRight={(index) => {
+                const u = users[index];
+                if (u?.id) handleSwipe('right', u.id);
+              }}
+              onSwipedAll={() => {
+                if (nextCursor && !loading) loadCandidates();
+              }}
+              disableTopSwipe
+              disableBottomSwipe
+              outputRotationRange={["-15deg", "0deg", "15deg"]}
+              overlayLabels={{
+                left: { title: 'NOPE', style: { label: { color: '#ff6b6b', fontSize: 24 } } },
+                right:{ title: 'LIKE', style: { label: { color: '#2ecc71', fontSize: 24 } } },
+              }}
+            />
           </View>
         </View>
       </View>
@@ -331,54 +325,26 @@ const HomeScreen = () => {
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={() => {
-          // pull next page if available
           if (nextCursor && !loading) loadCandidates();
           else loadCandidates({ reset: true });
         }}
         style={styles.filterButtonStyle}
       >
-        <MaterialCommunityIcons
-          name="tune-variant"
-          size={26}
-          color={Colors.whiteColor}
-        />
+        <MaterialCommunityIcons name="tune-variant" size={26} color={Colors.whiteColor} />
       </TouchableOpacity>
     </View>
   );
 
   const header = () => (
-    <View
-      style={{
-        margin: Sizes.fixPadding * 2.0,
-        flexDirection: 'row',
-        alignItems: 'center',
-      }}
-    >
+    <View style={{ margin: Sizes.fixPadding * 2.0, flexDirection: 'row', alignItems: 'center' }}>
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text
-            style={{ ...Fonts.grayColor15Regular, marginRight: Sizes.fixPadding - 5.0 }}
-          >
-            Location
-          </Text>
+          <Text style={{ ...Fonts.grayColor15Regular, marginRight: Sizes.fixPadding - 5.0 }}>Location</Text>
           <MaterialIcons name="keyboard-arrow-down" size={18} color={Colors.primaryColor} />
         </View>
-        <View
-          style={{
-            marginTop: Sizes.fixPadding - 5.0,
-            flexDirection: 'row',
-            alignItems: 'center',
-          }}
-        >
+        <View style={{ marginTop: Sizes.fixPadding - 5.0, flexDirection: 'row', alignItems: 'center' }}>
           <MaterialIcons name="location-pin" size={20} color={Colors.primaryColor} />
-          <Text
-            numberOfLines={1}
-            style={{
-              flex: 1,
-              ...Fonts.blackColor18Bold,
-              marginLeft: Sizes.fixPadding - 5.0,
-            }}
-          >
+          <Text numberOfLines={1} style={{ flex: 1, ...Fonts.blackColor18Bold, marginLeft: Sizes.fixPadding - 5.0 }}>
             Irvine, California
           </Text>
         </View>
@@ -410,7 +376,7 @@ const HomeScreen = () => {
       <View style={{ flex: 1 }}>
         {header()}
         {searchInfo()}
-        <View style={{ flex: 1 }}>{usersInfo()}</View>
+        <View style={{ flex: 1 }}>{deckArea()}</View>
       </View>
     </View>
   );
@@ -477,16 +443,42 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     backgroundColor: Colors.pinkColor,
   },
-  tinderCardWrapper: {
+  cardShell: {
     height: '100%',
     alignSelf: 'center',
     width: screenWidth - 40,
-    position: 'absolute',
+    borderRadius: Sizes.fixPadding * 3.0,
+    overflow: 'hidden',
+  },
+  cardGradient: {
+    flex: 1,
+    justifyContent: 'space-between',
+    borderRadius: Sizes.fixPadding * 3.0,
+  },
+  centerNameWrap: {
+    maxWidth: screenWidth - 190,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: Sizes.fixPadding,
   },
   userInfoWithOptionWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     margin: Sizes.fixPadding + 8.0,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    margin: Sizes.fixPadding,
+  },
+  centerWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  cardPlaceholder: {
+    height: '100%',
+    width: screenWidth - 40,
+    alignSelf: 'center',
+    borderRadius: Sizes.fixPadding * 3.0,
+    backgroundColor: '#ddd',
   },
 });

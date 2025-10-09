@@ -1,14 +1,10 @@
-// Firestore Security Rules — Pinged MVP
+// Firestore Security Rules — Pinged MVP (aligned with app writes + lastMessage)
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    function isOwner(uid) {
-      return isSignedIn() && request.auth.uid == uid;
-    }
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
 
     // Safe: returns [] if match missing
     function matchUsers(matchId) {
@@ -16,13 +12,48 @@ service cloud.firestore {
       return m.data != null && m.data.users != null ? m.data.users : [];
     }
 
+    // ---------- Validators ----------
+    function isValidString(s, min, max) {
+      return s is string && s.size() >= min && s.size() <= max;
+    }
+    function isOptionalString(data, key, min, max) {
+      return (!data.keys().hasAny([key])) || isValidString(data[key], min, max);
+    }
+    function isOptionalTimestamp(data, key) {
+      return (!data.keys().hasAny([key])) || (data[key] is timestamp);
+    }
+    function isOptionalUrlList(data, key) {
+      return (!data.keys().hasAny([key])) ||
+             (data[key] is list && data[key].all(u, u is string && u.size() > 0 && u.size() <= 2048));
+    }
+
+    // Allow only the user profile fields we actually use.
     function isValidUserData(data) {
-      return (!data.keys().hasAny(['displayName']) ||
-              (data.displayName is string && data.displayName.size() <= 40)) &&
-             (!data.keys().hasAny(['bio']) ||
-              (data.bio is string && data.bio.size() <= 300)) &&
-             (!data.keys().hasAny(['photoURLs']) ||
-              (data.photoURLs is list && data.photoURLs.all(u, u is string)));
+      // Only these keys are allowed on /users/{uid}
+      return data.keys().hasOnly([
+        'uid',
+        'email',
+        'displayName',
+        'photoURL',
+        'phoneNumber',
+        'providerId',
+        'bio',
+        'photoURLs',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+
+      // Optional but constrained fields
+      isOptionalString(data, 'uid', 1, 128) &&
+      isOptionalString(data, 'email', 3, 320) &&
+      isOptionalString(data, 'displayName', 0, 40) &&
+      isOptionalString(data, 'photoURL', 0, 2048) &&
+      isOptionalString(data, 'phoneNumber', 7, 20) &&
+      isOptionalString(data, 'providerId', 0, 100) &&
+      isOptionalString(data, 'bio', 0, 300) &&
+      isOptionalUrlList(data, 'photoURLs') &&
+      isOptionalTimestamp(data, 'createdAt') &&
+      isOptionalTimestamp(data, 'updatedAt');
     }
 
     function isMatchParticipant(users) {
@@ -39,63 +70,71 @@ service cloud.firestore {
       return data.keys().hasOnly(['senderId','content','createdAt']) &&
              data.senderId is string &&
              data.senderId == request.auth.uid &&
-             data.content is string &&
-             data.content.size() > 0 &&
-             data.content.size() <= 1000 &&
-             (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp);
+             isValidString(data.content, 1, 1000) &&
+             isOptionalTimestamp(data, 'createdAt');
     }
 
     function isValidContactMessage(data) {
       return data.keys().hasOnly(['name','email','message','createdAt']) &&
-             data.name is string && data.name.size() > 0 &&
-             data.email is string && data.email.size() > 0 &&
-             data.message is string && data.message.size() > 0 &&
-             (!data.keys().hasAny(['createdAt']) || data.createdAt is timestamp);
+             isValidString(data.name, 1, 80) &&
+             isValidString(data.email, 3, 120) &&
+             isValidString(data.message, 1, 2000) &&
+             isOptionalTimestamp(data, 'createdAt');
     }
 
-    // --- USERS: read for signed-in (for swipe feed); write only by owner ---
+    // ---------- USERS ----------
     match /users/{uid} {
+      // Allow a signed-in user to read the directory (for swipe feed)
       allow get, list: if isSignedIn();
+
+      // Owner can create/update only with allowed keys + sane values
       allow create, update: if isOwner(uid) && isValidUserData(request.resource.data);
+
       allow delete: if isOwner(uid);
     }
 
-    // --- LIKES: owner-only; no self-like ---
+    // ---------- LIKES ----------
     match /likes/{uid}/outgoing/{targetId} {
       allow read: if isOwner(uid);
       allow create, update: if isOwner(uid) &&
                             request.auth.uid != targetId &&
                             request.resource.data.keys().hasOnly(['liked','createdAt','updatedAt']) &&
-                            request.resource.data.liked is bool &&
-                            (!request.resource.data.keys().hasAny(['createdAt']) || request.resource.data.createdAt is timestamp) &&
-                            (!request.resource.data.keys().hasAny(['updatedAt']) || request.resource.data.updatedAt is timestamp);
+                            (request.resource.data.liked is bool) &&
+                            isOptionalTimestamp(request.resource.data, 'createdAt') &&
+                            isOptionalTimestamp(request.resource.data, 'updatedAt');
       allow delete: if isOwner(uid);
     }
 
-    // --- MATCHES: participants-only visibility; reciprocal-like creation ---
+    // ---------- MATCHES ----------
     match /matches/{matchId} {
+      // Only participants can see a match
       allow get, list: if isMatchParticipant(resource.data.users);
 
+      // Create only when reciprocal like exists
       allow create: if isSignedIn() &&
-                     request.resource.data.keys().hasOnly(['users','createdAt','updatedAt']) &&
-                     isValidMatchUsers(request.resource.data.users) &&
-                     request.resource.data.users.hasAny([request.auth.uid]) &&
-                     (let otherUid = request.auth.uid == request.resource.data.users[0]
-                                     ? request.resource.data.users[1]
-                                     : request.resource.data.users[0];
-                      otherUid is string &&
-                      otherUid != request.auth.uid &&
-                      get(/databases/$(database)/documents/likes/$(otherUid)/outgoing/$(request.auth.uid)).exists());
+                    // allow optional lastMessage on create
+                    request.resource.data.keys().hasOnly(['users','createdAt','updatedAt','lastMessage']) &&
+                    isValidMatchUsers(request.resource.data.users) &&
+                    request.resource.data.users.hasAny([request.auth.uid]) &&
+                    isOptionalString(request.resource.data, 'lastMessage', 0, 1000) &&
+                    // Reciprocity check:
+                    (let otherUid = request.auth.uid == request.resource.data.users[0]
+                                    ? request.resource.data.users[1]
+                                    : request.resource.data.users[0];
+                     otherUid is string &&
+                     otherUid != request.auth.uid &&
+                     get(/databases/$(database)/documents/likes/$(otherUid)/outgoing/$(request.auth.uid)).exists());
 
-      // Keep pair immutable; only timestamps/metadata allowed
+      // Keep pair immutable; allow timestamp + lastMessage refresh
       allow update: if isMatchParticipant(resource.data.users) &&
-                     request.resource.data.keys().hasOnly(['users','createdAt','updatedAt']) &&
-                     isValidMatchUsers(request.resource.data.users) &&
-                     request.resource.data.users == resource.data.users;
+                    request.resource.data.keys().hasOnly(['users','createdAt','updatedAt','lastMessage']) &&
+                    isValidMatchUsers(request.resource.data.users) &&
+                    request.resource.data.users == resource.data.users &&
+                    isOptionalString(request.resource.data, 'lastMessage', 0, 1000);
 
       allow delete: if isMatchParticipant(resource.data.users);
 
-      // --- MESSAGES: participants only; text limits; no edits/deletes ---
+      // ---------- MESSAGES (subcollection) ----------
       match /messages/{msgId} {
         allow get, list: if isMatchParticipant(matchUsers(matchId));
         allow create: if isMatchParticipant(matchUsers(matchId)) &&
@@ -103,7 +142,7 @@ service cloud.firestore {
       }
     }
 
-    // --- CONTACT: public create with basic field checks ---
+    // ---------- CONTACT ----------
     match /contactMessages/{messageId} {
       allow create: if isValidContactMessage(request.resource.data);
     }
