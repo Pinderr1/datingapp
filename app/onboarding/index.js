@@ -20,7 +20,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 
 // 🔥 Firebase (v9 modular)
-import { auth, db, storage } from '../firebaseConfig'; // ← adjust if your path differs
+import { auth, db, storage } from '../../firebaseConfig'; // ← adjust if your path differs
 import {
   doc,
   getDoc,
