@@ -11,8 +11,18 @@ const SplashScreen = () => {
   useEffect(() => {
     const redirect = async () => {
       const result = await ensureAuth();
-      // ✅ Redirect to a concrete tab route (home) instead of just "/(tabs)"
-      router.replace(result.ok ? '/(tabs)/home/homeScreen' : '/auth/loginScreen');
+      if (!result.ok) {
+        router.replace('/auth/loginScreen');
+        return;
+      }
+
+      const { onboardingComplete } = result.data ?? {};
+      if (!onboardingComplete) {
+        router.replace('/onboarding');
+        return;
+      }
+
+      router.replace('/(tabs)/home/homeScreen');
     };
 
     redirect();
