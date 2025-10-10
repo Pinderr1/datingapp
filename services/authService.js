@@ -1,5 +1,6 @@
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../firebaseConfig';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../firebaseConfig';
 import { success, failure } from './result';
 
 let authInitPromise;
@@ -23,5 +24,17 @@ export async function ensureAuth() {
   if (!user) {
     return failure('no-auth');
   }
-  return success({ user });
+  let onboardingComplete = false;
+  try {
+    const userDocRef = doc(db, 'users', user.uid);
+    const userDocSnapshot = await getDoc(userDocRef);
+    if (userDocSnapshot.exists()) {
+      const data = userDocSnapshot.data();
+      onboardingComplete = Boolean(data?.onboardingComplete);
+    }
+  } catch (error) {
+    console.error('Failed to fetch user onboarding status', error);
+  }
+
+  return success({ user, onboardingComplete });
 }
