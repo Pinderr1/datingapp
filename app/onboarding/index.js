@@ -1,5 +1,5 @@
-// app/onboarding/index.js  (or screens/OnboardingScreen.js)
-// Paste-ready onboarding for NEW Pinged (Expo 54, Firebase v9 modular, Expo Router)
+// app/onboarding/index.js
+// Onboarding for NEW Pinged (Expo 54, Firebase v9 modular, Expo Router)
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -19,18 +19,13 @@ import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 
-// 🔥 Firebase (v9 modular)
-import { auth, db, storage } from '../../firebaseConfig'; // ← adjust if your path differs
-import {
-  doc,
-  getDoc,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-} from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+// Firebase (v9 modular)
+import { auth, db } from '../../firebaseConfig';
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 
-// Minimal theme-safe styles. If you have a ThemeContext, wire it the same way.
+// Centralized uploads
+import { uploadAvatarAsync } from '../../utils/upload';
+
 const COLORS = {
   bg: '#0b0b0f',
   card: '#16161d',
@@ -43,7 +38,6 @@ const COLORS = {
 
 const REQUIRED_KEYS = ['avatar', 'displayName', 'ageGender'];
 
-// —— Small helpers ————————————————————————————————————————————————————————
 const clamp = (s = '', max = 120) => (s.length > max ? s.slice(0, max) : s).trim();
 const isAdult = (n) => /^\d+$/.test(String(n)) && parseInt(String(n), 10) >= 18;
 
@@ -51,7 +45,7 @@ async function pickImageFromLibrary() {
   const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (status !== 'granted') throw new Error('Permission denied');
   const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    mediaTypes: [ImagePicker.MediaType.Image],
     allowsEditing: true,
     quality: 0.8,
   });
@@ -60,21 +54,9 @@ async function pickImageFromLibrary() {
   return uri;
 }
 
-async function uploadAvatarIfNeeded(localUri, uid) {
-  // If already an https URL, keep as-is
-  if (!localUri || localUri.startsWith('http')) return localUri;
-  const res = await fetch(localUri);
-  const blob = await res.blob();
-  const fileRef = ref(storage, `avatars/${uid}_${Date.now()}.jpg`);
-  await uploadBytes(fileRef, blob);
-  return await getDownloadURL(fileRef);
-}
-
-// —— Onboarding component ————————————————————————————————————————————————
 export default function OnboardingScreen() {
   const router = useRouter();
 
-  // Minimal, MVP-focused flow
   const steps = useMemo(
     () => [
       { key: 'avatar', label: 'Upload your photo' },
@@ -98,7 +80,6 @@ export default function OnboardingScreen() {
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState(0);
 
-  // nice progress animation
   const progressAnim = useRef(new Animated.Value(1 / steps.length)).current;
   const progress = (step + 1) / steps.length;
   useEffect(() => {
@@ -110,20 +91,17 @@ export default function OnboardingScreen() {
     }).start();
   }, [progress]);
 
-  // If user already onboarded, bounce to tabs
+  // Already onboarded? Go to tabs.
   useEffect(() => {
     (async () => {
       const u = auth.currentUser;
       if (!u) return;
       const snap = await getDoc(doc(db, 'users', u.uid));
       const data = snap.exists() ? snap.data() : null;
-      if (data?.onboardingComplete) {
-        router.replace('/(tabs)'); // your tabs layout
-      }
+      if (data?.onboardingComplete) router.replace('/(tabs)');
     })().catch(() => {});
   }, [router]);
 
-  // ——— validation ———
   const currentKey = steps[step].key;
   const validateField = () => {
     if (!REQUIRED_KEYS.includes(currentKey)) return true;
@@ -143,7 +121,6 @@ export default function OnboardingScreen() {
     return u;
   };
 
-  // ——— actions ———
   const onPickAvatar = async () => {
     try {
       await Haptics.selectionAsync();
@@ -170,7 +147,7 @@ export default function OnboardingScreen() {
         setAnswers((p) => ({ ...p, location: label }));
       }
     } catch {
-      // ignore quietly
+      // silent
     }
   };
 
@@ -178,12 +155,12 @@ export default function OnboardingScreen() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (saving) return;
 
-    // Per-step preflight (upload avatar as soon as we have it)
+    // Upload avatar early when leaving the avatar step
     if (currentKey === 'avatar' && answers.avatar && !answers.avatar.startsWith('http')) {
       const u = ensureSignedIn();
       if (!u) return;
       try {
-        const url = await uploadAvatarIfNeeded(answers.avatar, u.uid);
+        const url = await uploadAvatarAsync(answers.avatar, u.uid);
         setAnswers((p) => ({ ...p, avatar: url }));
       } catch (e) {
         Alert.alert('Upload failed', 'Could not upload your photo. Try again.');
@@ -200,7 +177,7 @@ export default function OnboardingScreen() {
       return;
     }
 
-    // Last step → save profile
+    // Final save
     if (!(isAdult(answers.age) && answers.gender && answers.avatar && answers.displayName.trim())) {
       Alert.alert('Incomplete', 'Please finish the required fields.');
       return;
@@ -210,13 +187,13 @@ export default function OnboardingScreen() {
 
     setSaving(true);
     try {
-      // final ensure the avatar is a URL
-      const photoURL = await uploadAvatarIfNeeded(answers.avatar, u.uid);
+      const photoURL = await uploadAvatarAsync(answers.avatar, u.uid);
 
       const profile = {
         uid: u.uid,
         email: u.email || '',
         displayName: clamp(answers.displayName, 40),
+        name: clamp(answers.displayName, 40),
         age: parseInt(String(answers.age), 10),
         gender: String(answers.gender),
         bio: clamp(answers.bio, 200),
@@ -234,7 +211,6 @@ export default function OnboardingScreen() {
         await updateDoc(userRef, profile);
       }
 
-      // go to tabs
       router.replace('/(tabs)');
     } catch (e) {
       Alert.alert('Save failed', e.message || 'Could not save your profile.');
@@ -249,7 +225,6 @@ export default function OnboardingScreen() {
   };
 
   const handleSkip = async () => {
-    // Let user finish later, but still require minimum safety:
     const u = ensureSignedIn();
     if (!u) return;
     setSaving(true);
@@ -260,7 +235,7 @@ export default function OnboardingScreen() {
         {
           uid: u.uid,
           email: u.email || '',
-          onboardingComplete: true, // You can flip this to false if your rules require full profile
+          onboardingComplete: true,
           updatedAt: serverTimestamp(),
         },
         { merge: true }
@@ -273,7 +248,6 @@ export default function OnboardingScreen() {
     }
   };
 
-  // ——— UI per step ———
   const renderStepInput = () => {
     if (currentKey === 'avatar') {
       return (
@@ -425,7 +399,6 @@ export default function OnboardingScreen() {
   );
 }
 
-// —— Styles ———————————————————————————————————————————————————————————————
 const S = StyleSheet.create({
   container: {
     flex: 1,
@@ -473,7 +446,6 @@ const S = StyleSheet.create({
   },
   placeholderText: { color: COLORS.subtext },
   hint: { color: COLORS.subtext, textAlign: 'center', marginTop: 8 },
-
   input: {
     borderBottomWidth: 2,
     borderColor: COLORS.accent,
@@ -481,7 +453,6 @@ const S = StyleSheet.create({
     fontSize: 16,
     paddingVertical: 10,
   },
-
   genderRow: { flexDirection: 'row', gap: 8 },
   genderPill: {
     paddingVertical: 10,
@@ -494,7 +465,6 @@ const S = StyleSheet.create({
   genderPillActive: { borderColor: COLORS.accent, backgroundColor: '#1f1a33' },
   genderPillText: { color: COLORS.subtext },
   genderPillTextActive: { color: COLORS.text },
-
   row: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 },
   button: {
     backgroundColor: COLORS.accent,
@@ -511,10 +481,8 @@ const S = StyleSheet.create({
     borderColor: COLORS.accent,
   },
   buttonText: { color: '#fff', fontWeight: '600' },
-
   skip: { alignSelf: 'center', marginTop: 16 },
   skipText: { color: COLORS.accent, textDecorationLine: 'underline' },
-
   locationBtn: {
     backgroundColor: COLORS.accent,
     paddingVertical: 12,
@@ -523,7 +491,6 @@ const S = StyleSheet.create({
     borderRadius: 10,
   },
   locationBtnText: { color: '#fff', fontWeight: '600' },
-
   footerText: {
     color: COLORS.subtext,
     textAlign: 'center',
