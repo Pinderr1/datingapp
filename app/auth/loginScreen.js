@@ -4,7 +4,7 @@ import { Colors, Fonts, Sizes, CommonStyles } from '../../constants/styles'
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import MyStatusBar from '../../components/myStatusBar';
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useUser } from '../../context/userContext';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../../firebaseConfig';
@@ -12,8 +12,16 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const LoginScreen = () => {
 
-    const navigation = useNavigation();
+    const router = useRouter();
     const { setProfile } = useUser();
+
+    const redirectBasedOnOnboarding = (userData) => {
+        if (userData?.onboardingComplete) {
+            router.replace('/(tabs)/home/homeScreen');
+        } else {
+            router.replace('/onboarding');
+        }
+    };
 
     const backAction = () => {
         backClickCount == 1 ? BackHandler.exitApp() : _spring();
@@ -72,10 +80,13 @@ const LoginScreen = () => {
 
             const refreshedDoc = await getDoc(userRef);
             if (refreshedDoc.exists()) {
-                setProfile(refreshedDoc.data());
+                const refreshedData = refreshedDoc.data();
+                setProfile(refreshedData);
+                redirectBasedOnOnboarding(refreshedData);
+            } else {
+                redirectBasedOnOnboarding();
             }
             Alert.alert('Success', 'Logged in successfully');
-            navigation.push('(tabs)');
         } catch (error) {
             Alert.alert('Login Error', error.message);
         }
@@ -98,10 +109,13 @@ const LoginScreen = () => {
 
             const userDoc = await getDoc(userRef);
             if (userDoc.exists()) {
-                setProfile(userDoc.data());
+                const userData = userDoc.data();
+                setProfile(userData);
+                redirectBasedOnOnboarding(userData);
+            } else {
+                redirectBasedOnOnboarding();
             }
             Alert.alert('Success', 'Account created successfully');
-            navigation.push('(tabs)');
         } catch (error) {
             Alert.alert('Registration Error', error.message);
         }
@@ -118,7 +132,7 @@ const LoginScreen = () => {
         setPhoneNumber('');
         setEmail('');
         setPassword('');
-        navigation.push('(tabs)');
+        redirectBasedOnOnboarding(mockProfile);
     };
 
     return (
