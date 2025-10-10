@@ -6,13 +6,11 @@ service cloud.firestore {
     function isSignedIn() { return request.auth != null; }
     function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
 
-    // Safe: returns [] if match missing
     function matchUsers(matchId) {
       let m = get(/databases/$(database)/documents/matches/$(matchId));
       return m.data != null && m.data.users != null ? m.data.users : [];
     }
 
-    // ---------- Validators ----------
     function isValidString(s, min, max) {
       return s is string && s.size() >= min && s.size() <= max;
     }
@@ -32,10 +30,18 @@ service cloud.firestore {
               data[key] >= min &&
               data[key] <= max);
     }
+    function isOptionalBool(data, key) {
+      return (!data.keys().hasAny([key])) || (data[key] is bool);
+    }
+    function isOptionalStringList(data, key, itemMin, itemMax) {
+      return (!data.keys().hasAny([key])) ||
+             (data[key] is list && data[key].all(v, v is string && v.size() >= itemMin && v.size() <= itemMax));
+    }
+    function isOptionalGeoPoint(data, key) {
+      return (!data.keys().hasAny([key])) || (data[key] is latlng);
+    }
 
-    // Allow only the user profile fields we actually use.
     function isValidUserData(data) {
-      // Only these keys are allowed on /users/{uid}
       return data.keys().hasOnly([
         'uid',
         'email',
@@ -48,11 +54,22 @@ service cloud.firestore {
         'gender',
         'age',
         'photoURLs',
+        'location',
+        'onboardingComplete',
         'createdAt',
-        'updatedAt'
+        'updatedAt',
+        'avatarOverlay',
+        'introClipUrl',
+        'genderPref',
+        'mood',
+        'favoriteGames',
+        'promptResponses',
+        'personalityTags',
+        'badgePrefs',
+        'themePreset',
+        'geo'
       ]) &&
 
-      // Optional but constrained fields
       isOptionalString(data, 'uid', 1, 128) &&
       isOptionalString(data, 'email', 3, 320) &&
       isOptionalString(data, 'displayName', 0, 40) &&
@@ -64,8 +81,21 @@ service cloud.firestore {
       isOptionalString(data, 'gender', 0, 40) &&
       isOptionalNumberInRange(data, 'age', 18, 120) &&
       isOptionalUrlList(data, 'photoURLs') &&
+      isOptionalString(data, 'location', 0, 120) &&
+      isOptionalBool(data, 'onboardingComplete') &&
       isOptionalTimestamp(data, 'createdAt') &&
-      isOptionalTimestamp(data, 'updatedAt');
+      isOptionalTimestamp(data, 'updatedAt') &&
+
+      isOptionalString(data, 'avatarOverlay', 0, 40) &&
+      isOptionalString(data, 'introClipUrl', 0, 2048) &&
+      isOptionalString(data, 'genderPref', 0, 40) &&
+      isOptionalString(data, 'mood', 0, 120) &&
+      isOptionalStringList(data, 'favoriteGames', 1, 60) &&
+      isOptionalStringList(data, 'promptResponses', 1, 300) &&
+      isOptionalString(data, 'personalityTags', 0, 300) &&
+      isOptionalStringList(data, 'badgePrefs', 1, 60) &&
+      isOptionalString(data, 'themePreset', 0, 40) &&
+      isOptionalGeoPoint(data, 'geo');
     }
 
     function isMatchParticipant(users) {
@@ -76,6 +106,14 @@ service cloud.firestore {
              users.size() == 2 &&
              users.all(u, u is string) &&
              users[0] != users[1];
+    }
+    function otherUidFromUsers(users) {
+      return request.auth.uid == users[0] ? users[1] : users[0];
+    }
+    function hasReciprocalLike(users) {
+      return isSignedIn() &&
+             isValidMatchUsers(users) &&
+             get(/databases/$(database)/documents/likes/$(otherUidFromUsers(users))/outgoing/$(request.auth.uid)).exists();
     }
 
     function isValidMessageData(data) {
@@ -94,18 +132,12 @@ service cloud.firestore {
              isOptionalTimestamp(data, 'createdAt');
     }
 
-    // ---------- USERS ----------
     match /users/{uid} {
-      // Allow a signed-in user to read the directory (for swipe feed)
       allow get, list: if isSignedIn();
-
-      // Owner can create/update only with allowed keys + sane values
       allow create, update: if isOwner(uid) && isValidUserData(request.resource.data);
-
       allow delete: if isOwner(uid);
     }
 
-    // ---------- LIKES ----------
     match /likes/{uid}/outgoing/{targetId} {
       allow read: if isOwner(uid);
       allow create, update: if isOwner(uid) &&
@@ -117,27 +149,16 @@ service cloud.firestore {
       allow delete: if isOwner(uid);
     }
 
-    // ---------- MATCHES ----------
     match /matches/{matchId} {
-      // Only participants can see a match
       allow get, list: if isMatchParticipant(resource.data.users);
 
-      // Create only when reciprocal like exists
       allow create: if isSignedIn() &&
-                    // allow optional lastMessage on create
                     request.resource.data.keys().hasOnly(['users','createdAt','updatedAt','lastMessage']) &&
                     isValidMatchUsers(request.resource.data.users) &&
                     request.resource.data.users.hasAny([request.auth.uid]) &&
                     isOptionalString(request.resource.data, 'lastMessage', 0, 1000) &&
-                    // Reciprocity check:
-                    (let otherUid = request.auth.uid == request.resource.data.users[0]
-                                    ? request.resource.data.users[1]
-                                    : request.resource.data.users[0];
-                     otherUid is string &&
-                     otherUid != request.auth.uid &&
-                     get(/databases/$(database)/documents/likes/$(otherUid)/outgoing/$(request.auth.uid)).exists());
+                    hasReciprocalLike(request.resource.data.users);
 
-      // Keep pair immutable; allow timestamp + lastMessage refresh
       allow update: if isMatchParticipant(resource.data.users) &&
                     request.resource.data.keys().hasOnly(['users','createdAt','updatedAt','lastMessage']) &&
                     isValidMatchUsers(request.resource.data.users) &&
@@ -146,7 +167,6 @@ service cloud.firestore {
 
       allow delete: if isMatchParticipant(resource.data.users);
 
-      // ---------- MESSAGES (subcollection) ----------
       match /messages/{msgId} {
         allow get, list: if isMatchParticipant(matchUsers(matchId));
         allow create: if isMatchParticipant(matchUsers(matchId)) &&
@@ -154,7 +174,6 @@ service cloud.firestore {
       }
     }
 
-    // ---------- CONTACT ----------
     match /contactMessages/{messageId} {
       allow create: if isValidContactMessage(request.resource.data);
     }
