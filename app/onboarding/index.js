@@ -147,13 +147,12 @@ export default function OnboardingScreen() {
         Alert.alert('Not signed in');
         return;
       }
-      const base64 = asset.base64;
-      if (!base64) {
+      if (!asset.base64) {
         Alert.alert('Upload failed', 'no base64');
         return;
       }
       const avatarRef = ref(storage, `avatars/${uid}/${Date.now()}.jpg`);
-      await uploadString(avatarRef, base64, 'base64', {
+      await uploadString(avatarRef, asset.base64, 'base64', {
         contentType: asset.mimeType || 'image/jpeg',
       });
       const url = await getDownloadURL(avatarRef);
