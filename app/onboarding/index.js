@@ -20,11 +20,9 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 
 // Firebase (v9 modular)
-import { auth, db } from '../../firebaseConfig';
-import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
-
-// Centralized uploads
-import { uploadAvatarAsync } from '../../utils/upload';
+import { auth, db, storage } from '../../firebaseConfig';
+import { arrayUnion, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 
 const COLORS = {
   bg: '#0b0b0f',
@@ -40,6 +38,14 @@ const REQUIRED_KEYS = ['avatar', 'displayName', 'ageGender'];
 
 const clamp = (s = '', max = 120) => (s.length > max ? s.slice(0, max) : s).trim();
 const isAdult = (n) => /^\d+$/.test(String(n)) && parseInt(String(n), 10) >= 18;
+
+async function uriToBlob(uri) {
+  const response = await fetch(uri);
+  if (!response.ok) {
+    throw new Error('Failed to load file');
+  }
+  return response.blob();
+}
 
 async function pickImageFromLibrary() {
   const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -77,6 +83,7 @@ export default function OnboardingScreen() {
     location: '',
   });
 
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState(0);
 
@@ -105,7 +112,7 @@ export default function OnboardingScreen() {
   const currentKey = steps[step].key;
   const validateField = () => {
     if (!REQUIRED_KEYS.includes(currentKey)) return true;
-    if (currentKey === 'avatar') return Boolean(answers.avatar);
+    if (currentKey === 'avatar') return Boolean(avatarUrl);
     if (currentKey === 'displayName') return clamp(answers.displayName, 40).length >= 1;
     if (currentKey === 'ageGender') return isAdult(answers.age) && !!answers.gender;
     return true;
@@ -127,8 +134,16 @@ export default function OnboardingScreen() {
       const uri = await pickImageFromLibrary();
       if (!uri) return;
       setAnswers((p) => ({ ...p, avatar: uri }));
+      setAvatarUrl('');
+      const u = ensureSignedIn();
+      if (!u) return;
+      const blob = await uriToBlob(uri);
+      const avatarRef = ref(storage, `avatars/${u.uid}/${Date.now()}.jpg`);
+      await uploadBytes(avatarRef, blob);
+      const url = await getDownloadURL(avatarRef);
+      setAvatarUrl(url);
     } catch (e) {
-      Alert.alert('Photo error', e.message || 'Could not select photo.');
+      Alert.alert('Upload failed');
     }
   };
 
@@ -155,19 +170,6 @@ export default function OnboardingScreen() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (saving) return;
 
-    // Upload avatar early when leaving the avatar step
-    if (currentKey === 'avatar' && answers.avatar && !answers.avatar.startsWith('http')) {
-      const u = ensureSignedIn();
-      if (!u) return;
-      try {
-        const url = await uploadAvatarAsync(answers.avatar, u.uid);
-        setAnswers((p) => ({ ...p, avatar: url }));
-      } catch (e) {
-        Alert.alert('Upload failed', 'Could not upload your photo. Try again.');
-        return;
-      }
-    }
-
     if (step < steps.length - 1) {
       if (!isValid) {
         Alert.alert('Incomplete', 'Please complete this step to continue.');
@@ -178,7 +180,7 @@ export default function OnboardingScreen() {
     }
 
     // Final save
-    if (!(isAdult(answers.age) && answers.gender && answers.avatar && answers.displayName.trim())) {
+    if (!(isAdult(answers.age) && answers.gender && avatarUrl && answers.displayName.trim())) {
       Alert.alert('Incomplete', 'Please finish the required fields.');
       return;
     }
@@ -187,8 +189,6 @@ export default function OnboardingScreen() {
 
     setSaving(true);
     try {
-      const photoURL = await uploadAvatarAsync(answers.avatar, u.uid);
-
       const profile = {
         uid: u.uid,
         email: u.email || '',
@@ -198,22 +198,22 @@ export default function OnboardingScreen() {
         gender: String(answers.gender),
         bio: clamp(answers.bio, 200),
         location: clamp(answers.location, 80),
-        photoURL: photoURL || '',
         onboardingComplete: true,
-        updatedAt: serverTimestamp(),
       };
-
-      const userRef = doc(db, 'users', u.uid);
-      const snap = await getDoc(userRef);
-      if (!snap.exists()) {
-        await setDoc(userRef, { ...profile, createdAt: serverTimestamp() }, { merge: true });
-      } else {
-        await updateDoc(userRef, profile);
-      }
+      await setDoc(
+        doc(db, 'users', u.uid),
+        {
+          ...profile,
+          photoURL: avatarUrl,
+          photos: arrayUnion(avatarUrl),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
 
       router.replace('/(tabs)');
     } catch (e) {
-      Alert.alert('Save failed', e.message || 'Could not save your profile.');
+      Alert.alert('Upload failed');
     } finally {
       setSaving(false);
     }
