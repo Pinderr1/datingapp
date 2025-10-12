@@ -48,8 +48,17 @@ async function uriToBlob(uri) {
 }
 
 async function pickImageFromLibrary() {
-  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (status !== 'granted') throw new Error('Permission denied');
+  const { status, granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  const hasAccess = granted || status === 'limited';
+  if (!hasAccess) {
+    if (status === 'denied') {
+      Alert.alert(
+        'Photo access needed',
+        'Please enable photo library access in your settings to upload an image.'
+      );
+    }
+    throw new Error('Permission denied');
+  }
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ImagePicker.MediaTypeOptions.Images,
     allowsEditing: true,
