@@ -5,7 +5,7 @@ import { MaterialIcons } from '@expo/vector-icons'
 import { useNavigation } from 'expo-router';
 import { useUser } from '../../../context/userContext';
 import { auth, db } from '../../../firebaseConfig';
-import { collection, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 
 const defaultUserImage = require('../../../assets/images/users/user1.png');
 
@@ -17,6 +17,8 @@ const ChatScreen = () => {
     const [matches, setMatches] = useState([]);
     const { profile } = useUser();
     const messageListenersRef = useRef({});
+    const userProfileCacheRef = useRef(new Map());
+    const pendingProfileFetchesRef = useRef(new Map());
 
     const currentUserId = profile?.uid || auth.currentUser?.uid || null;
 
@@ -38,7 +40,9 @@ const ChatScreen = () => {
                     const users = Array.isArray(data.users) ? data.users : [];
                     const otherUserId = users.find((id) => id !== currentUserId) || currentUserId;
                     const profiles = data.profiles && typeof data.profiles === 'object' ? data.profiles : {};
-                    const otherUserData = profiles?.[otherUserId] || null;
+                    const otherUserDataFromMatch = profiles?.[otherUserId] || null;
+                    const cachedUserData = userProfileCacheRef.current.get(otherUserId) ?? null;
+                    const otherUserData = otherUserDataFromMatch || cachedUserData;
 
                     return {
                         id: matchDoc.id,
@@ -53,11 +57,13 @@ const ChatScreen = () => {
                     const prevMap = new Map(prevMatches.map((item) => [item.id, item]));
                     const nextMatches = entries.map((entry) => {
                         const previous = prevMap.get(entry.id);
+                        const cachedProfile = userProfileCacheRef.current.get(entry.otherUserId) ?? null;
+                        const resolvedProfile = entry.otherUserData ?? cachedProfile ?? previous?.otherUserData ?? null;
                         return {
                             id: entry.id,
                             otherUserId: entry.otherUserId,
-                            otherUserData: entry.otherUserData ?? previous?.otherUserData ?? null,
-                            otherUserName: entry.otherUserName || previous?.otherUserName || 'Unknown User',
+                            otherUserData: resolvedProfile,
+                            otherUserName: resolvedProfile?.name || entry.otherUserName || previous?.otherUserName || 'Unknown User',
                             matchedAt: entry.matchedAt ?? previous?.matchedAt ?? null,
                             lastMessage: previous?.lastMessage ?? '',
                             lastMessageCreatedAt: previous?.lastMessageCreatedAt ?? null,
@@ -65,6 +71,12 @@ const ChatScreen = () => {
                         };
                     });
                     return nextMatches;
+                });
+
+                entries.forEach((entry) => {
+                    if (!entry.otherUserData) {
+                        fetchProfileForMatch(entry.id, entry.otherUserId);
+                    }
                 });
 
                 const currentMatchIds = new Set(entries.map((entry) => entry.id));
@@ -124,6 +136,61 @@ const ChatScreen = () => {
             messageListenersRef.current = {};
         };
     }, [currentUserId]);
+
+    const fetchProfileForMatch = (matchId, otherUserId) => {
+        if (!otherUserId) {
+            return;
+        }
+
+        if (userProfileCacheRef.current.has(otherUserId)) {
+            const cachedProfile = userProfileCacheRef.current.get(otherUserId);
+            if (cachedProfile) {
+                setMatches((prevMatches) => prevMatches.map((item) => {
+                    if (item.id === matchId) {
+                        return {
+                            ...item,
+                            otherUserData: cachedProfile,
+                            otherUserName: cachedProfile?.name || item.otherUserName,
+                        };
+                    }
+                    return item;
+                }));
+            }
+            return;
+        }
+
+        if (pendingProfileFetchesRef.current.has(otherUserId)) {
+            return;
+        }
+
+        pendingProfileFetchesRef.current.set(otherUserId, true);
+
+        (async () => {
+            try {
+                const userDoc = await getDoc(doc(db, 'users', otherUserId));
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    userProfileCacheRef.current.set(otherUserId, userData);
+                    setMatches((prevMatches) => prevMatches.map((item) => {
+                        if (item.id === matchId) {
+                            return {
+                                ...item,
+                                otherUserData: userData,
+                                otherUserName: userData?.name || item.otherUserName,
+                            };
+                        }
+                        return item;
+                    }));
+                } else {
+                    userProfileCacheRef.current.set(otherUserId, null);
+                }
+            } catch (error) {
+                console.error('Failed to fetch user profile', error);
+            } finally {
+                pendingProfileFetchesRef.current.delete(otherUserId);
+            }
+        })();
+    };
 
     const filteredMatches = matches.filter((match) => {
         if (!search.trim()) {
