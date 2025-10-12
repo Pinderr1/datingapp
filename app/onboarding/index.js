@@ -22,7 +22,7 @@ import { useRouter } from 'expo-router';
 // Firebase (v9 modular)
 import { auth, db, storage } from '../../firebaseConfig';
 import { arrayUnion, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { getDownloadURL, ref, uploadString } from 'firebase/storage';
 
 const COLORS = {
   bg: '#0b0b0f',
@@ -38,13 +38,6 @@ const REQUIRED_KEYS = ['avatar', 'displayName', 'ageGender'];
 
 const clamp = (s = '', max = 120) => (s.length > max ? s.slice(0, max) : s).trim();
 const isAdult = (n) => /^\d+$/.test(String(n)) && parseInt(String(n), 10) >= 18;
-
-async function readFileBytes(uri) {
-  const res = await fetch(uri);
-  if (!res.ok) throw new Error('file fetch failed');
-  const ab = await res.arrayBuffer();
-  return new Uint8Array(ab);
-}
 
 async function pickImageFromLibrary() {
   const { status, granted, ios } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -154,9 +147,15 @@ export default function OnboardingScreen() {
         Alert.alert('Not signed in');
         return;
       }
-      const bytes = await readFileBytes(asset.uri);
+      const base64 = asset.base64;
+      if (!base64) {
+        Alert.alert('Upload failed', 'no base64');
+        return;
+      }
       const avatarRef = ref(storage, `avatars/${uid}/${Date.now()}.jpg`);
-      await uploadBytes(avatarRef, bytes, { contentType: 'image/jpeg' });
+      await uploadString(avatarRef, base64, 'base64', {
+        contentType: asset.mimeType || 'image/jpeg',
+      });
       const url = await getDownloadURL(avatarRef);
       setAvatarUrl(url);
     } catch (e) {
