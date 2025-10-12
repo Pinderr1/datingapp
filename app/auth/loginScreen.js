@@ -127,7 +127,9 @@ const LoginScreen = () => {
             uid: 'dev-user',
             email: 'dev@example.com',
             name: 'Dev Tester',
+            onboardingComplete: true,
         };
+        // Dev-only bypass skips onboarding so navigation jumps straight to home during local testing
         setProfile(mockProfile);
         setPhoneNumber('');
         setEmail('');
