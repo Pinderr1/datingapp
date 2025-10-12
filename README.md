@@ -72,6 +72,16 @@ npm run lint
 npm run build
 ```
 
+## Deploy Firebase Storage rules
+
+Publish the storage rules (including `storage.rules`) to Firebase Storage with the Firebase CLI:
+
+```bash
+firebase deploy --only storage
+```
+
+The command uploads the rules defined in `firebase.json` to the default Firebase project configured for this repository. Ensure you are authenticated with the Firebase CLI (`firebase login`) and have selected the correct project (`firebase use <project-id>`) before deploying.
+
 ## Learn more
 
 To learn more about developing your project with Expo, look at the following resources:
