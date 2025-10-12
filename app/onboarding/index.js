@@ -22,7 +22,7 @@ import { useRouter } from 'expo-router';
 // Firebase (v9 modular)
 import { auth, db, storage } from '../../firebaseConfig';
 import { arrayUnion, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadString } from 'firebase/storage';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 
 const COLORS = {
   bg: '#0b0b0f',
@@ -147,16 +147,20 @@ export default function OnboardingScreen() {
         Alert.alert('Not signed in');
         return;
       }
-      if (!asset.base64) {
-        Alert.alert('Upload failed', 'no base64');
-        return;
+      const response = await fetch(asset.uri);
+      const blob = await response.blob();
+      try {
+        const avatarRef = ref(storage, `avatars/${uid}/${Date.now()}.jpg`);
+        await uploadBytes(avatarRef, blob, {
+          contentType: asset.mimeType || 'image/jpeg',
+        });
+        const url = await getDownloadURL(avatarRef);
+        setAvatarUrl(url);
+      } finally {
+        if (typeof blob.close === 'function') {
+          blob.close();
+        }
       }
-      const avatarRef = ref(storage, `avatars/${uid}/${Date.now()}.jpg`);
-      await uploadString(avatarRef, asset.base64, 'base64', {
-        contentType: asset.mimeType || 'image/jpeg',
-      });
-      const url = await getDownloadURL(avatarRef);
-      setAvatarUrl(url);
     } catch (e) {
       console.error('avatar upload error', e);
       Alert.alert('Upload failed', e?.code || e?.message || String(e));
