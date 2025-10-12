@@ -221,7 +221,16 @@ export default function OnboardingScreen() {
 
   const handleBack = async () => {
     await Haptics.selectionAsync();
-    if (step > 0) setStep((s) => s - 1);
+    if (step > 0) {
+      setStep((s) => Math.max(0, s - 1));
+      return;
+    }
+
+    if (typeof router.canGoBack === 'function' && router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/auth/loginScreen');
+    }
   };
 
   const handleSkip = async () => {
@@ -346,7 +355,19 @@ export default function OnboardingScreen() {
 
   return (
     <View style={S.container}>
-      <Text style={S.title}>Let’s get you set up</Text>
+      <View style={S.header}>
+        {step === 0 ? (
+          <TouchableOpacity onPress={handleBack} style={S.headerBack}>
+            <Text style={S.headerBackIcon}>‹</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={S.headerPlaceholder} />
+        )}
+
+        <Text style={S.title}>Let’s get you set up</Text>
+
+        <View style={S.headerPlaceholder} />
+      </View>
       <Text style={S.stepText}>{`Step ${step + 1} of ${steps.length}`}</Text>
 
       <View style={S.progressContainer}>
@@ -374,7 +395,7 @@ export default function OnboardingScreen() {
             <Text style={[S.buttonText, { color: COLORS.accent }]}>Back</Text>
           </TouchableOpacity>
         ) : (
-          <View style={{ width: 112 }} />
+          <View style={S.rowPlaceholder} />
         )}
 
         <TouchableOpacity
@@ -406,12 +427,32 @@ const S = StyleSheet.create({
     paddingTop: Platform.select({ ios: 64, android: 24 }),
     paddingHorizontal: 20,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  headerBack: {
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+    minWidth: 48,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  headerBackIcon: {
+    color: COLORS.text,
+    fontSize: 24,
+    fontWeight: '600',
+  },
+  headerPlaceholder: { width: 48 },
   title: {
+    flex: 1,
     color: COLORS.text,
     fontSize: 22,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 0,
   },
   stepText: { color: COLORS.subtext, textAlign: 'center', marginBottom: 16 },
   progressContainer: {
@@ -480,6 +521,7 @@ const S = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.accent,
   },
+  rowPlaceholder: { width: 112 },
   buttonText: { color: '#fff', fontWeight: '600' },
   skip: { alignSelf: 'center', marginTop: 16 },
   skipText: { color: COLORS.accent, textDecorationLine: 'underline' },
