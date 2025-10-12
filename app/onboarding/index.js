@@ -39,25 +39,11 @@ const REQUIRED_KEYS = ['avatar', 'displayName', 'ageGender'];
 const clamp = (s = '', max = 120) => (s.length > max ? s.slice(0, max) : s).trim();
 const isAdult = (n) => /^\d+$/.test(String(n)) && parseInt(String(n), 10) >= 18;
 
-async function assetToBlob(asset) {
-  if (!asset) throw new Error('No asset to upload');
-
-  if (asset.base64) {
-    const mime = asset.mimeType || 'image/jpeg';
-    const dataUrl = `data:${mime};base64,${asset.base64}`;
-    const response = await fetch(dataUrl);
-    if (!response.ok) {
-      throw new Error('Failed to process image data');
-    }
-    return response.blob();
-  }
-
-  const uri = asset.uri;
-  const response = await fetch(uri);
-  if (!response.ok) {
-    throw new Error('Failed to load file');
-  }
-  return response.blob();
+async function readFileBytes(uri) {
+  const res = await fetch(uri);
+  if (!res.ok) throw new Error('file fetch failed');
+  const ab = await res.arrayBuffer();
+  return new Uint8Array(ab);
 }
 
 async function pickImageFromLibrary() {
@@ -163,15 +149,19 @@ export default function OnboardingScreen() {
       if (!asset) return;
       setAnswers((p) => ({ ...p, avatar: asset.uri }));
       setAvatarUrl('');
-      const u = ensureSignedIn();
-      if (!u) return;
-      const blob = await assetToBlob(asset);
-      const avatarRef = ref(storage, `avatars/${u.uid}/${Date.now()}.jpg`);
-      await uploadBytes(avatarRef, blob);
+      const uid = auth.currentUser?.uid;
+      if (!uid) {
+        Alert.alert('Not signed in');
+        return;
+      }
+      const bytes = await readFileBytes(asset.uri);
+      const avatarRef = ref(storage, `avatars/${uid}/${Date.now()}.jpg`);
+      await uploadBytes(avatarRef, bytes, { contentType: 'image/jpeg' });
       const url = await getDownloadURL(avatarRef);
       setAvatarUrl(url);
     } catch (e) {
-      Alert.alert('Upload failed');
+      console.error('avatar upload error', e);
+      Alert.alert('Upload failed', e?.code || e?.message || String(e));
     }
   };
 
@@ -241,7 +231,8 @@ export default function OnboardingScreen() {
 
       router.replace('/(tabs)');
     } catch (e) {
-      Alert.alert('Upload failed');
+      console.error('avatar upload error', e);
+      Alert.alert('Upload failed', e?.code || e?.message || String(e));
     } finally {
       setSaving(false);
     }
