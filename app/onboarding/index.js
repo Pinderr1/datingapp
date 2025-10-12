@@ -205,7 +205,7 @@ export default function OnboardingScreen() {
         {
           ...profile,
           photoURL: avatarUrl,
-          photos: arrayUnion(avatarUrl),
+          photoURLs: arrayUnion(avatarUrl),
           updatedAt: serverTimestamp(),
         },
         { merge: true }
