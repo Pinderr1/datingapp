@@ -48,8 +48,8 @@ async function uriToBlob(uri) {
 }
 
 async function pickImageFromLibrary() {
-  const { status, granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  const hasAccess = granted || status === 'limited';
+  const { status, granted, ios } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  const hasAccess = granted || ios?.accessPrivileges === 'limited';
   if (!hasAccess) {
     if (status === 'denied') {
       Alert.alert(
