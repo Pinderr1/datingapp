@@ -9,10 +9,17 @@ const PaymentDoneScreen = () => {
 
     const navigation = useNavigation();
 
-    const backAction = () => {
-        navigation.push('(tabs)');
+    const navigateToTabs = useCallback(() => {
+        navigation.reset({
+            index: 0,
+            routes: [{ name: '(tabs)' }],
+        });
+    }, [navigation]);
+
+    const backAction = useCallback(() => {
+        navigateToTabs();
         return true;
-    };
+    }, [navigateToTabs]);
 
     useFocusEffect(
         useCallback(() => {
@@ -36,7 +43,7 @@ const PaymentDoneScreen = () => {
     function backToHomeButton() {
         return (
             <Text
-                onPress={() => { navigation.push('(tabs)') }}
+                onPress={navigateToTabs}
                 style={{ alignSelf: 'center', margin: Sizes.fixPadding * 2.0, ...Fonts.whiteColor16Bold }}
             >
                 Back to Home
