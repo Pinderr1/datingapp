@@ -39,7 +39,20 @@ const REQUIRED_KEYS = ['avatar', 'displayName', 'ageGender'];
 const clamp = (s = '', max = 120) => (s.length > max ? s.slice(0, max) : s).trim();
 const isAdult = (n) => /^\d+$/.test(String(n)) && parseInt(String(n), 10) >= 18;
 
-async function uriToBlob(uri) {
+async function assetToBlob(asset) {
+  if (!asset) throw new Error('No asset to upload');
+
+  if (asset.base64) {
+    const mime = asset.mimeType || 'image/jpeg';
+    const dataUrl = `data:${mime};base64,${asset.base64}`;
+    const response = await fetch(dataUrl);
+    if (!response.ok) {
+      throw new Error('Failed to process image data');
+    }
+    return response.blob();
+  }
+
+  const uri = asset.uri;
   const response = await fetch(uri);
   if (!response.ok) {
     throw new Error('Failed to load file');
@@ -63,10 +76,16 @@ async function pickImageFromLibrary() {
     mediaTypes: ImagePicker.MediaTypeOptions.Images,
     allowsEditing: true,
     quality: 0.8,
+    base64: true,
   });
   if (result.canceled) return null;
-  const uri = result.assets?.[0]?.uri || null;
-  return uri;
+  const asset = result.assets?.[0];
+  if (!asset) return null;
+  return {
+    uri: asset.uri,
+    base64: asset.base64,
+    mimeType: asset.mimeType,
+  };
 }
 
 export default function OnboardingScreen() {
@@ -140,13 +159,13 @@ export default function OnboardingScreen() {
   const onPickAvatar = async () => {
     try {
       await Haptics.selectionAsync();
-      const uri = await pickImageFromLibrary();
-      if (!uri) return;
-      setAnswers((p) => ({ ...p, avatar: uri }));
+      const asset = await pickImageFromLibrary();
+      if (!asset) return;
+      setAnswers((p) => ({ ...p, avatar: asset.uri }));
       setAvatarUrl('');
       const u = ensureSignedIn();
       if (!u) return;
-      const blob = await uriToBlob(uri);
+      const blob = await assetToBlob(asset);
       const avatarRef = ref(storage, `avatars/${u.uid}/${Date.now()}.jpg`);
       await uploadBytes(avatarRef, blob);
       const url = await getDownloadURL(avatarRef);
