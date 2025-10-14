@@ -170,3 +170,32 @@ export async function handleLike({
 
   return true;
 }
+
+export async function createMatchIfMissing(userIdA, userIdB) {
+  if (!userIdA || !userIdB) {
+    return null;
+  }
+
+  const [firstId, secondId] = [userIdA, userIdB].sort();
+  const matchId = `${firstId}_${secondId}`;
+
+  const matchesCollection = collection(db, 'matches');
+  const matchRef = doc(matchesCollection, matchId);
+  const existing = await getDoc(matchRef);
+
+  if (!existing.exists()) {
+    const timestamp = serverTimestamp();
+    await setDoc(
+      matchRef,
+      {
+        users: [firstId, secondId],
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        matchedAt: timestamp,
+      },
+      { merge: true }
+    );
+  }
+
+  return matchId;
+}
