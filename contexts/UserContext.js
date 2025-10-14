@@ -1,4 +1,12 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
@@ -19,6 +27,7 @@ export const UserProvider = ({ children }) => {
   const [profile, setProfile] = useState(undefined);
   const [loading, setLoading] = useState(true);
   const [refreshIndex, setRefreshIndex] = useState(0);
+  const previousUidRef = useRef(firebaseUser?.uid ?? null);
 
   const setProfileWithUid = useCallback(
     (nextProfile) => {
@@ -63,13 +72,19 @@ export const UserProvider = ({ children }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (authUser) => {
-      if (authUser) {
+      const previousUid = previousUidRef.current;
+      const nextUid = authUser?.uid ?? null;
+
+      if (!authUser) {
+        if (previousUid !== null) {
+          setProfileWithUid(null);
+        }
+      } else if (previousUid !== nextUid) {
         setProfile(undefined);
       }
+
+      previousUidRef.current = nextUid;
       setFirebaseUser(authUser);
-      if (!authUser) {
-        setProfileWithUid(null);
-      }
     });
     return unsubscribe;
   }, [setProfileWithUid]);
