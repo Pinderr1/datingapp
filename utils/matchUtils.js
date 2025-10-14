@@ -170,3 +170,30 @@ export async function handleLike({
 
   return true;
 }
+
+export async function createMatchIfMissing(userId, opponentId, firestore = db) {
+  if (!userId || !opponentId) {
+    return null;
+  }
+
+  const [firstId, secondId] = [userId, opponentId].sort();
+  const matchId = `${firstId}_${secondId}`;
+  const matchRef = doc(firestore, 'matches', matchId);
+  const snapshot = await getDoc(matchRef);
+  const timestamp = serverTimestamp();
+
+  if (!snapshot.exists()) {
+    await setDoc(matchRef, {
+      users: [firstId, secondId],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      matchedAt: timestamp,
+    });
+  } else {
+    await updateDoc(matchRef, {
+      updatedAt: timestamp,
+    });
+  }
+
+  return matchId;
+}

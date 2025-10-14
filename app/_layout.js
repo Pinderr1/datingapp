@@ -12,6 +12,7 @@ import { LoadingProvider } from '../contexts/LoadingContext';
 import { UserProvider } from '../contexts/UserContext';
 import { ListenerProvider } from '../contexts/ListenerContext';
 import { GameSessionProvider } from '../contexts/GameSessionContext';
+import { MatchmakingProvider } from '../contexts/MatchmakingContext';
 import { ChatProvider } from '../contexts/ChatContext';
 import { GameLimitProvider } from '../contexts/GameLimitContext';
 
@@ -31,9 +32,11 @@ const Providers = ({ children }) => (
             <UserProvider>
               <ListenerProvider>
                 <GameSessionProvider>
-                  <ChatProvider>
-                    <GameLimitProvider>{children}</GameLimitProvider>
-                  </ChatProvider>
+                  <MatchmakingProvider>
+                    <ChatProvider>
+                      <GameLimitProvider>{children}</GameLimitProvider>
+                    </ChatProvider>
+                  </MatchmakingProvider>
                 </GameSessionProvider>
               </ListenerProvider>
             </UserProvider>

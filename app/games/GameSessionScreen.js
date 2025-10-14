@@ -13,41 +13,42 @@ import {
   Platform,
   Easing,
 } from 'react-native';
-import GradientBackground from '../components/GradientBackground';
-import Header from '../components/Header';
-import ScreenContainer from '../components/ScreenContainer';
-import { useTheme } from '../contexts/ThemeContext';
-import { useDev } from '../contexts/DevContext';
-import { useGameLimit } from '../contexts/GameLimitContext';
+import GradientBackground from '../../components/GradientBackground';
+import Header from '../../components/Header';
+import ScreenContainer from '../../components/ScreenContainer';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useDev } from '../../contexts/DevContext';
+import { useGameLimit } from '../../contexts/GameLimitContext';
 import { HEADER_SPACING } from '../../layout';
-import { useUser } from '../contexts/UserContext';
-import firebase from '../firebase';
+import { useUser } from '../../contexts/UserContext';
+import { db } from '../../firebaseConfig';
 import * as Haptics from 'expo-haptics';
 import getGlobalStyles from '../../styles';
-import { games } from '../games';
-import SyncedGame from '../components/SyncedGame';
-import GameOverModal from '../components/GameOverModal';
-import GameContainer from '../components/GameContainer';
-import { useMatchmaking } from '../contexts/MatchmakingContext';
-import { snapshotExists } from '../utils/firestore';
-import { createMatchIfMissing } from '../utils/matches';
+import { games } from './registry';
+import SyncedGame from '../../components/SyncedGame';
+import GameOverModal from '../../components/GameOverModal';
+import GameContainer from '../../components/GameContainer';
+import { useMatchmaking } from '../../contexts/MatchmakingContext';
+import { snapshotExists } from '../../utils/firestore';
+import { createMatchIfMissing } from '../../utils/matchUtils';
 import Toast from 'react-native-toast-message';
-import { bots, getRandomBot } from "../ai/bots";
-import { generateReply } from "../ai/chatBot";
-import useBotGame from "../hooks/useBotGame";
-import { getBotMove } from "../ai/botMoves";
-import SafeKeyboardView from "../components/SafeKeyboardView";
-import Loader from "../components/Loader";
-import { useSound } from '../contexts/SoundContext';
-import EmptyState from '../components/EmptyState';
-import useGameSession from '../hooks/useGameSession';
-import { logGameStats } from '../utils/gameStats';
-import useRequireGameCredits from '../hooks/useRequireGameCredits';
-import useDebouncedCallback from '../hooks/useDebouncedCallback';
-import PlayerInfoBar from '../components/PlayerInfoBar';
-import useUserProfile from '../hooks/useUserProfile';
+import { bots, getRandomBot } from '../../ai/bots';
+import { generateReply } from '../../ai/chatBot';
+import useBotGame from '../../hooks/useBotGame';
+import { getBotMove } from '../../ai/botMoves';
+import SafeKeyboardView from '../../components/SafeKeyboardView';
+import Loader from '../../components/Loader';
+import { useSound } from '../../contexts/SoundContext';
+import EmptyState from '../../components/EmptyState';
+import useGameSession from '../../hooks/useGameSession';
+import { logGameStats } from '../../utils/gameStats';
+import useRequireGameCredits from '../../hooks/useRequireGameCredits';
+import useDebouncedCallback from '../../hooks/useDebouncedCallback';
+import PlayerInfoBar from '../../components/PlayerInfoBar';
+import useUserProfile from '../../hooks/useUserProfile';
 import PropTypes from 'prop-types';
-import { computeBadges } from '../utils/badges';
+import { computeBadges } from '../../utils/badges';
+import { doc, getDoc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
 const GameSessionScreen = ({ route, navigation, sessionType }) => {
   const type =
     sessionType || route.params?.sessionType ||
@@ -105,8 +106,8 @@ const LiveSessionScreen = ({ route, navigation }) => {
   // Listen for Firestore invite status
   useEffect(() => {
     if (!inviteId || !user?.uid) return;
-    const ref = firebase.firestore().collection('gameInvites').doc(inviteId);
-    const unsub = ref.onSnapshot((snap) => {
+    const ref = doc(db, 'gameInvites', inviteId);
+    const unsub = onSnapshot(ref, (snap) => {
       if (snapshotExists(snap)) {
         const data = snap.data();
         if (data.from === user.uid || data.to === user.uid) {
@@ -166,13 +167,14 @@ const LiveSessionScreen = ({ route, navigation }) => {
           await createMatchIfMissing(user.uid, opponent.id);
         }
         if (inviteId && user?.uid) {
-          const ref = firebase.firestore().collection('gameInvites').doc(inviteId);
-          const snap = await ref.get();
+          const ref = doc(db, 'gameInvites', inviteId);
+          const snap = await getDoc(ref);
           const data = snap.data();
           if (snapshotExists(snap) && (data.from === user.uid || data.to === user.uid)) {
-            ref.update({
+            await updateDoc(ref, {
               status: 'active',
-              startedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              startedAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
             });
           }
         }
@@ -201,22 +203,19 @@ const LiveSessionScreen = ({ route, navigation }) => {
     try {
       if (!requireCredits()) return;
       if (inviteId && user?.uid) {
-        const ref = firebase.firestore().collection('gameInvites').doc(inviteId);
-        const snap = await ref.get();
+        const ref = doc(db, 'gameInvites', inviteId);
+        const snap = await getDoc(ref);
         const data = snap.data();
         if (snapshotExists(snap) && (data.from === user.uid || data.to === user.uid)) {
-          await ref.update({
+          await updateDoc(ref, {
             status: 'finished',
-            endedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            endedAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
           });
-          await firebase
-            .firestore()
-            .collection('gameSessions')
-            .doc(inviteId)
-            .update({
-              archived: true,
-              archivedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            });
+          await updateDoc(doc(db, 'gameSessions', inviteId), {
+            archived: true,
+            archivedAt: serverTimestamp(),
+          });
         }
       }
 
@@ -628,7 +627,7 @@ function BotSessionScreen({ route }) {
               ListEmptyComponent={
                 <EmptyState
                   text="No messages yet."
-                  image={require('../assets/logo.png')}
+                  image={require('../../assets/logo.png')}
                 />
               }
             />
@@ -689,7 +688,7 @@ function SpectatorSessionScreen({ route }) {
           {players.map((p) => (
             <View key={p.id} style={styles.player}>
               <Image
-                source={p.photo ? { uri: p.photo } : require('../assets/logo.png')}
+                source={p.photo ? { uri: p.photo } : require('../../assets/logo.png')}
                 style={styles.avatar}
               />
               <Text style={styles.playerName}>{p.displayName}</Text>
