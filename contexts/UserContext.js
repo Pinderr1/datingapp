@@ -81,13 +81,15 @@ export const UserProvider = ({ children }) => {
         }
       } else if (previousUid !== nextUid) {
         setProfile(undefined);
+      } else if (nextUid !== null) {
+        setRefreshIndex((index) => index + 1);
       }
 
       previousUidRef.current = nextUid;
       setFirebaseUser(authUser);
     });
     return unsubscribe;
-  }, [setProfileWithUid]);
+  }, [setProfileWithUid, setRefreshIndex]);
 
   useEffect(() => {
     let isActive = true;
