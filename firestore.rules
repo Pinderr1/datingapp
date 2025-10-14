@@ -153,7 +153,9 @@ service cloud.firestore {
       allow get: if isMatchParticipant(resource.data.users);
       allow list: if request.auth != null &&
                    request.query != null &&
-                   request.query.where('users', 'array-contains', request.auth.uid) == request.query;
+                   request.query.where('users', 'array-contains', request.auth.uid)
+                                 .orderBy('updatedAt', 'desc')
+                                 .limitToFirst(50) == request.query;
 
       allow create: if isSignedIn() &&
                     request.resource.data.keys().hasOnly(['users','createdAt','updatedAt','matchedAt','lastMessage']) &&
