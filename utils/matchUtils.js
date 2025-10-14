@@ -11,6 +11,7 @@ import {
 import { db } from '../firebaseConfig';
 import { icebreakers } from '../data/prompts';
 import { allGames } from '../data/games';
+import { likeUser } from '../services/userService';
 
 export async function handleLike({
   currentUser,
@@ -47,37 +48,71 @@ export async function handleLike({
 
   const firestoreDb = firestore ?? db;
 
+  const handleMatchUi = (matchId) => {
+    addMatch({
+      id: matchId,
+      displayName: targetUser.displayName,
+      age: targetUser.age,
+      image: targetUser.images[0],
+      messages: [],
+      matchedAt: 'now',
+      activeGameId: null,
+      pendingInvite: null,
+    });
+
+    setMatchedUser(targetUser);
+    setMatchLine(icebreakers[Math.floor(Math.random() * icebreakers.length)] || '');
+    setMatchGame(allGames[Math.floor(Math.random() * allGames.length)] || null);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    play('match');
+    Toast.show({ type: 'success', text1: "It's a match!" });
+    showNotification("It's a match!");
+    setShowFireworks(true);
+    setTimeout(() => setShowFireworks(false), 2000);
+  };
+
   if (currentUser?.uid && targetUser.id && !devMode && firestoreDb) {
     try {
+      if (!firestore) {
+        const result = await likeUser({ targetUserId: targetUser.id, liked: true });
+
+        if (!result?.ok) {
+          return false;
+        }
+
+        if (!result?.data?.match) {
+          return true;
+        }
+
+        const matchId =
+          result.data.matchId ||
+          [currentUser.uid, targetUser.id].sort().join('_');
+        handleMatchUi(matchId);
+        return true;
+      }
+
       const likedRef = doc(
         firestoreDb,
         'likes',
         currentUser.uid,
-        'liked',
+        'outgoing',
         targetUser.id
       );
-      await setDoc(likedRef, {
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-
-      const likedByRef = doc(
-        firestoreDb,
-        'likes',
-        targetUser.id,
-        'likedBy',
-        currentUser.uid
+      await setDoc(
+        likedRef,
+        {
+          liked: true,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
       );
-      await setDoc(likedByRef, {
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
 
       const reciprocalRef = doc(
         firestoreDb,
         'likes',
         targetUser.id,
-        'liked',
+        'outgoing',
         currentUser.uid
       );
       const reciprocal = await getDoc(reciprocalRef);
@@ -100,32 +135,7 @@ export async function handleLike({
           await updateDoc(matchRef, { updatedAt: serverTimestamp() });
         }
 
-        addMatch({
-          id: matchRef.id,
-          displayName: targetUser.displayName,
-          age: targetUser.age,
-          image: targetUser.images[0],
-          messages: [],
-          matchedAt: 'now',
-          activeGameId: null,
-          pendingInvite: null,
-        });
-
-        setMatchedUser(targetUser);
-        setMatchLine(
-          icebreakers[Math.floor(Math.random() * icebreakers.length)] || ''
-        );
-        setMatchGame(
-          allGames[Math.floor(Math.random() * allGames.length)] || null
-        );
-        Haptics.notificationAsync(
-          Haptics.NotificationFeedbackType.Success
-        ).catch(() => {});
-        play('match');
-        Toast.show({ type: 'success', text1: "It's a match!" });
-        showNotification("It's a match!");
-        setShowFireworks(true);
-        setTimeout(() => setShowFireworks(false), 2000);
+        handleMatchUi(matchRef.id);
         return true;
       }
     } catch (e) {

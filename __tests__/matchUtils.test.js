@@ -41,7 +41,18 @@ describe('handleLike', () => {
       setShowFireworks: noop,
     });
 
-    expect(setDoc).toHaveBeenCalled();
+    const likeCall = setDoc.mock.calls.find(([, data]) => data?.liked === true);
+    expect(likeCall).toBeTruthy();
+    const [likeRef, likeData, likeOptions] = likeCall;
+    expect(likeRef.path).toBe('likes/alice/outgoing/bob');
+    expect(likeData).toMatchObject({
+      liked: true,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    expect(likeOptions).toEqual({ merge: true });
+    expect(setDoc.mock.calls.some(([ref]) => ref.path.includes('/likedBy/'))).toBe(false);
+
     const matchCall = setDoc.mock.calls.find(([, data]) => data && Array.isArray(data.users));
     expect(matchCall).toBeTruthy();
     const [matchRef, matchData] = matchCall;
