@@ -1,13 +1,20 @@
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
-import firebase from '../firebase';
+import { db } from '../firebaseConfig';
+import {
+  collection,
+  doc,
+  getDoc,
+  serverTimestamp,
+  setDoc,
+} from 'firebase/firestore';
 import { icebreakers } from '../data/prompts';
 import { allGames } from '../data/games';
 
 export async function handleLike({
   currentUser,
   targetUser,
-  firestore,
+  firestore: _legacyFirestore,
   navigation,
   likesUsed = 0,
   isPremiumUser = false,
@@ -24,6 +31,8 @@ export async function handleLike({
 }) {
   if (!targetUser) return false;
 
+  void _legacyFirestore;
+
   if (likesUsed >= MAX_LIKES && !isPremiumUser && !devMode) {
     navigation.navigate('PremiumPaywall', { context: 'paywall' });
     return false;
@@ -34,35 +43,32 @@ export async function handleLike({
 
   if (currentUser?.uid && targetUser.id && !devMode) {
     try {
-      await firestore
-        .collection('likes')
-        .doc(currentUser.uid)
-        .collection('liked')
-        .doc(targetUser.id)
-        .set({ createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      const outgoingLikeRef = doc(db, 'likes', currentUser.uid, 'liked', targetUser.id);
+      const incomingLikeRef = doc(db, 'likes', targetUser.id, 'likedBy', currentUser.uid);
+      const reciprocalLikeRef = doc(db, 'likes', targetUser.id, 'liked', currentUser.uid);
 
-      await firestore
-        .collection('likes')
-        .doc(targetUser.id)
-        .collection('likedBy')
-        .doc(currentUser.uid)
-        .set({ createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      const now = serverTimestamp();
+      await Promise.all([
+        setDoc(outgoingLikeRef, { createdAt: now }, { merge: true }),
+        setDoc(incomingLikeRef, { createdAt: now }, { merge: true }),
+      ]);
 
-      const reciprocal = await firestore
-        .collection('likes')
-        .doc(targetUser.id)
-        .collection('liked')
-        .doc(currentUser.uid)
-        .get();
+      const reciprocal = await getDoc(reciprocalLikeRef);
 
       if (reciprocal.exists) {
-        const matchRef = await firestore.collection('matches').add({
+        const matchDocRef = doc(collection(db, 'matches'));
+        const createdAt = serverTimestamp();
+        const updatedAt = serverTimestamp();
+        const matchedAt = serverTimestamp();
+        await setDoc(matchDocRef, {
           users: [currentUser.uid, targetUser.id],
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          createdAt,
+          updatedAt,
+          matchedAt,
         });
 
         addMatch({
-          id: matchRef.id,
+          id: matchDocRef.id,
           displayName: targetUser.displayName,
           age: targetUser.age,
           image: targetUser.images[0],

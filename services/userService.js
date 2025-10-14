@@ -112,7 +112,12 @@ export async function likeUser({ targetUserId, liked }) {
     try {
       await setDoc(
         matchRef,
-        { users: [a, b], createdAt: serverTimestamp(), updatedAt: serverTimestamp() },
+        {
+          users: [a, b],
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          matchedAt: serverTimestamp(),
+        },
         { merge: true }
       );
       matchCreated = true;
