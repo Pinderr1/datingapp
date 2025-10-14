@@ -1,4 +1,5 @@
 export const HEADER_HEIGHT = 72;
+export const HEADER_SPACING = HEADER_HEIGHT + 16;
 
 export const SPACING = {
   XS: 4,
