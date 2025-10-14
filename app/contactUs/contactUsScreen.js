@@ -3,7 +3,7 @@ import React, { useState } from 'react'
 import { Colors, Fonts, screenWidth, Sizes, CommonStyles } from '../../constants/styles'
 import MyStatusBar from '../../components/myStatusBar';
 import { useRouter } from 'expo-router';
-import { useUser } from '../../context/userContext';
+import { useUser } from '../../contexts/UserContext';
 import { auth, db } from '../../firebaseConfig';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 

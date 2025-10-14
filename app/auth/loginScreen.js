@@ -4,7 +4,7 @@ import { Colors, Fonts, Sizes, CommonStyles } from '../../constants/styles'
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import MyStatusBar from '../../components/myStatusBar';
-import { useUser } from '../../context/userContext';
+import { useUser } from '../../contexts/UserContext';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../../firebaseConfig';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
