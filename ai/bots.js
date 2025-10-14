@@ -2,19 +2,19 @@ export const bots = [
   {
     id: 'ava',
     name: 'Ava',
-    image: require('../assets/user1.jpg'),
+    image: require('../assets/images/users/user1.png'),
     personality: 'friendly'
   },
   {
     id: 'zane',
     name: 'Zane',
-    image: require('../assets/user2.jpg'),
+    image: require('../assets/images/users/user2.png'),
     personality: 'competitive'
   },
   {
     id: 'leo',
     name: 'Leo',
-    image: require('../assets/user3.jpg'),
+    image: require('../assets/images/users/user3.png'),
     personality: 'sarcastic'
   }
 ];

@@ -5,15 +5,15 @@ export const imageSource = (img, fallback) => {
 };
 
 export const avatarSource = (uri) =>
-  imageSource(uri, require('../assets/user1.jpg'));
+  imageSource(uri, require('../assets/images/users/user1.png'));
 
 export const eventImageSource = (uri) =>
   imageSource(uri, require('../assets/logo.png'));
 
 export const overlayAssets = {
-  heart: require('../assets/icons/heart.png'),
-  star: require('../assets/icons/star.png'),
-  badge: require('../assets/icons/badge.png'),
+  heart: require('../assets/heart.png'),
+  star: require('../assets/star.png'),
+  badge: require('../assets/star.png'),
 };
 
 export const overlaySource = (id) => overlayAssets[id] || null;
