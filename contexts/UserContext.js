@@ -63,6 +63,9 @@ export const UserProvider = ({ children }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (authUser) => {
+      if (authUser) {
+        setProfile(undefined);
+      }
       setFirebaseUser(authUser);
       if (!authUser) {
         setProfileWithUid(null);
@@ -81,7 +84,6 @@ export const UserProvider = ({ children }) => {
       };
     }
     setLoading(true);
-    setProfileWithUid((prev) => (prev === undefined ? undefined : prev));
     fetchProfile(uid)
       .then((data) => {
         if (!isActive) return;
