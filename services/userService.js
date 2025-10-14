@@ -8,7 +8,6 @@ import {
   limit as limitQuery,
   startAfter as startAfterConstraint,
   getDocs,
-  getDoc,
   addDoc,
   setDoc,
   updateDoc,
@@ -214,21 +213,27 @@ export async function likeUser({ targetUserId, liked }) {
 
     let matchCreated = false;
     try {
-      const existingMatch = await getDoc(matchRef);
-      if (!existingMatch.exists()) {
-        const timestamp = serverTimestamp();
-        await setDoc(matchRef, {
+      await setDoc(
+        matchRef,
+        {
           users: [a, b],
-          createdAt: timestamp,
-          updatedAt: timestamp,
-          matchedAt: timestamp,
-        });
-      } else {
-        await updateDoc(matchRef, { updatedAt: serverTimestamp() });
-      }
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          matchedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
       matchCreated = true;
     } catch (_) {
       matchCreated = false;
+    }
+
+    if (matchCreated) {
+      try {
+        await updateDoc(matchRef, { updatedAt: serverTimestamp() });
+      } catch (_) {
+        // No-op; match was created but timestamp refresh failed.
+      }
     }
 
     return success({ match: matchCreated, matchId });
