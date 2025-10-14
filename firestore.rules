@@ -155,7 +155,7 @@ service cloud.firestore {
                    request.query != null &&
                    request.query.where('users', 'array-contains', request.auth.uid)
                                  .orderBy('updatedAt', 'desc')
-                                 .limitToFirst(50) == request.query;
+                                 .limit(50) == request.query;
 
       allow create: if isSignedIn() &&
                     request.resource.data.keys().hasOnly(['users','createdAt','updatedAt','matchedAt','lastMessage']) &&
