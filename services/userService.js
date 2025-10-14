@@ -9,7 +9,6 @@ import {
   startAfter as startAfterConstraint,
   getDoc,
   getDocs,
-  getDoc,
   addDoc,
   setDoc,
   updateDoc,
@@ -216,27 +215,60 @@ export async function likeUser({ targetUserId, liked }) {
     let matchCreated = false;
     const timestamp = serverTimestamp();
 
+    let matchSnapshot;
     try {
-      await setDoc(matchRef, {
+      matchSnapshot = await getDoc(matchRef);
+    } catch (readError) {
+      if (readError?.code !== 'permission-denied') {
+        throw readError;
+      }
+    }
+
+    const matchExists = Boolean(matchSnapshot?.exists?.());
+    const existingMatchData = matchExists && typeof matchSnapshot?.data === 'function'
+      ? matchSnapshot.data() ?? {}
+      : {};
+
+    if (matchExists) {
+      const updatePayload = { updatedAt: timestamp };
+      if (!existingMatchData?.matchedAt) {
+        updatePayload.matchedAt = timestamp;
+      }
+
+      try {
+        await updateDoc(matchRef, updatePayload);
+        matchCreated = true;
+      } catch (updateError) {
+        if (updateError?.code === 'permission-denied' || updateError?.code === 'not-found') {
+          return success({ match: false });
+        }
+        throw updateError;
+      }
+    } else {
+      const createPayload = {
         users: [a, b],
         createdAt: timestamp,
         updatedAt: timestamp,
         matchedAt: timestamp,
-      });
-      matchCreated = true;
-    } catch (setError) {
-      if (setError?.code === 'permission-denied') {
-        try {
-          await updateDoc(matchRef, { updatedAt: timestamp });
-          matchCreated = true;
-        } catch (updateError) {
-          if (updateError?.code === 'permission-denied' || updateError?.code === 'not-found') {
-            return success({ match: false });
+      };
+
+      try {
+        await setDoc(matchRef, createPayload);
+        matchCreated = true;
+      } catch (setError) {
+        if (setError?.code === 'permission-denied') {
+          try {
+            await updateDoc(matchRef, { updatedAt: timestamp, matchedAt: timestamp });
+            matchCreated = true;
+          } catch (updateError) {
+            if (updateError?.code === 'permission-denied' || updateError?.code === 'not-found') {
+              return success({ match: false });
+            }
+            throw updateError;
           }
-          throw updateError;
+        } else {
+          throw setError;
         }
-      } else {
-        throw setError;
       }
     }
 
