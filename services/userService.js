@@ -101,6 +101,81 @@ export async function fetchUserById(userId) {
   }
 }
 
+/** Fetch liked profiles for the current user. */
+export async function fetchLikedProfiles() {
+  const authResult = await ensureAuth();
+  if (!authResult.ok) return authResult;
+
+  const {
+    data: { user },
+  } = authResult;
+  const currentUserId = user?.uid;
+
+  if (!currentUserId) {
+    return failure('fetch-liked-profiles-failed', 'You must be signed in to view your shortlist.');
+  }
+
+  try {
+    const outgoingRef = collection(db, 'likes', currentUserId, 'outgoing');
+    const likedQuery = query(outgoingRef, where('liked', '==', true));
+    const snapshot = await getDocs(likedQuery);
+
+    if (snapshot.empty) {
+      return success({ profiles: [] });
+    }
+
+    const likedEntries = snapshot.docs.map((docSnap) => {
+      const likeData = docSnap.data() ?? {};
+      return {
+        targetUserId: docSnap.id,
+        ...likeData,
+      };
+    });
+
+    const targetIds = likedEntries
+      .map((entry) => entry?.targetUserId)
+      .filter((id) => typeof id === 'string' && id.length > 0);
+
+    if (targetIds.length === 0) {
+      return success({ profiles: [] });
+    }
+
+    const usersRef = collection(db, 'users');
+    const userMap = new Map();
+    const chunkSize = 10;
+
+    for (let i = 0; i < targetIds.length; i += chunkSize) {
+      const chunk = targetIds.slice(i, i + chunkSize);
+      if (chunk.length === 0) continue;
+      const usersQuery = query(usersRef, where(documentId(), 'in', chunk));
+      const usersSnapshot = await getDocs(usersQuery);
+      usersSnapshot.forEach((userDoc) => {
+        const data = userDoc.data() ?? {};
+        userMap.set(userDoc.id, { id: userDoc.id, ...data });
+      });
+    }
+
+    const profiles = likedEntries
+      .map((entry) => {
+        const profile = userMap.get(entry.targetUserId);
+        if (!profile) return null;
+        return {
+          ...profile,
+          like: entry,
+        };
+      })
+      .filter(Boolean);
+
+    return success({ profiles });
+  } catch (e) {
+    console.error('Failed to load liked profiles.', e);
+    return failure(
+      'fetch-liked-profiles-failed',
+      'We were unable to load your shortlist. Please try again later.'
+    );
+  }
+}
+
 /** Like a user and try to create a match. Rules enforce reciprocity. */
 export async function likeUser({ targetUserId, liked }) {
   const authResult = await ensureAuth();
