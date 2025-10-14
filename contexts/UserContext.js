@@ -76,9 +76,7 @@ export const UserProvider = ({ children }) => {
       const nextUid = authUser?.uid ?? null;
 
       if (!authUser) {
-        if (previousUid !== null) {
-          setProfileWithUid(null);
-        }
+        setProfileWithUid(null);
       } else if (previousUid !== nextUid) {
         setProfile(undefined);
       } else if (nextUid !== null) {
