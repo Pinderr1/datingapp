@@ -5,7 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import MyStatusBar from '../../components/myStatusBar';
 import { useRouter } from 'expo-router';
-import { useUser } from '../../context/userContext';
+import { useUser } from '../../contexts/UserContext';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../../firebaseConfig';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';

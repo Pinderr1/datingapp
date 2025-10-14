@@ -4,7 +4,17 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { AppState, LogBox } from 'react-native';
-import { UserProvider } from '../context/userContext';
+import { UserProvider } from '../contexts/UserContext';
+import { DevProvider } from '../contexts/DevContext';
+import { ThemeProvider } from '../contexts/ThemeContext';
+import { SoundProvider } from '../contexts/SoundContext';
+import { NotificationProvider } from '../contexts/NotificationContext';
+import { LoadingProvider } from '../contexts/LoadingContext';
+import { ListenerProvider } from '../contexts/ListenerContext';
+import { GameSessionProvider } from '../contexts/GameSessionContext';
+import { ChatProvider } from '../contexts/ChatContext';
+import { GameLimitProvider } from '../contexts/GameLimitContext';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 LogBox.ignoreAllLogs();
 
@@ -13,13 +23,39 @@ SplashScreen.preventAutoHideAsync().catch(() => {
   // the splash screen API is invoked before the native layer is ready.
 });
 
-export default function RootLayout() {
+const Providers = ({ children }) => (
+  <UserProvider>
+    <DevProvider>
+      <ThemeProvider>
+        <SoundProvider>
+          <NotificationProvider>
+            <LoadingProvider>
+              <ListenerProvider>
+                <GameSessionProvider>
+                  <ChatProvider>
+                    <GameLimitProvider>
+                      <>
+                        {children}
+                        <LoadingOverlay />
+                      </>
+                    </GameLimitProvider>
+                  </ChatProvider>
+                </GameSessionProvider>
+              </ListenerProvider>
+            </LoadingProvider>
+          </NotificationProvider>
+        </SoundProvider>
+      </ThemeProvider>
+    </DevProvider>
+  </UserProvider>
+);
 
+export default function RootLayout() {
   const [loaded, error] = useFonts({
-    Roboto_Light: require("../assets/fonts/Roboto-Light.ttf"),
-    Roboto_Regular: require("../assets/fonts/Roboto-Regular.ttf"),
-    Roboto_Medium: require("../assets/fonts/Roboto-Medium.ttf"),
-    Roboto_Bold: require("../assets/fonts/Roboto-Bold.ttf"),
+    Roboto_Light: require('../assets/fonts/Roboto-Light.ttf'),
+    Roboto_Regular: require('../assets/fonts/Roboto-Regular.ttf'),
+    Roboto_Medium: require('../assets/fonts/Roboto-Medium.ttf'),
+    Roboto_Bold: require('../assets/fonts/Roboto-Bold.ttf'),
   });
   const [fontLoadTimedOut, setFontLoadTimedOut] = useState(false);
 
@@ -75,7 +111,7 @@ export default function RootLayout() {
   }
 
   return (
-    <UserProvider>
+    <Providers>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, animation: 'ios_from_right' }}>
         <Stack.Screen name="index" />
@@ -97,6 +133,6 @@ export default function RootLayout() {
         <Stack.Screen name="contactUs/contactUsScreen" />
         <Stack.Screen name="termsAndCondition/termsAndConditionScreen" />
       </Stack>
-    </UserProvider>
+    </Providers>
   );
 }
