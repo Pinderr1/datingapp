@@ -153,17 +153,21 @@ service cloud.firestore {
       allow get, list: if isMatchParticipant(resource.data.users);
 
       allow create: if isSignedIn() &&
-                    request.resource.data.keys().hasOnly(['users','createdAt','updatedAt','lastMessage']) &&
+                    request.resource.data.keys().hasOnly(['users','createdAt','updatedAt','matchedAt','lastMessage']) &&
                     isValidMatchUsers(request.resource.data.users) &&
                     request.resource.data.users.hasAny([request.auth.uid]) &&
                     isOptionalString(request.resource.data, 'lastMessage', 0, 1000) &&
+                    isOptionalTimestamp(request.resource.data, 'matchedAt') &&
                     hasReciprocalLike(request.resource.data.users);
 
       allow update: if isMatchParticipant(resource.data.users) &&
-                    request.resource.data.keys().hasOnly(['users','createdAt','updatedAt','lastMessage']) &&
+                    request.resource.data.keys().hasOnly(['users','createdAt','updatedAt','matchedAt','lastMessage']) &&
                     isValidMatchUsers(request.resource.data.users) &&
                     request.resource.data.users == resource.data.users &&
-                    isOptionalString(request.resource.data, 'lastMessage', 0, 1000);
+                    isOptionalString(request.resource.data, 'lastMessage', 0, 1000) &&
+                    isOptionalTimestamp(request.resource.data, 'matchedAt') &&
+                    (!request.resource.data.keys().hasAny(['matchedAt']) ||
+                     request.resource.data.matchedAt == resource.data.matchedAt);
 
       allow delete: if isMatchParticipant(resource.data.users);
 

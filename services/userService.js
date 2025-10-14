@@ -214,11 +214,18 @@ export async function likeUser({ targetUserId, liked }) {
 
     let matchCreated = false;
     try {
-      await setDoc(
-        matchRef,
-        { users: [a, b], createdAt: serverTimestamp(), updatedAt: serverTimestamp() },
-        { merge: true }
-      );
+      const existingMatch = await getDoc(matchRef);
+      if (!existingMatch.exists()) {
+        const timestamp = serverTimestamp();
+        await setDoc(matchRef, {
+          users: [a, b],
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          matchedAt: timestamp,
+        });
+      } else {
+        await updateDoc(matchRef, { updatedAt: serverTimestamp() });
+      }
       matchCreated = true;
     } catch (_) {
       matchCreated = false;
