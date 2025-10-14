@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import firebase from '../firebase';
+import { db } from '../firebaseConfig';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { snapshotExists } from '../utils/firestore';
 
 export default function useRemoteConfig() {
@@ -12,10 +13,11 @@ export default function useRemoteConfig() {
   });
 
   useEffect(() => {
-    const ref = firebase.firestore().collection('config').doc('app');
-    const unsub = ref.onSnapshot(
-      (doc) => {
-        const data = snapshotExists(doc) ? doc.data() : {};
+    const ref = doc(db, 'config', 'app');
+    const unsub = onSnapshot(
+      ref,
+      (docSnap) => {
+        const data = snapshotExists(docSnap) ? docSnap.data() : {};
         setConfig({
           minVersion: data?.minVersion ?? null,
           maxFreeGames: data?.maxFreeGames ?? null,

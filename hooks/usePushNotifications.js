@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync } from '../utils/notifications';
-import firebase from '../firebase';
+import { auth, db } from '../firebaseConfig';
+import { doc, updateDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { useNotification } from '../contexts/NotificationContext';
 
 export default function usePushNotifications() {
@@ -44,17 +46,15 @@ export default function usePushNotifications() {
     };
   }, [showNotification]);
   useEffect(() => {
-    const unsub = firebase.auth().onAuthStateChanged((fbUser) => {
+    const unsub = onAuthStateChanged(auth, (fbUser) => {
       if (!fbUser) return;
       registerForPushNotificationsAsync()
         .then((token) => {
           if (token) {
-            firebase
-              .firestore()
-              .collection('users')
-              .doc(fbUser.uid)
-              .update({ pushToken: token })
-              .catch((e) => console.warn('Failed to save push token', e));
+            const userRef = doc(db, 'users', fbUser.uid);
+            updateDoc(userRef, { pushToken: token }).catch((e) =>
+              console.warn('Failed to save push token', e)
+            );
           }
         })
         .catch((e) => {

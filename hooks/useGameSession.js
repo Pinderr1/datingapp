@@ -1,6 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
 import { INVALID_MOVE } from 'boardgame.io/core';
-import firebase from '../firebase';
+import { db } from '../firebaseConfig';
+import {
+  arrayUnion,
+  doc,
+  onSnapshot,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from 'firebase/firestore';
 import { games } from '../games';
 import { useUser } from '../contexts/UserContext';
 import { useSound } from '../contexts/SoundContext';
@@ -16,9 +24,9 @@ export default function useGameSession(sessionId, gameId, opponentId) {
 
   useEffect(() => {
     if (!Game || !sessionId || !user?.uid) return;
-    const ref = firebase.firestore().collection('gameSessions').doc(sessionId);
+    const ref = doc(db, 'gameSessions', sessionId);
     let initialized = false;
-    const unsub = ref.onSnapshot(async (snap) => {
+    const unsub = onSnapshot(ref, async (snap) => {
       if (snapshotExists(snap)) {
         const data = snap.data();
         if (data.players?.includes(user.uid)) {
@@ -26,12 +34,12 @@ export default function useGameSession(sessionId, gameId, opponentId) {
         }
       } else if (!initialized) {
         initialized = true;
-        await ref.set({
+        await setDoc(ref, {
           gameId,
           players: [user.uid, opponentId],
           state: Game.setup(),
           currentPlayer: '0',
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          createdAt: serverTimestamp(),
         });
       }
     });
@@ -68,17 +76,18 @@ export default function useGameSession(sessionId, gameId, opponentId) {
     const gameover = Game.endIf ? Game.endIf({ G, ctx: { currentPlayer: nextPlayer } }) : undefined;
 
     try {
-      await firebase
-        .firestore()
-        .collection('gameSessions')
-        .doc(sessionId)
-        .update({
-          state: G,
-          currentPlayer: nextPlayer,
-          gameover: gameover || null,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          moves: firebase.firestore.FieldValue.arrayUnion({ action: moveName, player: String(idx), at: firebase.firestore.FieldValue.serverTimestamp() }),
-        });
+      const sessionRef = doc(db, 'gameSessions', sessionId);
+      await updateDoc(sessionRef, {
+        state: G,
+        currentPlayer: nextPlayer,
+        gameover: gameover || null,
+        updatedAt: serverTimestamp(),
+        moves: arrayUnion({
+          action: moveName,
+          player: String(idx),
+          at: serverTimestamp(),
+        }),
+      });
       play('game_move');
     } catch (e) {
       console.warn('Failed to update game session', e);

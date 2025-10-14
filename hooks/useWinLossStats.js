@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import firebase from '../firebase';
+import { db } from '../firebaseConfig';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 
 export default function useWinLossStats(userId) {
   const [stats, setStats] = useState({ wins: 0, losses: 0, loading: true });
@@ -7,11 +8,11 @@ export default function useWinLossStats(userId) {
     if (!userId) return;
     const load = async () => {
       try {
-        const snap = await firebase
-          .firestore()
-          .collection('gameSessions')
-          .where('players', 'array-contains', userId)
-          .get();
+        const sessionsQuery = query(
+          collection(db, 'gameSessions'),
+          where('players', 'array-contains', userId)
+        );
+        const snap = await getDocs(sessionsQuery);
         let wins = 0;
         snap.forEach((doc) => {
           const data = doc.data();

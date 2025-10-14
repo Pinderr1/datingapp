@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useUser } from './UserContext';
 import { useDev } from './DevContext';
 import useRemoteConfig from '../hooks/useRemoteConfig';
-import firebase from '../firebase';
+import { db } from '../firebaseConfig';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { logDev } from '../utils/logger';
 
 const GameLimitContext = createContext();
@@ -45,14 +46,11 @@ export const GameLimitProvider = ({ children }) => {
     const dailyLimit = maxFreeGames ?? DEFAULT_LIMIT;
     setGamesLeft(Math.max(dailyLimit - count, 0));
     try {
-      await firebase
-        .firestore()
-        .collection('users')
-        .doc(user.uid)
-        .update({
-          dailyPlayCount: count,
-          lastGamePlayedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        });
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        dailyPlayCount: count,
+        lastGamePlayedAt: serverTimestamp(),
+      });
     } catch (e) {
       logDev('Failed to update play count', e);
     }
