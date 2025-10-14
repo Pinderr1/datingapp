@@ -8,6 +8,7 @@ import {
   limit as limitQuery,
   startAfter as startAfterConstraint,
   getDocs,
+  getDoc,
   addDoc,
   setDoc,
   updateDoc,
