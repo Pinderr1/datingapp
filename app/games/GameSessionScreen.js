@@ -329,10 +329,12 @@ const LiveSessionScreen = ({ params, router }) => {
       setGameResult(null);
       router.replace({
         pathname: '/games/GameSessionScreen',
-        game,
-        opponent,
-        inviteId: newId,
-        status: devMode ? 'ready' : 'waiting',
+        params: {
+          ...(game ? { game: JSON.stringify(game) } : {}),
+          ...(opponent ? { opponent: JSON.stringify(opponent) } : {}),
+          inviteId: newId,
+          status: devMode ? 'ready' : 'waiting',
+        },
       });
     } catch (e) {
       console.warn('Failed to start rematch', e);
