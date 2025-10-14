@@ -4,7 +4,16 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { AppState, LogBox } from 'react-native';
-import { UserProvider } from '../context/userContext';
+import { ThemeProvider } from '../contexts/ThemeContext';
+import { SoundProvider } from '../contexts/SoundContext';
+import { DevProvider } from '../contexts/DevContext';
+import { NotificationProvider } from '../contexts/NotificationContext';
+import { LoadingProvider } from '../contexts/LoadingContext';
+import { UserProvider } from '../contexts/UserContext';
+import { ListenerProvider } from '../contexts/ListenerContext';
+import { GameSessionProvider } from '../contexts/GameSessionContext';
+import { ChatProvider } from '../contexts/ChatContext';
+import { GameLimitProvider } from '../contexts/GameLimitContext';
 
 LogBox.ignoreAllLogs();
 
@@ -12,6 +21,28 @@ SplashScreen.preventAutoHideAsync().catch(() => {
   // Prevent the promise rejection from triggering an unhandled warning when
   // the splash screen API is invoked before the native layer is ready.
 });
+
+const Providers = ({ children }) => (
+  <ThemeProvider>
+    <SoundProvider>
+      <DevProvider>
+        <NotificationProvider>
+          <LoadingProvider>
+            <UserProvider>
+              <ListenerProvider>
+                <GameSessionProvider>
+                  <ChatProvider>
+                    <GameLimitProvider>{children}</GameLimitProvider>
+                  </ChatProvider>
+                </GameSessionProvider>
+              </ListenerProvider>
+            </UserProvider>
+          </LoadingProvider>
+        </NotificationProvider>
+      </DevProvider>
+    </SoundProvider>
+  </ThemeProvider>
+);
 
 export default function RootLayout() {
 
@@ -75,7 +106,7 @@ export default function RootLayout() {
   }
 
   return (
-    <UserProvider>
+    <Providers>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, animation: 'ios_from_right' }}>
         <Stack.Screen name="index" />
@@ -97,6 +128,6 @@ export default function RootLayout() {
         <Stack.Screen name="contactUs/contactUsScreen" />
         <Stack.Screen name="termsAndCondition/termsAndConditionScreen" />
       </Stack>
-    </UserProvider>
+    </Providers>
   );
 }

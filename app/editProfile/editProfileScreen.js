@@ -5,7 +5,7 @@ import { MaterialIcons } from '@expo/vector-icons'
 import { Dropdown } from 'react-native-element-dropdown';
 import MyStatusBar from '../../components/myStatusBar';
 import { useRouter } from 'expo-router';
-import { useUser } from '../../context/userContext';
+import { useUser } from '../../contexts/UserContext';
 import { auth, db } from '../../firebaseConfig';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 

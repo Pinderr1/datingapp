@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Colors, Fonts, Sizes } from '../../../constants/styles'
 import { MaterialIcons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router';
-import { useUser } from '../../../context/userContext';
+import { useUser } from '../../../contexts/UserContext';
 import { auth, db } from '../../../firebaseConfig';
 import { collection, doc, getDoc, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 

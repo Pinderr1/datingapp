@@ -2,7 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import createGameClient from './createGameClient';
 import { INVALID_MOVE } from 'boardgame.io/core';
 import { View, Text, TouchableOpacity, Dimensions, StyleSheet, Animated } from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import useOnGameOver from '../../hooks/useOnGameOver';
 
 const lines = [
