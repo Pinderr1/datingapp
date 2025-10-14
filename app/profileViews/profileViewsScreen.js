@@ -61,7 +61,13 @@ const ProfileViewsScreen = () => {
         const renderItem = ({ item }) => (
             <TouchableOpacity
                 activeOpacity={0.7}
-                onPress={() => { navigation.push('profileDetail/profileDetailScreen') }}
+                onPress={() => {
+                    if (!item?.id) return;
+                    navigation.push('profileDetail/profileDetailScreen', {
+                        userId: item.id,
+                        initialProfile: JSON.stringify({ ...item, id: item.id }),
+                    });
+                }}
                 key={`${item.id}`}
                 style={styles.searchResultWrapStyle}
             >

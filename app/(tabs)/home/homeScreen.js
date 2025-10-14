@@ -201,7 +201,13 @@ const HomeScreen = () => {
 
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => navigation.push('profileDetail/profileDetailScreen')}
+                onPress={() => {
+                  if (!item?.id) return;
+                  navigation.push('profileDetail/profileDetailScreen', {
+                    userId: item.id,
+                    initialProfile: JSON.stringify({ ...item, id: item.id }),
+                  });
+                }}
                 style={styles.centerNameWrap}
               >
                 <Text numberOfLines={1} style={{ ...Fonts.whiteColor20Bold }}>

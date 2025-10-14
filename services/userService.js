@@ -8,6 +8,7 @@ import {
   limit as limitQuery,
   startAfter as startAfterConstraint,
   getDocs,
+  getDoc,
   addDoc,
   setDoc,
   updateDoc,
@@ -71,6 +72,34 @@ export async function fetchSwipeCandidates({
 }
 
 export const fetchUsers = fetchSwipeCandidates;
+
+/** Fetch a single user profile by document ID. */
+export async function fetchUserById(userId) {
+  const authResult = await ensureAuth();
+  if (!authResult.ok) return authResult;
+
+  if (typeof userId !== 'string' || userId.trim().length === 0) {
+    return failure('fetch-user-failed', 'A valid profile must be selected.');
+  }
+
+  const trimmedId = userId.trim();
+
+  try {
+    const userRef = doc(db, 'users', trimmedId);
+    const snapshot = await getDoc(userRef);
+
+    if (!snapshot.exists()) {
+      return failure('fetch-user-failed', 'This profile could not be found.');
+    }
+
+    const data = snapshot.data() ?? {};
+
+    return success({ id: snapshot.id, ...data });
+  } catch (e) {
+    console.error('Failed to load user profile.', e);
+    return failure('fetch-user-failed', 'Unable to load this profile. Please try again later.');
+  }
+}
 
 /** Like a user and try to create a match. Rules enforce reciprocity. */
 export async function likeUser({ targetUserId, liked }) {
