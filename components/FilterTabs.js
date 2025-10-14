@@ -5,10 +5,10 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '../contexts/ThemeContext';
 
 const FILTER_OPTIONS = [
-  { key: 'all', label: 'All' },
-  { key: 'free', label: 'Free' },
-  { key: 'premium', label: 'Premium' },
-  { key: 'favorites', label: 'Favorites' },
+  { key: 'All', label: 'All' },
+  { key: 'Free', label: 'Free' },
+  { key: 'Premium', label: 'Premium' },
+  { key: 'Favorites', label: 'Favorites' },
 ];
 
 export default function FilterTabs({ filter, setFilter }) {
