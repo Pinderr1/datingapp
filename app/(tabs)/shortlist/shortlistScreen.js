@@ -121,7 +121,13 @@ const ShortlistScreen = () => {
             >
                 <TouchableOpacity
                     activeOpacity={0.7}
-                    onPress={() => { navigation.push('profileDetail/profileDetailScreen') }}
+                    onPress={() => {
+                        if (!data?.item?.key) return;
+                        navigation.push('profileDetail/profileDetailScreen', {
+                            userId: data.item.key,
+                            initialProfile: JSON.stringify({ ...data.item, id: data.item.key }),
+                        });
+                    }}
                     key={`${data.item.key}`}
                     style={styles.shortlistDataWrapStyle}
                 >
