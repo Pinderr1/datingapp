@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import firebase from '../firebase';
+import { db } from '../firebaseConfig';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useUser } from '../contexts/UserContext';
 
 export default function useUnreadNotifications() {
@@ -8,13 +9,11 @@ export default function useUnreadNotifications() {
 
   useEffect(() => {
     if (!user?.uid) return;
-    const q = firebase
-      .firestore()
-      .collection('users')
-      .doc(user.uid)
-      .collection('notifications')
-      .where('read', '==', false);
-    const unsub = q.onSnapshot((snap) => setCount(snap.size));
+    const notificationsQuery = query(
+      collection(db, 'users', user.uid, 'notifications'),
+      where('read', '==', false)
+    );
+    const unsub = onSnapshot(notificationsQuery, (snap) => setCount(snap.size));
     return unsub;
   }, [user?.uid]);
 

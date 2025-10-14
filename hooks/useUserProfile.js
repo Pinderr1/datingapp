@@ -1,18 +1,16 @@
 import { useEffect, useState } from 'react';
-import firebase from '../firebase';
+import { db } from '../firebaseConfig';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 export default function useUserProfile(uid) {
   const [profile, setProfile] = useState(null);
 
   useEffect(() => {
     if (!uid) return undefined;
-    const unsub = firebase
-      .firestore()
-      .collection('users')
-      .doc(uid)
-      .onSnapshot((doc) => {
-        setProfile(doc.data() || null);
-      });
+    const userRef = doc(db, 'users', uid);
+    const unsub = onSnapshot(userRef, (docSnap) => {
+      setProfile(docSnap.data() || null);
+    });
     return unsub;
   }, [uid]);
 

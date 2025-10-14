@@ -1,6 +1,13 @@
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
-import firebase from '../firebase';
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  serverTimestamp,
+  setDoc,
+} from 'firebase/firestore';
 import { icebreakers } from '../data/prompts';
 import { allGames } from '../data/games';
 
@@ -34,31 +41,28 @@ export async function handleLike({
 
   if (currentUser?.uid && targetUser.id && !devMode) {
     try {
-      await firestore
-        .collection('likes')
-        .doc(currentUser.uid)
-        .collection('liked')
-        .doc(targetUser.id)
-        .set({ createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      const likedRef = doc(
+        collection(firestore, 'likes', currentUser.uid, 'liked'),
+        targetUser.id
+      );
+      await setDoc(likedRef, { createdAt: serverTimestamp() });
 
-      await firestore
-        .collection('likes')
-        .doc(targetUser.id)
-        .collection('likedBy')
-        .doc(currentUser.uid)
-        .set({ createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      const likedByRef = doc(
+        collection(firestore, 'likes', targetUser.id, 'likedBy'),
+        currentUser.uid
+      );
+      await setDoc(likedByRef, { createdAt: serverTimestamp() });
 
-      const reciprocal = await firestore
-        .collection('likes')
-        .doc(targetUser.id)
-        .collection('liked')
-        .doc(currentUser.uid)
-        .get();
+      const reciprocalRef = doc(
+        collection(firestore, 'likes', targetUser.id, 'liked'),
+        currentUser.uid
+      );
+      const reciprocal = await getDoc(reciprocalRef);
 
-      if (reciprocal.exists) {
-        const matchRef = await firestore.collection('matches').add({
+      if (reciprocal.exists()) {
+        const matchRef = await addDoc(collection(firestore, 'matches'), {
           users: [currentUser.uid, targetUser.id],
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          createdAt: serverTimestamp(),
         });
 
         addMatch({

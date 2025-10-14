@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import firebase from '../firebase';
+import { db } from '../firebaseConfig';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { useUser } from '../contexts/UserContext';
 
 export default function useRematchHistory(matches) {
@@ -15,11 +16,11 @@ export default function useRematchHistory(matches) {
     let active = true;
     const load = async () => {
       try {
-        const snap = await firebase
-          .firestore()
-          .collection('gameStats')
-          .where('players', 'array-contains', user.uid)
-          .get();
+        const statsQuery = query(
+          collection(db, 'gameStats'),
+          where('players', 'array-contains', user.uid)
+        );
+        const snap = await getDocs(statsQuery);
         if (!active) return;
         const stats = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         const map = {};
