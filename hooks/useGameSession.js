@@ -2,9 +2,12 @@ import { useEffect, useState, useCallback } from 'react';
 import { INVALID_MOVE } from 'boardgame.io/core';
 import { db } from '../firebaseConfig';
 import {
-  arrayUnion,
+  addDoc,
+  collection,
   doc,
   onSnapshot,
+  orderBy,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -19,12 +22,12 @@ export default function useGameSession(sessionId, gameId, opponentId) {
   const { play } = useSound();
   const gameEntry = games[gameId];
   const Game = gameEntry?.Game;
-
   const [session, setSession] = useState(null);
+  const [moveHistory, setMoveHistory] = useState([]);
 
   useEffect(() => {
     if (!Game || !sessionId || !user?.uid) return;
-    const ref = doc(db, 'gameSessions', sessionId);
+    const ref = doc(db, 'games', sessionId);
     let initialized = false;
     const unsub = onSnapshot(ref, async (snap) => {
       if (snapshotExists(snap)) {
@@ -40,11 +43,27 @@ export default function useGameSession(sessionId, gameId, opponentId) {
           state: Game.setup(),
           currentPlayer: '0',
           createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
         });
       }
     });
     return unsub;
   }, [Game, sessionId, user?.uid, opponentId, gameId]);
+
+  useEffect(() => {
+    if (!sessionId || !user?.uid || !session?.players?.includes(user.uid)) {
+      setMoveHistory([]);
+      return undefined;
+    }
+    const movesQuery = query(
+      collection(db, 'games', sessionId, 'moves'),
+      orderBy('at', 'asc')
+    );
+    const unsub = onSnapshot(movesQuery, (snap) => {
+      setMoveHistory(snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
+    });
+    return () => unsub();
+  }, [sessionId, user?.uid, session?.players]);
 
   const sendMove = useCallback(async (moveName, ...args) => {
     if (!session || !Game) return;
@@ -76,17 +95,17 @@ export default function useGameSession(sessionId, gameId, opponentId) {
     const gameover = Game.endIf ? Game.endIf({ G, ctx: { currentPlayer: nextPlayer } }) : undefined;
 
     try {
-      const sessionRef = doc(db, 'gameSessions', sessionId);
+      const sessionRef = doc(db, 'games', sessionId);
       await updateDoc(sessionRef, {
         state: G,
         currentPlayer: nextPlayer,
         gameover: gameover || null,
         updatedAt: serverTimestamp(),
-        moves: arrayUnion({
-          action: moveName,
-          player: String(idx),
-          at: serverTimestamp(),
-        }),
+      });
+      await addDoc(collection(db, 'games', sessionId, 'moves'), {
+        action: moveName,
+        player: String(idx),
+        at: serverTimestamp(),
       });
       play('game_move');
     } catch (e) {
@@ -105,7 +124,7 @@ export default function useGameSession(sessionId, gameId, opponentId) {
     G: session?.state,
     ctx: { currentPlayer: session?.currentPlayer, gameover: session?.gameover },
     moves,
-    moveHistory: session?.moves || [],
+    moveHistory,
     loading: !session,
   };
 }

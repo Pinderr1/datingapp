@@ -8,10 +8,7 @@ export default function useWinLossStats(userId) {
     if (!userId) return;
     const load = async () => {
       try {
-        const sessionsQuery = query(
-          collection(db, 'gameSessions'),
-          where('players', 'array-contains', userId)
-        );
+        const sessionsQuery = query(collection(db, 'games'), where('players', 'array-contains', userId));
         const snap = await getDocs(sessionsQuery);
         let wins = 0;
         snap.forEach((doc) => {
