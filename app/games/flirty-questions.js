@@ -1,7 +1,7 @@
 import React from 'react';
 import createGameClient from './createGameClient';
 import { View, Text, TouchableOpacity } from 'react-native';
-import useOnGameOver from '../hooks/useOnGameOver';
+import useOnGameOver from '../../hooks/useOnGameOver';
 
 const QUESTIONS = [
   'What first attracted you to me?',

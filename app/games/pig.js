@@ -1,8 +1,8 @@
 import React from 'react';
 import createGameClient from './createGameClient';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { useTheme } from '../contexts/ThemeContext';
-import useOnGameOver from '../hooks/useOnGameOver';
+import { useTheme } from '../../context/ThemeContext';
+import useOnGameOver from '../../hooks/useOnGameOver';
 
 const PigGame = {
   setup: () => ({ scores: [0, 0], turnTotal: 0, lastRoll: null }),
