@@ -2,7 +2,7 @@ import React from 'react';
 import createGameClient from './createGameClient';
 import { INVALID_MOVE } from 'boardgame.io/core';
 import { View, Text, TouchableOpacity } from 'react-native';
-import useOnGameOver from '../hooks/useOnGameOver';
+import useOnGameOver from '../../hooks/useOnGameOver';
 
 function createDeck(random) {
   const values = [2,3,4,5,6,7,8,9,10,10,10,10,11];

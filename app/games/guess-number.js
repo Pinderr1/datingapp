@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import createGameClient from './createGameClient';
 import { INVALID_MOVE } from 'boardgame.io/core';
 import { View, Text, TouchableOpacity, TextInput } from 'react-native';
-import { useTheme } from '../contexts/ThemeContext';
-import useOnGameOver from '../hooks/useOnGameOver';
+import { useTheme } from '../../context/ThemeContext';
+import useOnGameOver from '../../hooks/useOnGameOver';
 
 const GuessNumberGame = {
   setup: (ctx) => ({ target: ctx.random.Die(100), guesses: [] }),

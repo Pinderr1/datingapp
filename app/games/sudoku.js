@@ -2,7 +2,7 @@ import React from 'react';
 import createGameClient from './createGameClient';
 import { INVALID_MOVE } from 'boardgame.io/core';
 import { View, Text, TouchableOpacity } from 'react-native';
-import useOnGameOver from '../hooks/useOnGameOver';
+import useOnGameOver from '../../hooks/useOnGameOver';
 
 const puzzle = [
   5,3,0,0,7,0,0,0,0,
