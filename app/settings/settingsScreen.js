@@ -3,13 +3,14 @@ import React, { useState } from 'react'
 import { Colors, Fonts, screenWidth, Sizes } from '../../constants/styles'
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons'
 import MyStatusBar from '../../components/myStatusBar';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebaseConfig'
 
 const SettingsScreen = () => {
 
     const router = useRouter();
+    const navigation = useNavigation();
 
     const [resetDislik, setresetDislik] = useState(true);
     const [hideLocation, sethideLocation] = useState(false);
@@ -20,7 +21,7 @@ const SettingsScreen = () => {
         try {
             await signOut(auth);
             setshowLogoutDialog(false);
-            router.replace('/auth/loginScreen');
+            navigation.reset({ index: 0, routes: [{ name: 'auth/loginScreen' }] });
         } catch (error) {
             Alert.alert('Logout Failed', error?.message ?? 'Unable to logout. Please try again.');
         }
