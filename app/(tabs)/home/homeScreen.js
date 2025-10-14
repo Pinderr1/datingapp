@@ -1,7 +1,7 @@
 // app/(tabs)/home/homeScreen.js
 // React Native swipe deck (no web deps). Keeps your design & hooks likeUser.
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -146,14 +146,6 @@ const HomeScreen = () => {
     }
   };
 
-  const changeShortlist = ({ id }) => {
-    setUsers((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, isFavorite: !item.isFavorite } : item
-      )
-    );
-  };
-
   const getUserImageSource = (user) => {
     if (!user) return defaultUserImage;
     if (typeof user.image === 'number') return user.image;
@@ -161,6 +153,54 @@ const HomeScreen = () => {
     if (user.photoURL) return { uri: user.photoURL };
     return defaultUserImage;
   };
+
+  const openProfileDetail = useCallback(
+    (profile) => {
+      if (!profile) return;
+      navigation.push('profileDetail/profileDetailScreen', {
+        userId: profile.id,
+        user: profile,
+      });
+    },
+    [navigation]
+  );
+
+  const changeShortlist = useCallback(
+    async ({ user }) => {
+      const targetId = user?.id;
+      if (!targetId) return;
+
+      const nextLiked = !user?.isFavorite;
+      setLikingId(targetId);
+      try {
+        const result = await likeUser({ targetUserId: targetId, liked: nextLiked });
+        if (!result.ok) {
+          Alert.alert('Action failed', result.error?.message ?? 'Please try again later.');
+          return;
+        }
+
+        if (nextLiked && result.data?.match) {
+          Alert.alert("It's a match!");
+          const matchId = result.data.matchId;
+          if (matchId) {
+            navigation.push('message/messageScreen', { matchId });
+          }
+        }
+
+        setUsers((prev) =>
+          prev.map((item) =>
+            item.id === targetId ? { ...item, isFavorite: nextLiked } : item
+          )
+        );
+      } catch (error) {
+        console.error('Failed to update shortlist entry.', error);
+        Alert.alert('Action failed', 'Please try again later.');
+      } finally {
+        setLikingId(null);
+      }
+    },
+    [navigation]
+  );
 
   const renderCard = (item) => {
     if (!item) return <View style={styles.cardPlaceholder} />;
@@ -201,7 +241,7 @@ const HomeScreen = () => {
 
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => navigation.push('profileDetail/profileDetailScreen')}
+                onPress={() => openProfileDetail(item)}
                 style={styles.centerNameWrap}
               >
                 <Text numberOfLines={1} style={{ ...Fonts.whiteColor20Bold }}>
@@ -214,7 +254,7 @@ const HomeScreen = () => {
 
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => changeShortlist({ id: item.id })}
+                onPress={() => changeShortlist({ user: item })}
                 style={styles.closeAndShortlistIconWrapStyle}
                 disabled={likingId === item.id}
               >
