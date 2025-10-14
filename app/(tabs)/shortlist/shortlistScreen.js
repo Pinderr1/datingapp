@@ -4,7 +4,7 @@ import { Colors, Fonts, Sizes, screenWidth } from '../../../constants/styles'
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SwipeListView } from 'react-native-swipe-list-view';
 import { Snackbar } from 'react-native-paper';
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 const shortlistData = [
     {
@@ -54,7 +54,7 @@ Array(shortlistData.length + 1)
 
 const ShortlistScreen = () => {
 
-    const navigation = useNavigation();
+    const router = useRouter();
 
     const [showSnackBar, setShowSnackBar] = useState(false);
     const [listData, setListData] = useState(shortlistData);
@@ -121,7 +121,7 @@ const ShortlistScreen = () => {
             >
                 <TouchableOpacity
                     activeOpacity={0.7}
-                    onPress={() => { navigation.push('profileDetail/profileDetailScreen') }}
+                    onPress={() => { router.push('/profileDetail/profileDetailScreen') }}
                     key={`${data.item.key}`}
                     style={styles.shortlistDataWrapStyle}
                 >

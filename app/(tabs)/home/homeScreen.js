@@ -15,7 +15,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Swiper from 'react-native-deck-swiper';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Colors, Fonts, screenWidth, Sizes } from '../../../constants/styles';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { auth } from '../../../firebaseConfig';
@@ -24,7 +24,7 @@ import { fetchSwipeCandidates, likeUser } from '../../../services/userService';
 const PAGE_SIZE = 20;
 
 const HomeScreen = () => {
-  const navigation = useNavigation();
+  const router = useRouter();
 
   const [users, setUsers] = useState([]);
   const [nextCursor, setNextCursor] = useState(null);
@@ -132,7 +132,7 @@ const HomeScreen = () => {
         const matchId = result.data.matchId;
         if (matchId) {
           // Adjust route to your chat screen if different
-          navigation.push('message/messageScreen', { matchId });
+          router.push({ pathname: '/message/messageScreen', params: { matchId } });
         }
       }
     } finally {
@@ -201,7 +201,7 @@ const HomeScreen = () => {
 
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => navigation.push('profileDetail/profileDetailScreen')}
+                onPress={() => router.push('/profileDetail/profileDetailScreen')}
                 style={styles.centerNameWrap}
               >
                 <Text numberOfLines={1} style={{ ...Fonts.whiteColor20Bold }}>

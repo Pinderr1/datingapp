@@ -8,7 +8,7 @@ export async function handleLike({
   currentUser,
   targetUser,
   firestore,
-  navigation,
+  router,
   likesUsed = 0,
   isPremiumUser = false,
   devMode = false,
@@ -25,7 +25,9 @@ export async function handleLike({
   if (!targetUser) return false;
 
   if (likesUsed >= MAX_LIKES && !isPremiumUser && !devMode) {
-    navigation.navigate('PremiumPaywall', { context: 'paywall' });
+    if (router?.push) {
+      router.push({ pathname: '/premium/premiumScreen', params: { context: 'paywall' } });
+    }
     return false;
   }
 

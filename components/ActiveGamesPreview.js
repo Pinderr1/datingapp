@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import PropTypes from 'prop-types';
+import { useRouter } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { useGameSessions } from '../contexts/GameSessionContext';
 import { useChats } from '../contexts/ChatContext';
@@ -9,7 +9,8 @@ import { games } from '../games';
 import Card from './Card';
 import GradientButton from './GradientButton';
 
-export default function ActiveGamesPreview({ navigation }) {
+export default function ActiveGamesPreview() {
+  const router = useRouter();
   const { theme } = useTheme();
   const { sessions } = useGameSessions();
   const { matches } = useChats();
@@ -27,12 +28,15 @@ export default function ActiveGamesPreview({ navigation }) {
     return (
       <Card
         key={item.id}
-        onPress={() =>
-          navigation.navigate('GameSession', {
-            sessionId: item.id,
-            game: { id: item.gameId, title },
-            opponent: { id: otherId, displayName: name, photo: match?.image },
-          })
+        onPress={() => {
+          router.push({
+            pathname: '/games',
+            params: {
+              sessionId: item.id,
+              gameId: item.gameId,
+              opponentId: otherId,
+            },
+          });
         }
         style={[styles.card, { backgroundColor: theme.card }]}
       >
@@ -48,18 +52,14 @@ export default function ActiveGamesPreview({ navigation }) {
       {list.map(renderItem)}
       <GradientButton
         text="View All"
-        onPress={() => navigation.navigate('ActiveGames')}
+        onPress={() => {
+          router.push('/games');
+        }}
         style={{ alignSelf: 'center', width: 160, marginTop: 4 }}
       />
     </View>
   );
 }
-
-ActiveGamesPreview.propTypes = {
-  navigation: PropTypes.shape({
-    navigate: PropTypes.func.isRequired,
-  }).isRequired,
-};
 
 const getStyles = (theme) =>
   StyleSheet.create({

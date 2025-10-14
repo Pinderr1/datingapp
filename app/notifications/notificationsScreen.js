@@ -5,7 +5,7 @@ import { SwipeListView } from 'react-native-swipe-list-view';
 import { Snackbar } from 'react-native-paper';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons'
 import MyStatusBar from "../../components/myStatusBar";
-import { useNavigation } from "expo-router";
+import { useRouter } from "expo-router";
 
 const { width, height } = Dimensions.get('window');
 
@@ -59,7 +59,7 @@ const rowTranslateAnimatedValues = {};
 
 const NotificationsScreen = () => {
 
-    const navigation = useNavigation();
+    const router = useRouter();
 
     const [showSnackBar, setShowSnackBar] = useState(false);
     const [snackBarMsg, setSnackBarMsg] = useState('');
@@ -334,7 +334,7 @@ const NotificationsScreen = () => {
             <View style={{ margin: Sizes.fixPadding * 2.0, justifyContent: 'center' }}>
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => { navigation.pop() }}
+                    onPress={() => { router.back() }}
                     style={styles.backArrowIconWrapStyle}
                 >
                     <MaterialIcons name="arrow-back-ios" size={20} color={Colors.blackColor} style={{ left: 2.0, }} />

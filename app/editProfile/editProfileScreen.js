@@ -4,7 +4,7 @@ import { Colors, Fonts, screenHeight, screenWidth, Sizes, CommonStyles } from '.
 import { MaterialIcons } from '@expo/vector-icons'
 import { Dropdown } from 'react-native-element-dropdown';
 import MyStatusBar from '../../components/myStatusBar';
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useUser } from '../../context/userContext';
 import { auth, db } from '../../firebaseConfig';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
@@ -30,7 +30,7 @@ const agesList = [
 
 const EditProfileScreen = () => {
 
-    const navigation = useNavigation();
+    const router = useRouter();
     const { profile, setProfile } = useUser();
 
     if (!profile) {
@@ -99,7 +99,7 @@ const EditProfileScreen = () => {
                         if (userDoc.exists()) {
                             setProfile(userDoc.data());
                         }
-                        navigation.pop();
+                        router.back();
                     } catch (error) {
                         const friendlyMessage = error instanceof Error ? error.message : String(error);
                         Alert.alert('Update failed', friendlyMessage);
@@ -248,7 +248,7 @@ const EditProfileScreen = () => {
             <View style={{ margin: Sizes.fixPadding * 2.0, justifyContent: 'center' }}>
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => { navigation.pop() }}
+                    onPress={() => { router.back() }}
                     style={styles.backArrowIconWrapStyle}
                 >
                     <MaterialIcons name="arrow-back-ios" size={20} color={Colors.blackColor} style={{ left: 2.0, }} />

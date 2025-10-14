@@ -5,7 +5,7 @@ import { Colors, Sizes, Fonts, screenHeight, screenWidth, CommonStyles } from '.
 import { MaterialIcons } from '@expo/vector-icons'
 import { Snackbar } from 'react-native-paper';
 import MyStatusBar from '../../components/myStatusBar';
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 const usersInfoList = [
     'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse amet hac gravida nulla malesuada purus sed a. In sit quisque lectus nisi.',
@@ -16,7 +16,7 @@ const usersInfoList = [
 
 const ProfileDetailScreen = () => {
 
-    const navigation = useNavigation();
+    const router = useRouter();
 
     const [isFavorite, setisFavorite] = useState(false);
     const [showSnackBar, setshowSnackBar] = useState(false);
@@ -57,7 +57,7 @@ const ProfileDetailScreen = () => {
             <View style={styles.favoriteCloseAndChatButtonWrapStyle}>
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => { navigation.pop() }}
+                    onPress={() => { router.back() }}
                     style={styles.bottomButtonStyle}
                 >
                     <MaterialIcons name='close' color={Colors.primaryColor} size={22} />
@@ -76,7 +76,7 @@ const ProfileDetailScreen = () => {
                 <TouchableOpacity
                     activeOpacity={0.8}
                     style={styles.bottomButtonStyle}
-                    onPress={() => { navigation.push('message/messageScreen') }}
+                    onPress={() => { router.push('/message/messageScreen') }}
                 >
                     <Image
                         source={require('../../assets/images/icons/chat.png')}
@@ -101,7 +101,7 @@ const ProfileDetailScreen = () => {
             <View style={styles.headerWrapStyle}>
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => { navigation.pop() }}
+                    onPress={() => { router.back() }}
                     style={styles.headerIconWrapStyle}
                 >
                     <MaterialIcons name="arrow-back-ios" size={20} color={Colors.whiteColor} style={{ left: 2.0, }} />

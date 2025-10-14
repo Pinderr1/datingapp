@@ -3,7 +3,7 @@ import React from 'react'
 import { Colors, Fonts, screenWidth, Sizes } from '../../constants/styles'
 import { MaterialIcons } from '@expo/vector-icons'
 import MyStatusBar from '../../components/myStatusBar';
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 const profiles = [
     {
@@ -45,7 +45,7 @@ const profiles = [
 
 const ProfileViewsScreen = () => {
 
-    const navigation = useNavigation();
+    const router = useRouter();
 
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
@@ -61,7 +61,7 @@ const ProfileViewsScreen = () => {
         const renderItem = ({ item }) => (
             <TouchableOpacity
                 activeOpacity={0.7}
-                onPress={() => { navigation.push('profileDetail/profileDetailScreen') }}
+                onPress={() => { router.push('/profileDetail/profileDetailScreen') }}
                 key={`${item.id}`}
                 style={styles.searchResultWrapStyle}
             >
@@ -95,7 +95,7 @@ const ProfileViewsScreen = () => {
             <View style={{ margin: Sizes.fixPadding * 2.0, justifyContent: 'center' }}>
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => { navigation.pop() }}
+                    onPress={() => { router.back() }}
                     style={styles.backArrowIconWrapStyle}
                 >
                     <MaterialIcons name="arrow-back-ios" size={20} color={Colors.blackColor} style={{ left: 2.0, }} />

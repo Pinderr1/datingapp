@@ -19,7 +19,7 @@
       "<rootDir>/jest.setup.js"
     ],
     "transformIgnorePatterns": [
-      "node_modules/(?!((jest-)?react-native|@react-native|@react-navigation|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|@expo/vector-icons|expo-font|expo-asset|expo-constants|expo-router|@expo/.*|firebase/.*))"
+      "node_modules/(?!((jest-)?react-native|@react-native|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|@expo/vector-icons|expo-font|expo-asset|expo-constants|expo-router|@expo/.*|firebase/.*))"
     ],
     "moduleNameMapper": {
       "\\.(png|jpg|jpeg|gif|svg)$": "<rootDir>/__mocks__/fileMock.js"
@@ -30,8 +30,6 @@
     "@expo/vector-icons": "^15.0.2",
     "@miblanchard/react-native-slider": "^2.6.0",
     "@react-native-async-storage/async-storage": "2.2.0",
-    "@react-navigation/bottom-tabs": "^7.4.2",
-    "@react-navigation/native": "^7.1.14",
     "@react-spring/native": "^9.5.5",
     "expo": "54.0.13",
     "expo-blur": "*",

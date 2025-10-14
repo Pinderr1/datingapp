@@ -1,11 +1,11 @@
 import { useCallback } from 'react';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { useUser } from '../contexts/UserContext';
 import { useGameLimit } from '../contexts/GameLimitContext';
 import { useDev } from '../contexts/DevContext';
 
 export default function useRequireGameCredits() {
-  const navigation = useNavigation();
+  const router = useRouter();
   const { user } = useUser();
   const { gamesLeft } = useGameLimit();
   const { devMode } = useDev();
@@ -15,13 +15,13 @@ export default function useRequireGameCredits() {
   const requireCredits = useCallback(
     (opts = {}) => {
       if (!isPremiumUser && gamesLeft <= 0 && !devMode) {
-        const method = opts.replace ? 'replace' : 'navigate';
-        navigation[method]('Premium', { context: 'paywall' });
+        const action = opts.replace ? router.replace : router.push;
+        action({ pathname: '/premium/premiumScreen', params: { context: 'paywall' } });
         return false;
       }
       return true;
     },
-    [isPremiumUser, gamesLeft, devMode, navigation]
+    [isPremiumUser, gamesLeft, devMode, router]
   );
 
   return requireCredits;

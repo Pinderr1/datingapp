@@ -4,11 +4,11 @@ import { MaterialIcons } from '@expo/vector-icons'
 import { Colors, Fonts, Sizes, CommonStyles, screenWidth } from '../../constants/styles'
 import { OtpInput } from "react-native-otp-entry";
 import MyStatusBar from '../../components/myStatusBar';
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 const VerificationScreen = () => {
 
-    const navigation = useNavigation();
+    const router = useRouter();
 
     const [otpInput, setotpInput] = useState('');
     const [isLoading, setisLoading] = useState(false);
@@ -72,7 +72,7 @@ const VerificationScreen = () => {
                     setisLoading(true)
                     setTimeout(() => {
                         setisLoading(false)
-                        navigation.push('(tabs)')
+                        router.push('/(tabs)')
                     }, 2000);
                 }}
                 style={styles.buttonStyle}
@@ -106,7 +106,7 @@ const VerificationScreen = () => {
                         setisLoading(true)
                         setTimeout(() => {
                             setisLoading(false)
-                            navigation.push('(tabs)')
+                            router.push('/(tabs)')
                         }, 2000);
                     }
                 }}
@@ -142,7 +142,7 @@ const VerificationScreen = () => {
         return (
             <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => { navigation.pop() }}
+                onPress={() => { router.back() }}
                 style={styles.backArrowIconWrapStyle}
             >
                 <MaterialIcons name="arrow-back-ios" size={20} color={Colors.blackColor} style={{ left: 2.0, }} />

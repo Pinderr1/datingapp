@@ -1,8 +1,7 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useFocusEffect } from 'expo-router';
 import React, { useState, useCallback } from "react";
 import { BackHandler, Text, View, StyleSheet, Image, Pressable } from 'react-native'
 import { Colors, Sizes, Fonts } from "../../constants/styles";
-import { useFocusEffect } from '@react-navigation/native';
 import MyStatusBar from "../../components/myStatusBar";
 
 export default function TabLayout() {
