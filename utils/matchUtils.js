@@ -1,20 +1,20 @@
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import {
-  addDoc,
   collection,
   doc,
   getDoc,
   serverTimestamp,
   setDoc,
+  Timestamp,
 } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 import { icebreakers } from '../data/prompts';
 import { allGames } from '../data/games';
 
 export async function handleLike({
   currentUser,
   targetUser,
-  firestore,
   navigation,
   likesUsed = 0,
   isPremiumUser = false,
@@ -42,28 +42,45 @@ export async function handleLike({
   if (currentUser?.uid && targetUser.id && !devMode) {
     try {
       const likedRef = doc(
-        collection(firestore, 'likes', currentUser.uid, 'liked'),
+        collection(db, 'likes', currentUser.uid, 'liked'),
         targetUser.id
       );
       await setDoc(likedRef, { createdAt: serverTimestamp() });
 
       const likedByRef = doc(
-        collection(firestore, 'likes', targetUser.id, 'likedBy'),
+        collection(db, 'likes', targetUser.id, 'likedBy'),
         currentUser.uid
       );
       await setDoc(likedByRef, { createdAt: serverTimestamp() });
 
       const reciprocalRef = doc(
-        collection(firestore, 'likes', targetUser.id, 'liked'),
+        collection(db, 'likes', targetUser.id, 'liked'),
         currentUser.uid
       );
       const reciprocal = await getDoc(reciprocalRef);
 
       if (reciprocal.exists()) {
-        const matchRef = await addDoc(collection(firestore, 'matches'), {
-          users: [currentUser.uid, targetUser.id],
-          createdAt: serverTimestamp(),
-        });
+        const [firstUserId, secondUserId] = [
+          currentUser.uid,
+          targetUser.id,
+        ].sort();
+        const matchRef = doc(
+          db,
+          'matches',
+          `${firstUserId}_${secondUserId}`
+        );
+
+        const matchTimestamp = serverTimestamp();
+        await setDoc(
+          matchRef,
+          {
+            users: [firstUserId, secondUserId],
+            createdAt: matchTimestamp,
+            updatedAt: matchTimestamp,
+            matchedAt: matchTimestamp,
+          },
+          { merge: true }
+        );
 
         addMatch({
           id: matchRef.id,
@@ -71,7 +88,9 @@ export async function handleLike({
           age: targetUser.age,
           image: targetUser.images[0],
           messages: [],
-          matchedAt: 'now',
+          matchedAt: Timestamp.now(),
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
           activeGameId: null,
           pendingInvite: null,
         });
@@ -104,7 +123,9 @@ export async function handleLike({
       age: targetUser.age,
       image: targetUser.images[0],
       messages: [],
-      matchedAt: 'now',
+      matchedAt: Timestamp.now(),
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
       activeGameId: null,
       pendingInvite: null,
     });

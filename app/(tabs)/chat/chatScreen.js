@@ -39,10 +39,8 @@ const ChatScreen = () => {
                     const data = matchDoc.data() || {};
                     const users = Array.isArray(data.users) ? data.users : [];
                     const otherUserId = users.find((id) => id !== currentUserId) || currentUserId;
-                    const profiles = data.profiles && typeof data.profiles === 'object' ? data.profiles : {};
-                    const otherUserDataFromMatch = profiles?.[otherUserId] || null;
                     const cachedUserData = userProfileCacheRef.current.get(otherUserId) ?? null;
-                    const otherUserData = otherUserDataFromMatch || cachedUserData;
+                    const otherUserData = cachedUserData;
 
                     return {
                         id: matchDoc.id,
@@ -50,6 +48,8 @@ const ChatScreen = () => {
                         otherUserData,
                         otherUserName: otherUserData?.name || 'Unknown User',
                         matchedAt: data.matchedAt ?? null,
+                        createdAt: data.createdAt ?? null,
+                        updatedAt: data.updatedAt ?? null,
                     };
                 });
 
@@ -65,6 +65,8 @@ const ChatScreen = () => {
                             otherUserData: resolvedProfile,
                             otherUserName: resolvedProfile?.name || entry.otherUserName || previous?.otherUserName || 'Unknown User',
                             matchedAt: entry.matchedAt ?? previous?.matchedAt ?? null,
+                            createdAt: entry.createdAt ?? previous?.createdAt ?? null,
+                            updatedAt: entry.updatedAt ?? previous?.updatedAt ?? null,
                             lastMessage: previous?.lastMessage ?? '',
                             lastMessageCreatedAt: previous?.lastMessageCreatedAt ?? null,
                             lastMessageSenderId: previous?.lastMessageSenderId ?? null,
