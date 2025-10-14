@@ -1,128 +1,389 @@
-import TicTacToeClient, { Game as ticTacToeGame, Board as TicTacToeBoard, meta as ticTacToeMeta } from './tic-tac-toe';
-import RPSClient, { Game as rpsGame, Board as RPSBoard, meta as rpsMeta } from './rock-paper-scissors';
-import ConnectFourClient, { Game as connectFourGame, Board as ConnectFourBoard, meta as connectFourMeta } from './connect-four';
-import GomokuClient, { Game as gomokuGame, Board as GomokuBoard, meta as gomokuMeta } from './gomoku';
-import MemoryMatchClient, { Game as memoryMatchGame, Board as MemoryMatchBoard, meta as memoryMatchMeta } from './memory-match';
-import HangmanClient, { Game as hangmanGame, Board as HangmanBoard, meta as hangmanMeta } from './hangman';
-import MinesweeperClient, { Game as minesweeperGame, Board as MinesweeperBoard, meta as minesweeperMeta } from './minesweeper';
-import SudokuClient, { Game as sudokuGame, Board as SudokuBoard, meta as sudokuMeta } from './sudoku';
-import GuessNumberClient, { Game as guessNumberGame, Board as GuessNumberBoard, meta as guessNumberMeta } from './guess-number';
-import BattleshipClient, { Game as battleshipGame, Board as BattleshipBoard, meta as battleshipMeta } from './battleship';
-import CheckersClient, { Game as checkersGame, Board as CheckersBoard, meta as checkersMeta } from './checkers';
-import DominoesClient, { Game as dominoesGame, Board as DominoesBoard, meta as dominoesMeta } from './dominoes';
-import DotsBoxesClient, { Game as dotsBoxesGame, Board as DotsBoxesBoard, meta as dotsBoxesMeta } from './dots-and-boxes';
-import SnakesLaddersClient, { Game as snakesLaddersGame, Board as SnakesLaddersBoard, meta as snakesLaddersMeta } from './snakes-and-ladders';
-import MancalaClient, { Game as mancalaGame, Board as MancalaBoard, meta as mancalaMeta } from './mancala';
-import BlackjackClient, { Game as blackjackGame, Board as BlackjackBoard, meta as blackjackMeta } from './blackjack';
-import NimClient, { Game as nimGame, Board as NimBoard, meta as nimMeta } from './nim';
-import PigClient, { Game as pigGame, Board as PigBoard, meta as pigMeta } from './pig';
-import CoinTossClient, { Game as coinTossGame, Board as CoinTossBoard, meta as coinTossMeta } from './coin-toss';
-import FlirtyQuestionsClient, { Game as flirtyQuestionsGame, Board as FlirtyQuestionsBoard, meta as flirtyQuestionsMeta } from './flirty-questions';
+import React, { useCallback, useMemo } from 'react';
+import {
+  ScrollView,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+} from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export const games = {
-  [ticTacToeMeta.id]: {
-    Client: TicTacToeClient,
-    Game: ticTacToeGame,
-    Board: TicTacToeBoard,
-    meta: ticTacToeMeta,
-  },
-  [rpsMeta.id]: { Client: RPSClient, Game: rpsGame, Board: RPSBoard, meta: rpsMeta },
-  [connectFourMeta.id]: {
-    Client: ConnectFourClient,
-    Game: connectFourGame,
-    Board: ConnectFourBoard,
-    meta: connectFourMeta,
-  },
-  [gomokuMeta.id]: { Client: GomokuClient, Game: gomokuGame, Board: GomokuBoard, meta: gomokuMeta },
-  [memoryMatchMeta.id]: {
-    Client: MemoryMatchClient,
-    Game: memoryMatchGame,
-    Board: MemoryMatchBoard,
-    meta: memoryMatchMeta,
-  },
-  [hangmanMeta.id]: { Client: HangmanClient, Game: hangmanGame, Board: HangmanBoard, meta: hangmanMeta },
-  [minesweeperMeta.id]: {
-    Client: MinesweeperClient,
-    Game: minesweeperGame,
-    Board: MinesweeperBoard,
-    meta: minesweeperMeta,
-  },
-  [sudokuMeta.id]: { Client: SudokuClient, Game: sudokuGame, Board: SudokuBoard, meta: sudokuMeta },
-  [guessNumberMeta.id]: {
-    Client: GuessNumberClient,
-    Game: guessNumberGame,
-    Board: GuessNumberBoard,
-    meta: guessNumberMeta,
-  },
-  [checkersMeta.id]: {
-    Client: CheckersClient,
-    Game: checkersGame,
-    Board: CheckersBoard,
-    meta: checkersMeta,
-  },
-  [dominoesMeta.id]: {
-    Client: DominoesClient,
-    Game: dominoesGame,
-    Board: DominoesBoard,
-    meta: dominoesMeta,
-  },
-  [battleshipMeta.id]: {
-    Client: BattleshipClient,
-    Game: battleshipGame,
-    Board: BattleshipBoard,
-    meta: battleshipMeta,
-  },
-  [dotsBoxesMeta.id]: {
-    Client: DotsBoxesClient,
-    Game: dotsBoxesGame,
-    Board: DotsBoxesBoard,
-    meta: dotsBoxesMeta,
-  },
-  [mancalaMeta.id]: {
-    Client: MancalaClient,
-    Game: mancalaGame,
-    Board: MancalaBoard,
-    meta: mancalaMeta,
-  },
-  [snakesLaddersMeta.id]: {
-    Client: SnakesLaddersClient,
-    Game: snakesLaddersGame,
-    Board: SnakesLaddersBoard,
-    meta: snakesLaddersMeta,
-  },
-  [blackjackMeta.id]: {
-    Client: BlackjackClient,
-    Game: blackjackGame,
-    Board: BlackjackBoard,
-    meta: blackjackMeta,
-  },
-  [nimMeta.id]: {
-    Client: NimClient,
-    Game: nimGame,
-    Board: NimBoard,
-    meta: nimMeta,
-  },
-  [pigMeta.id]: {
-    Client: PigClient,
-    Game: pigGame,
-    Board: PigBoard,
-    meta: pigMeta,
-  },
-  [flirtyQuestionsMeta.id]: {
-    Client: FlirtyQuestionsClient,
-    Game: flirtyQuestionsGame,
-    Board: FlirtyQuestionsBoard,
-    meta: flirtyQuestionsMeta,
-  },
-  [coinTossMeta.id]: {
-    Client: CoinTossClient,
-    Game: coinTossGame,
-    Board: CoinTossBoard,
-    meta: coinTossMeta,
-  },
+import { useTheme } from '../../contexts/ThemeContext';
+import { useGameSessions } from '../../contexts/GameSessionContext';
+import { useChats } from '../../contexts/ChatContext';
+import { useUser } from '../../contexts/UserContext';
+import SyncedGame from '../../components/SyncedGame';
+import GradientButton from '../../components/GradientButton';
+import { SPACING } from '../../layout';
+import { games, gameList } from './registry';
+
+const paramToString = (value) => {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) return value[0];
+  return undefined;
 };
 
-export const gameList = Object.values(games).map(({ meta }) => ({
-  id: meta.id,
-  title: meta.title,
-}));
+export default function GamesRoute() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
+  const { theme, darkMode } = useTheme();
+  const { sessions = [] } = useGameSessions();
+  const { matches = [] } = useChats();
+  const { user } = useUser();
+
+  const sessionId = paramToString(params.sessionId);
+  const paramGameId = paramToString(params.gameId);
+  const paramOpponentId = paramToString(params.opponentId);
+
+  const session = useMemo(
+    () => sessions.find((item) => item?.id === sessionId),
+    [sessions, sessionId]
+  );
+  const resolvedGameId = session?.gameId || paramGameId;
+  const gameEntry = resolvedGameId ? games[resolvedGameId] : undefined;
+
+  const opponent = useMemo(() => {
+    const players = Array.isArray(session?.players) ? session.players : [];
+    const sessionOpponent = players.find((p) => p && p !== user?.uid);
+    const opponentId = paramOpponentId || sessionOpponent;
+    if (!opponentId) return undefined;
+    const match = matches.find((m) => m.otherUserId === opponentId);
+    return {
+      id: opponentId,
+      displayName: match?.displayName || 'Opponent',
+    };
+  }, [matches, paramOpponentId, session?.players, user?.uid]);
+
+  const handleBackToCatalog = useCallback(() => {
+    router.replace('/games');
+  }, [router]);
+
+  const openSession = useCallback(
+    (target) => {
+      router.replace({
+        pathname: '/games',
+        params: {
+          sessionId: target.id,
+          gameId: target.gameId,
+          ...(target.opponentId ? { opponentId: target.opponentId } : {}),
+        },
+      });
+    },
+    [router]
+  );
+
+  const handleSelectGame = useCallback(
+    (id) => {
+      router.replace({ pathname: '/games', params: { gameId: id } });
+    },
+    [router]
+  );
+
+  const activeSessions = useMemo(() => {
+    if (!Array.isArray(sessions)) return [];
+    return sessions
+      .map((item) => {
+        const entry = games[item.gameId];
+        if (!entry) return null;
+        const players = Array.isArray(item.players) ? item.players : [];
+        const youIndex = user?.uid ? players.indexOf(user.uid) : -1;
+        const opponentId = players.find((pid) => pid && pid !== user?.uid);
+        const match = opponentId ? matches.find((m) => m.otherUserId === opponentId) : undefined;
+        return {
+          id: item.id,
+          gameId: item.gameId,
+          title: entry.meta?.title ?? entry.meta?.id ?? 'Game',
+          opponentId,
+          opponentName: match?.displayName || 'Opponent',
+          isYourTurn: youIndex >= 0 && String(youIndex) === String(item.currentPlayer),
+        };
+      })
+      .filter(Boolean);
+  }, [sessions, matches, user?.uid]);
+
+  const activeIds = useMemo(
+    () => new Set(activeSessions.map((session) => session.gameId)),
+    [activeSessions]
+  );
+
+  const backgroundColor = darkMode ? '#0F172A' : '#F3F4F6';
+  const topOffset = insets.top + SPACING.LG;
+  const bottomOffset = insets.bottom + SPACING.XL;
+  const selectedGameId = resolvedGameId || paramGameId;
+
+  if (sessionId && resolvedGameId && gameEntry) {
+    return (
+      <View style={styles.gameScreen}>
+        <SyncedGame
+          sessionId={sessionId}
+          gameId={resolvedGameId}
+          opponent={opponent}
+          onGameEnd={handleBackToCatalog}
+        />
+        <View
+          style={[
+            styles.gameOverlayTop,
+            {
+              top: topOffset,
+              backgroundColor: theme.headerBackground,
+            },
+          ]}
+        >
+          <TouchableOpacity onPress={handleBackToCatalog} style={styles.backPill}>
+            <Text style={[styles.backText, { color: theme.text }]}>Back</Text>
+          </TouchableOpacity>
+          <View style={styles.overlayTitles}>
+            <Text style={[styles.overlayTitle, { color: theme.text }]}>
+              {gameEntry.meta?.title || 'Game'}
+            </Text>
+            {opponent?.displayName && (
+              <Text style={[styles.overlaySubtitle, { color: theme.textSecondary }]}>
+                vs {opponent.displayName}
+              </Text>
+            )}
+          </View>
+        </View>
+        <View
+          style={[
+            styles.gameOverlayBottom,
+            {
+              bottom: bottomOffset,
+            },
+          ]}
+        >
+          <GradientButton text="Back to catalog" onPress={handleBackToCatalog} />
+        </View>
+      </View>
+    );
+  }
+
+  if (sessionId && resolvedGameId && !gameEntry) {
+    return (
+      <View style={[styles.fallbackScreen, { backgroundColor }]}>
+        <Text style={[styles.fallbackTitle, { color: theme.text }]}>Game unavailable</Text>
+        <Text style={[styles.fallbackMessage, { color: theme.textSecondary }]}>
+          We couldn't find the game for this session. Please return to the catalog and try again.
+        </Text>
+        <GradientButton text="Back to catalog" onPress={handleBackToCatalog} width="70%" />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={[styles.screen, { backgroundColor }]}
+      contentContainerStyle={styles.content}
+    >
+      <View style={styles.headerBlock}>
+        <Text style={[styles.heading, { color: theme.text }]}>Arcade Lobby</Text>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+          Continue an active match or browse the catalog to plan your next game night.
+        </Text>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={[styles.sectionHeading, { color: theme.text }]}>Active games</Text>
+        {activeSessions.length === 0 ? (
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+            No active games yet. Challenge a match from your chats to get started!
+          </Text>
+        ) : (
+          activeSessions.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={[styles.sessionCard, { backgroundColor: theme.card }]}
+              activeOpacity={0.9}
+              onPress={() => openSession(item)}
+            >
+              <Text style={[styles.sessionTitle, { color: theme.text }]}>{item.title}</Text>
+              <Text style={[styles.sessionOpponent, { color: theme.textSecondary }]}>
+                vs {item.opponentName}
+              </Text>
+              <Text style={[styles.sessionStatus, { color: item.isYourTurn ? theme.accent : theme.textSecondary }]}
+              >
+                {item.isYourTurn ? 'Your turn' : 'Waiting for opponent'}
+              </Text>
+            </TouchableOpacity>
+          ))
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={[styles.sectionHeading, { color: theme.text }]}>Game catalog</Text>
+        <View style={styles.gameGrid}>
+          {gameList.map((item) => {
+            const isActive = activeIds.has(item.id);
+            const isSelected = item.id === selectedGameId;
+            return (
+              <TouchableOpacity
+                key={item.id}
+                style={[
+                  styles.gameCard,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: isSelected ? theme.accent : 'transparent',
+                  },
+                ]}
+                activeOpacity={0.9}
+                onPress={() => handleSelectGame(item.id)}
+              >
+                <Text style={[styles.gameTitle, { color: theme.text }]}>{item.title}</Text>
+                <Text style={[styles.gameMeta, { color: theme.textSecondary }]}>
+                  {isActive
+                    ? 'You have an active match—select it above to continue.'
+                    : 'Create a new session from a chat to start playing.'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
+  content: {
+    paddingHorizontal: SPACING.LG,
+    paddingBottom: SPACING.XXL,
+  },
+  headerBlock: {
+    paddingTop: SPACING.XL,
+    paddingBottom: SPACING.LG,
+  },
+  heading: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: SPACING.SM,
+  },
+  subtitle: {
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  section: {
+    marginBottom: SPACING.XL,
+  },
+  sectionHeading: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: SPACING.MD,
+  },
+  sessionCard: {
+    borderRadius: 18,
+    padding: SPACING.LG,
+    marginBottom: SPACING.MD,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  sessionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  sessionOpponent: {
+    marginTop: SPACING.SM,
+    fontSize: 14,
+  },
+  sessionStatus: {
+    marginTop: SPACING.SM,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyText: {
+    fontSize: 14,
+    fontStyle: 'italic',
+  },
+  gameGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -SPACING.SM,
+  },
+  gameCard: {
+    width: '48%',
+    borderRadius: 20,
+    padding: SPACING.LG,
+    marginHorizontal: SPACING.SM,
+    marginBottom: SPACING.LG,
+    borderWidth: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  gameTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: SPACING.SM,
+  },
+  gameMeta: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  gameScreen: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  gameOverlayTop: {
+    position: 'absolute',
+    left: SPACING.LG,
+    right: SPACING.LG,
+    borderRadius: 20,
+    paddingHorizontal: SPACING.LG,
+    paddingVertical: SPACING.MD,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backPill: {
+    paddingHorizontal: SPACING.MD,
+    paddingVertical: SPACING.SM,
+    borderRadius: 999,
+    backgroundColor: '#00000020',
+  },
+  backText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  overlayTitles: {
+    flex: 1,
+    marginLeft: SPACING.MD,
+  },
+  overlayTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  overlaySubtitle: {
+    fontSize: 14,
+    marginTop: 2,
+  },
+  gameOverlayBottom: {
+    position: 'absolute',
+    left: SPACING.LG,
+    right: SPACING.LG,
+  },
+  fallbackScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.XL,
+  },
+  fallbackTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: SPACING.MD,
+  },
+  fallbackMessage: {
+    fontSize: 15,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: SPACING.XL,
+  },
+});
