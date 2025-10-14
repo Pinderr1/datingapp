@@ -150,7 +150,10 @@ service cloud.firestore {
     }
 
     match /matches/{matchId} {
-      allow get, list: if isMatchParticipant(resource.data.users);
+      allow get: if isMatchParticipant(resource.data.users);
+      allow list: if request.auth != null &&
+                   request.query != null &&
+                   request.query.where('users', 'array-contains', request.auth.uid) == request.query;
 
       allow create: if isSignedIn() &&
                     request.resource.data.keys().hasOnly(['users','createdAt','updatedAt','matchedAt','lastMessage']) &&
