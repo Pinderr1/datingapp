@@ -1,8 +1,9 @@
-import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView } from 'react-native'
+import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native'
 import React from 'react'
 import { Colors, Fonts, screenWidth, Sizes, CommonStyles } from '../../../constants/styles'
 import { Feather } from '@expo/vector-icons'
 import { useNavigation } from 'expo-router';
+import { useUser } from '../../../context/userContext';
 
 const weeklyActivityList = [
     {
@@ -45,6 +46,9 @@ const weeklyActivityList = [
 const ProfileScreen = () => {
 
     const navigation = useNavigation();
+    const { profile } = useUser() ?? {};
+    const isLoadingProfile = profile === undefined;
+    const hasProfile = !!profile;
 
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
@@ -55,12 +59,40 @@ const ProfileScreen = () => {
                     contentContainerStyle={{ paddingBottom: Sizes.fixPadding * 3.0 }}
                 >
                     {profileInfo()}
-                    {upgradePlaneButton()}
-                    {weeklyActivityInfo()}
+                    {isLoadingProfile && loadingState()}
+                    {!isLoadingProfile && !hasProfile && emptyState()}
+                    {hasProfile && (
+                        <>
+                            {upgradePlaneButton()}
+                            {weeklyActivityInfo()}
+                        </>
+                    )}
                 </ScrollView>
             </View>
         </View>
     )
+
+    function loadingState() {
+        return (
+            <View style={styles.stateContainer}>
+                <ActivityIndicator color={Colors.primaryColor} size="small" />
+                <Text style={{ ...Fonts.grayColor15Regular, marginTop: Sizes.fixPadding }}>
+                    Loading your profile...
+                </Text>
+            </View>
+        );
+    }
+
+    function emptyState() {
+        return (
+            <View style={styles.stateContainer}>
+                <Text style={{ ...Fonts.grayColor15Regular, textAlign: 'center' }}>
+                    No profile data found. Please sign in or complete your profile to see premium
+                    recommendations and weekly activity.
+                </Text>
+            </View>
+        );
+    }
 
     function weeklyActivityInfo() {
         return (
@@ -104,22 +136,40 @@ const ProfileScreen = () => {
     }
 
     function profileInfo() {
+        const photoSource = profile?.photoURL
+            ? { uri: profile.photoURL }
+            : require('../../../assets/images/users/user17.png');
+        const displayName = profile?.name
+            ? profile.name
+            : (isLoadingProfile ? 'Loading name...' : 'Name unavailable');
+        const ageText = profile?.age ? `, ${profile.age}` : '';
+        const locationText = profile?.location
+            ? profile.location
+            : (isLoadingProfile ? 'Fetching location...' : 'Location unavailable');
+
         return (
             <View style={{ alignItems: 'center', marginHorizontal: Sizes.fixPadding * 2.0, marginTop: Sizes.fixPadding }}>
                 <Image
-                    source={require('../../../assets/images/users/user17.png')}
+                    source={photoSource}
                     style={{ width: screenWidth / 3.0, height: screenWidth / 3.0, borderRadius: (screenWidth / 3.0) / 2.0 }}
                 />
                 <View style={{ marginTop: Sizes.fixPadding + 5.0, alignItems: 'center' }}>
                     <Text style={{ textAlign: 'center', ...Fonts.blackColor17Bold }}>
-                        Joseph Reese, 28
+                        {`${displayName}${ageText}`}
                     </Text>
                     <Text style={{ textAlign: 'center', ...Fonts.grayColor15Regular, marginTop: Sizes.fixPadding - 5.0 }}>
-                        Irvine, California
+                        {locationText}
                     </Text>
                 </View>
-                <Text style={{ marginTop: Sizes.fixPadding * 3.0, ...Fonts.primaryColor16Medium, textDecorationLine: 'underline' }}>
-                    View Profile
+                <Text
+                    style={{
+                        marginTop: Sizes.fixPadding * 3.0,
+                        ...Fonts.primaryColor16Medium,
+                        textDecorationLine: hasProfile ? 'underline' : 'none',
+                        color: hasProfile ? Colors.primaryColor : Colors.grayColor,
+                    }}
+                >
+                    {hasProfile ? 'View Profile' : isLoadingProfile ? 'Preparing profile...' : 'Profile unavailable'}
                 </Text>
             </View>
         )
@@ -194,5 +244,10 @@ const styles = StyleSheet.create({
         width: 6.0,
         backgroundColor: Colors.primaryColor,
         borderRadius: Sizes.fixPadding
+    },
+    stateContainer: {
+        marginHorizontal: Sizes.fixPadding * 2.0,
+        marginTop: Sizes.fixPadding * 2.0,
+        alignItems: 'center',
     }
 })
