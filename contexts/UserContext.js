@@ -30,10 +30,12 @@ export const UserProvider = ({ children }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (authUser) => {
-      setFirebaseUser(authUser);
-      if (!authUser) {
+      if (authUser) {
+        setProfile(undefined);
+      } else {
         setProfile(null);
       }
+      setFirebaseUser(authUser);
     });
     return unsubscribe;
   }, []);
@@ -48,7 +50,6 @@ export const UserProvider = ({ children }) => {
       };
     }
     setLoading(true);
-    setProfile((prev) => (prev === undefined ? undefined : prev));
     fetchProfile(uid)
       .then((data) => {
         if (!isActive) return;
