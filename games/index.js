@@ -1,1 +1,1 @@
-export * from '../app/games';
+export * from '../app/games/registry';
