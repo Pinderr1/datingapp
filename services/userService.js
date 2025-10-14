@@ -8,6 +8,7 @@ import {
   limit as limitQuery,
   startAfter as startAfterConstraint,
   getDocs,
+  getDoc,
   addDoc,
   setDoc,
   updateDoc,
@@ -124,6 +125,101 @@ export async function likeUser({ targetUserId, liked }) {
   } catch (e) {
     console.error('Failed to update like.', e);
     return failure('like-user-failed', 'Failed to update like. Please try again later.');
+  }
+}
+
+/** Fetch profiles the current user has liked (shortlist). */
+export async function fetchLikedProfiles() {
+  const authResult = await ensureAuth();
+  if (!authResult.ok) return authResult;
+
+  const { data: { user } } = authResult;
+  const currentUserId = user?.uid;
+
+  if (!currentUserId) {
+    return failure(
+      'fetch-liked-profiles-failed',
+      'You must be signed in to view your shortlist.'
+    );
+  }
+
+  try {
+    const outgoingLikesRef = collection(db, 'likes', currentUserId, 'outgoing');
+    const likesQuery = query(outgoingLikesRef, where('liked', '==', true));
+    const snapshot = await getDocs(likesQuery);
+
+    if (snapshot.empty) {
+      return success({ users: [] });
+    }
+
+    const likes = snapshot.docs.map((docSnap) => {
+      const likeData = docSnap.data() ?? {};
+      return {
+        targetUserId: docSnap.id,
+        metadata: {
+          liked: likeData.liked ?? true,
+          createdAt: likeData.createdAt ?? null,
+          updatedAt: likeData.updatedAt ?? null,
+        },
+      };
+    });
+
+    const toMillis = (value) => {
+      if (!value) return 0;
+      if (typeof value.toMillis === 'function') return value.toMillis();
+      if (typeof value === 'number') return value;
+      if (typeof value === 'object' && typeof value.seconds === 'number') {
+        const nanos = typeof value.nanoseconds === 'number' ? value.nanoseconds : 0;
+        return value.seconds * 1000 + Math.floor(nanos / 1e6);
+      }
+      return 0;
+    };
+
+    likes.sort((a, b) => {
+      const aTime = toMillis(a.metadata.updatedAt) || toMillis(a.metadata.createdAt);
+      const bTime = toMillis(b.metadata.updatedAt) || toMillis(b.metadata.createdAt);
+      return bTime - aTime;
+    });
+
+    const profiles = await Promise.all(
+      likes.map(async ({ targetUserId }) => {
+        try {
+          const userRef = doc(db, 'users', targetUserId);
+          const userSnap = await getDoc(userRef);
+          if (!userSnap.exists()) return null;
+          const profileData = userSnap.data() ?? {};
+          return { id: userSnap.id, ...profileData };
+        } catch (error) {
+          console.error(`Failed to fetch user profile for like ${targetUserId}.`, error);
+          return null;
+        }
+      })
+    );
+
+    const users = [];
+    likes.forEach((like, index) => {
+      const profile = profiles[index];
+      if (!profile) return;
+      users.push({
+        ...profile,
+        id: profile.id ?? like.targetUserId,
+        isFavorite: true,
+        like: {
+          targetUserId: like.targetUserId,
+          liked: true,
+          createdAt: like.metadata.createdAt,
+          updatedAt: like.metadata.updatedAt,
+        },
+      });
+    });
+
+    return success({ users });
+  } catch (error) {
+    console.error('Failed to load liked profiles.', error);
+    return failure(
+      'fetch-liked-profiles-failed',
+      'We were unable to load your shortlist. Please try again in a moment.'
+    );
   }
 }
 
