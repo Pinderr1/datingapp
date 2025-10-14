@@ -4,7 +4,16 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { AppState, LogBox } from 'react-native';
-import { UserProvider } from '../context/userContext';
+import { UserProvider } from '../contexts/UserContext';
+import { ThemeProvider } from '../contexts/ThemeContext';
+import { SoundProvider } from '../contexts/SoundContext';
+import { DevProvider } from '../contexts/DevContext';
+import { NotificationProvider } from '../contexts/NotificationContext';
+import { LoadingProvider } from '../contexts/LoadingContext';
+import { ChatProvider } from '../contexts/ChatContext';
+import { GameSessionProvider } from '../contexts/GameSessionContext';
+import { GameLimitProvider } from '../contexts/GameLimitContext';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 LogBox.ignoreAllLogs();
 
@@ -75,28 +84,45 @@ export default function RootLayout() {
   }
 
   return (
-    <UserProvider>
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, animation: 'ios_from_right' }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="auth/loginScreen" options={{ gestureEnabled: false }} />
-        <Stack.Screen name="auth/registerScreen" />
-        <Stack.Screen name="auth/verificationScreen" />
-        <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
-        <Stack.Screen name="filter/filterScreen" />
-        <Stack.Screen name="searchResults/searchResultsScreen" />
-        <Stack.Screen name="profileDetail/profileDetailScreen" />
-        <Stack.Screen name="message/messageScreen" />
-        <Stack.Screen name="editProfile/editProfileScreen" />
-        <Stack.Screen name="premium/premiumScreen" />
-        <Stack.Screen name="paymentMethod/paymentMethodScreen" />
-        <Stack.Screen name="paymentDone/paymentDoneScreen" options={{ gestureEnabled: false }} />
-        <Stack.Screen name="settings/settingsScreen" />
-        <Stack.Screen name="profileViews/profileViewsScreen" />
-        <Stack.Screen name="notifications/notificationsScreen" />
-        <Stack.Screen name="contactUs/contactUsScreen" />
-        <Stack.Screen name="termsAndCondition/termsAndConditionScreen" />
-      </Stack>
-    </UserProvider>
+    <DevProvider>
+      <ThemeProvider>
+        <SoundProvider>
+          <NotificationProvider>
+            <LoadingProvider>
+              <UserProvider>
+                <ChatProvider>
+                  <GameSessionProvider>
+                    <GameLimitProvider>
+                      <StatusBar style="light" />
+                      <LoadingOverlay />
+                      <Stack screenOptions={{ headerShown: false, animation: 'ios_from_right' }}>
+                        <Stack.Screen name="index" />
+                        <Stack.Screen name="auth/loginScreen" options={{ gestureEnabled: false }} />
+                        <Stack.Screen name="auth/registerScreen" />
+                        <Stack.Screen name="auth/verificationScreen" />
+                        <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
+                        <Stack.Screen name="filter/filterScreen" />
+                        <Stack.Screen name="searchResults/searchResultsScreen" />
+                        <Stack.Screen name="profileDetail/profileDetailScreen" />
+                        <Stack.Screen name="message/messageScreen" />
+                        <Stack.Screen name="editProfile/editProfileScreen" />
+                        <Stack.Screen name="premium/premiumScreen" />
+                        <Stack.Screen name="paymentMethod/paymentMethodScreen" />
+                        <Stack.Screen name="paymentDone/paymentDoneScreen" options={{ gestureEnabled: false }} />
+                        <Stack.Screen name="settings/settingsScreen" />
+                        <Stack.Screen name="profileViews/profileViewsScreen" />
+                        <Stack.Screen name="notifications/notificationsScreen" />
+                        <Stack.Screen name="contactUs/contactUsScreen" />
+                        <Stack.Screen name="termsAndCondition/termsAndConditionScreen" />
+                      </Stack>
+                    </GameLimitProvider>
+                  </GameSessionProvider>
+                </ChatProvider>
+              </UserProvider>
+            </LoadingProvider>
+          </NotificationProvider>
+        </SoundProvider>
+      </ThemeProvider>
+    </DevProvider>
   );
 }

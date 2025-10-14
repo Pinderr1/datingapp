@@ -3,7 +3,7 @@ import React from 'react'
 import { Colors, Fonts, screenWidth, Sizes, CommonStyles } from '../../../constants/styles'
 import { Feather } from '@expo/vector-icons'
 import { useNavigation } from 'expo-router';
-import { useUser } from '../../../context/userContext';
+import { useUser } from '../../../contexts/UserContext';
 
 const weeklyActivityList = [
     {
