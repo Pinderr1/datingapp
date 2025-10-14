@@ -20,6 +20,39 @@ export const UserProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [refreshIndex, setRefreshIndex] = useState(0);
 
+  const setProfileWithUid = useCallback(
+    (nextProfile) => {
+      setProfile((previousProfile) => {
+        const resolvedNext =
+          typeof nextProfile === 'function'
+            ? nextProfile(previousProfile)
+            : nextProfile;
+
+        if (resolvedNext === null || resolvedNext === undefined) {
+          return resolvedNext;
+        }
+
+        const previousData =
+          previousProfile && typeof previousProfile === 'object'
+            ? previousProfile
+            : {};
+        const nextData =
+          resolvedNext && typeof resolvedNext === 'object' ? resolvedNext : {};
+
+        const mergedProfile = { ...previousData, ...nextData };
+        const uid =
+          mergedProfile.uid ?? previousData.uid ?? firebaseUser?.uid ?? undefined;
+
+        if (uid) {
+          mergedProfile.uid = uid;
+        }
+
+        return mergedProfile;
+      });
+    },
+    [firebaseUser?.uid]
+  );
+
   const fetchProfile = useCallback(async (uid) => {
     const userDoc = await getDoc(doc(db, 'users', uid));
     if (userDoc.exists()) {
@@ -32,11 +65,11 @@ export const UserProvider = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, (authUser) => {
       setFirebaseUser(authUser);
       if (!authUser) {
-        setProfile(null);
+        setProfileWithUid(null);
       }
     });
     return unsubscribe;
-  }, []);
+  }, [setProfileWithUid]);
 
   useEffect(() => {
     let isActive = true;
@@ -48,16 +81,16 @@ export const UserProvider = ({ children }) => {
       };
     }
     setLoading(true);
-    setProfile((prev) => (prev === undefined ? undefined : prev));
+    setProfileWithUid((prev) => (prev === undefined ? undefined : prev));
     fetchProfile(uid)
       .then((data) => {
         if (!isActive) return;
-        setProfile(data);
+        setProfileWithUid(data);
       })
       .catch((error) => {
         if (!isActive) return;
         console.error('Error fetching user profile:', error);
-        setProfile({ uid });
+        setProfileWithUid({ uid });
       })
       .finally(() => {
         if (isActive) {
@@ -68,33 +101,33 @@ export const UserProvider = ({ children }) => {
     return () => {
       isActive = false;
     };
-  }, [firebaseUser?.uid, fetchProfile, refreshIndex]);
+  }, [firebaseUser?.uid, fetchProfile, refreshIndex, setProfileWithUid]);
 
   const refreshUser = useCallback(() => {
     setRefreshIndex((index) => index + 1);
   }, []);
 
   const updateUser = useCallback((updates) => {
-    setProfile((prev) => {
+    setProfileWithUid((prev) => {
       if (!prev) {
         return updates;
       }
       return { ...prev, ...updates };
     });
-  }, []);
+  }, [setProfileWithUid]);
 
   const value = useMemo(
     () => ({
       user: profile,
       profile,
       loading,
-      setProfile,
+      setProfile: setProfileWithUid,
       updateUser,
       refreshUser,
       firebaseUser,
       isAuthenticated: !!firebaseUser,
     }),
-    [profile, loading, updateUser, refreshUser, firebaseUser]
+    [profile, loading, updateUser, refreshUser, firebaseUser, setProfileWithUid]
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
