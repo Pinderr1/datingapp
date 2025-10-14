@@ -22,7 +22,14 @@ import { useDev } from '../contexts/DevContext';
 import { useGameLimit } from '../contexts/GameLimitContext';
 import { HEADER_SPACING } from '../../layout';
 import { useUser } from '../contexts/UserContext';
-import firebase from '../firebase';
+import { db } from '../firebaseConfig';
+import {
+  doc,
+  getDoc,
+  onSnapshot,
+  serverTimestamp,
+  updateDoc,
+} from 'firebase/firestore';
 import * as Haptics from 'expo-haptics';
 import getGlobalStyles from '../../styles';
 import { games } from '../games';
@@ -158,14 +165,18 @@ const LiveSessionScreen = ({ params, router }) => {
 
   // Listen for Firestore invite status
   useEffect(() => {
-    if (!inviteId || !user?.uid) return;
-    const ref = firebase.firestore().collection('gameInvites').doc(inviteId);
-    const unsub = ref.onSnapshot((snap) => {
-      if (snapshotExists(snap)) {
-        const data = snap.data();
-        if (data.from === user.uid || data.to === user.uid) {
-          setInviteStatus(data.status);
-        }
+    if (!inviteId || !user?.uid) return undefined;
+    const ref = doc(db, 'games', inviteId);
+    const unsub = onSnapshot(ref, (snap) => {
+      if (!snapshotExists(snap)) return;
+      const data = snap.data();
+      const participants = Array.isArray(data?.users)
+        ? data.users
+        : Array.isArray(data?.players)
+        ? data.players
+        : [];
+      if (participants.includes(user.uid)) {
+        setInviteStatus(data?.status || 'waiting');
       }
     });
     return unsub;
@@ -220,14 +231,36 @@ const LiveSessionScreen = ({ params, router }) => {
           await createMatchIfMissing(user.uid, opponent.id);
         }
         if (inviteId && user?.uid) {
-          const ref = firebase.firestore().collection('gameInvites').doc(inviteId);
-          const snap = await ref.get();
+          const ref = doc(db, 'games', inviteId);
+          const snap = await getDoc(ref);
+          if (!snapshotExists(snap)) return;
           const data = snap.data();
-          if (snapshotExists(snap) && (data.from === user.uid || data.to === user.uid)) {
-            ref.update({
+          const participants = Array.isArray(data?.users)
+            ? data.users
+            : Array.isArray(data?.players)
+            ? data.players
+            : [];
+          if (participants.includes(user.uid)) {
+            const now = serverTimestamp();
+            const updates = {
               status: 'active',
-              startedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            });
+              startedAt: now,
+              updatedAt: now,
+            };
+            if (!Array.isArray(data?.users) || data.users.length === 0) {
+              const resolved = [user.uid, opponent?.id].filter(Boolean);
+              if (resolved.length) updates.users = resolved;
+            }
+            if (!data?.createdAt) {
+              updates.createdAt = now;
+            }
+            if (!Object.prototype.hasOwnProperty.call(data || {}, 'matchedAt')) {
+              updates.matchedAt = now;
+            }
+            if (!Object.prototype.hasOwnProperty.call(data || {}, 'lastMessage')) {
+              updates.lastMessage = null;
+            }
+            await updateDoc(ref, updates);
           }
         }
       } catch (e) {
@@ -255,22 +288,39 @@ const LiveSessionScreen = ({ params, router }) => {
     try {
       if (!requireCredits()) return;
       if (inviteId && user?.uid) {
-        const ref = firebase.firestore().collection('gameInvites').doc(inviteId);
-        const snap = await ref.get();
-        const data = snap.data();
-        if (snapshotExists(snap) && (data.from === user.uid || data.to === user.uid)) {
-          await ref.update({
-            status: 'finished',
-            endedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          });
-          await firebase
-            .firestore()
-            .collection('gameSessions')
-            .doc(inviteId)
-            .update({
+        const ref = doc(db, 'games', inviteId);
+        const snap = await getDoc(ref);
+        if (snapshotExists(snap)) {
+          const data = snap.data();
+          const participants = Array.isArray(data?.users)
+            ? data.users
+            : Array.isArray(data?.players)
+            ? data.players
+            : [];
+          if (participants.includes(user.uid)) {
+            const now = serverTimestamp();
+            const updates = {
+              status: 'finished',
+              endedAt: now,
+              updatedAt: now,
               archived: true,
-              archivedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            });
+              archivedAt: now,
+            };
+            if (!Array.isArray(data?.users) || data.users.length === 0) {
+              const resolved = [user.uid, opponent?.id].filter(Boolean);
+              if (resolved.length) updates.users = resolved;
+            }
+            if (!data?.createdAt) {
+              updates.createdAt = now;
+            }
+            if (!Object.prototype.hasOwnProperty.call(data || {}, 'matchedAt')) {
+              updates.matchedAt = now;
+            }
+            if (!Object.prototype.hasOwnProperty.call(data || {}, 'lastMessage')) {
+              updates.lastMessage = null;
+            }
+            await updateDoc(ref, updates);
+          }
         }
       }
 
