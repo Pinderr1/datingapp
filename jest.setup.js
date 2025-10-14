@@ -29,15 +29,55 @@ jest.mock('firebase/auth', () => ({
   }),
 }));
 
+const buildRef = (segments) => ({
+  id: segments[segments.length - 1] ?? null,
+  path: segments.join('/'),
+  _segments: segments,
+});
+
+const mockCollection = jest.fn((_, ...segments) => buildRef(segments));
+const mockDoc = jest.fn((base, ...segments) => {
+  const pathSegments = Array.isArray(base?._segments) ? [...base._segments] : [];
+  if (segments.length === 0 && typeof base === 'string') {
+    return buildRef([base]);
+  }
+  if (segments.length === 0 && pathSegments.length === 0 && Array.isArray(base)) {
+    return buildRef(base);
+  }
+  if (segments.length === 0 && pathSegments.length === 0) {
+    return buildRef([]);
+  }
+  pathSegments.push(...segments);
+  return buildRef(pathSegments);
+});
+
+const mockGetDoc = jest.fn(async () => ({
+  exists: () => false,
+  data: () => null,
+}));
+
+const mockSetDoc = jest.fn(() => Promise.resolve());
+const mockUpdateDoc = jest.fn(() => Promise.resolve());
+const mockServerTimestamp = jest.fn(() => ({ __firestoreServerTimestamp: true }));
+
 jest.mock('firebase/firestore', () => ({
   getFirestore: jest.fn(),
-  doc: jest.fn(),
-  getDoc: jest.fn(async () => ({
-    exists: () => false,
-    data: () => null,
-  })),
-  setDoc: jest.fn(() => Promise.resolve()),
+  collection: mockCollection,
+  doc: mockDoc,
+  getDoc: mockGetDoc,
+  setDoc: mockSetDoc,
+  updateDoc: mockUpdateDoc,
+  serverTimestamp: mockServerTimestamp,
 }));
+
+global.__firestoreMocks = {
+  collection: mockCollection,
+  doc: mockDoc,
+  getDoc: mockGetDoc,
+  setDoc: mockSetDoc,
+  updateDoc: mockUpdateDoc,
+  serverTimestamp: mockServerTimestamp,
+};
 
 jest.mock('expo', () => ({}));
 
@@ -84,3 +124,13 @@ jest.mock('react-native-reanimated', () => {
   Reanimated.default.call = () => {};
   return Reanimated;
 });
+
+jest.mock('react-native-toast-message', () => ({
+  __esModule: true,
+  default: { show: jest.fn() },
+}));
+
+jest.mock('expo-haptics', () => ({
+  notificationAsync: jest.fn(() => Promise.resolve()),
+  NotificationFeedbackType: { Success: 'success' },
+}));

@@ -1,13 +1,14 @@
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import {
-  addDoc,
   collection,
   doc,
   getDoc,
   serverTimestamp,
   setDoc,
+  updateDoc,
 } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 import { icebreakers } from '../data/prompts';
 import { allGames } from '../data/games';
 
@@ -44,31 +45,60 @@ export async function handleLike({
   setLikesUsed((prev) => prev + 1);
   showNotification(`You liked ${targetUser.displayName}`);
 
-  if (currentUser?.uid && targetUser.id && !devMode) {
+  const firestoreDb = firestore ?? db;
+
+  if (currentUser?.uid && targetUser.id && !devMode && firestoreDb) {
     try {
       const likedRef = doc(
-        collection(firestore, 'likes', currentUser.uid, 'liked'),
+        firestoreDb,
+        'likes',
+        currentUser.uid,
+        'liked',
         targetUser.id
       );
-      await setDoc(likedRef, { createdAt: serverTimestamp() });
+      await setDoc(likedRef, {
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
 
       const likedByRef = doc(
-        collection(firestore, 'likes', targetUser.id, 'likedBy'),
+        firestoreDb,
+        'likes',
+        targetUser.id,
+        'likedBy',
         currentUser.uid
       );
-      await setDoc(likedByRef, { createdAt: serverTimestamp() });
+      await setDoc(likedByRef, {
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
 
       const reciprocalRef = doc(
-        collection(firestore, 'likes', targetUser.id, 'liked'),
+        firestoreDb,
+        'likes',
+        targetUser.id,
+        'liked',
         currentUser.uid
       );
       const reciprocal = await getDoc(reciprocalRef);
 
       if (reciprocal.exists()) {
-        const matchRef = await addDoc(collection(firestore, 'matches'), {
-          users: [currentUser.uid, targetUser.id],
-          createdAt: serverTimestamp(),
-        });
+        const [firstId, secondId] = [currentUser.uid, targetUser.id].sort();
+        const matchesCollection = collection(firestoreDb, 'matches');
+        const matchRef = doc(matchesCollection, `${firstId}_${secondId}`);
+        const existingMatch = await getDoc(matchRef);
+
+        if (!existingMatch.exists()) {
+          const timestamp = serverTimestamp();
+          await setDoc(matchRef, {
+            users: [firstId, secondId],
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            matchedAt: timestamp,
+          });
+        } else {
+          await updateDoc(matchRef, { updatedAt: serverTimestamp() });
+        }
 
         addMatch({
           id: matchRef.id,
