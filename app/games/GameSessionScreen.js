@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Platform,
   Easing,
 } from 'react-native';
+import { useGlobalSearchParams, useLocalSearchParams, useRouter } from 'expo-router';
 import GradientBackground from '../components/GradientBackground';
 import Header from '../components/Header';
 import ScreenContainer from '../components/ScreenContainer';
@@ -48,21 +49,63 @@ import PlayerInfoBar from '../components/PlayerInfoBar';
 import useUserProfile from '../hooks/useUserProfile';
 import PropTypes from 'prop-types';
 import { computeBadges } from '../utils/badges';
-const GameSessionScreen = ({ route, navigation, sessionType }) => {
-  const type =
-    sessionType || route.params?.sessionType ||
-    (route.params?.botId ? 'bot' : 'live');
+const toSingleValue = (value) =>
+  Array.isArray(value) ? value[0] : value;
+
+const parseMaybeJson = (value) => {
+  const raw = toSingleValue(value);
+  if (typeof raw !== 'string') return raw;
+  if (!raw.length) return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+};
+
+const useResolvedSearchParams = () => {
+  const local = useLocalSearchParams();
+  const global = useGlobalSearchParams();
+
+  return useMemo(() => {
+    const combined = { ...global, ...local };
+    return {
+      ...combined,
+      botId: toSingleValue(combined.botId),
+      inviteId: toSingleValue(combined.inviteId),
+      sessionId: toSingleValue(combined.sessionId),
+      sessionType: toSingleValue(combined.sessionType),
+      status: toSingleValue(combined.status),
+      game:
+        combined.game !== undefined ? parseMaybeJson(combined.game) : undefined,
+      opponent:
+        combined.opponent !== undefined
+          ? parseMaybeJson(combined.opponent)
+          : undefined,
+      players:
+        combined.players !== undefined
+          ? parseMaybeJson(combined.players)
+          : undefined,
+    };
+  }, [global, local]);
+};
+
+const GameSessionScreen = ({ sessionType }) => {
+  const router = useRouter();
+  const params = useResolvedSearchParams();
+  const type = sessionType || params.sessionType || (params.botId ? 'bot' : 'live');
+
   if (type === 'bot') {
-    return <BotSessionScreen route={route} navigation={navigation} />;
+    return <BotSessionScreen params={params} />;
   }
   if (type === 'spectator') {
-    return <SpectatorSessionScreen route={route} navigation={navigation} />;
+    return <SpectatorSessionScreen params={params} />;
   }
-  return <LiveSessionScreen route={route} navigation={navigation} />;
+  return <LiveSessionScreen params={params} router={router} />;
 };
 
 
-const LiveSessionScreen = ({ route, navigation }) => {
+const LiveSessionScreen = ({ params, router }) => {
   const { darkMode, theme } = useTheme();
   const globalStyles = getGlobalStyles(theme);
   const local = createStyles(theme);
@@ -73,7 +116,10 @@ const LiveSessionScreen = ({ route, navigation }) => {
   const requireCredits = useRequireGameCredits();
   const { sendGameInvite, cancelInvite } = useMatchmaking();
 
-  const { game, opponent, status = 'waiting', inviteId } = route.params || {};
+  const game = params?.game;
+  const opponent = params?.opponent;
+  const status = params?.status || 'waiting';
+  const inviteId = params?.inviteId;
 
   const [inviteStatus, setInviteStatus] = useState(status);
   const [showGame, setShowGame] = useState(false);
@@ -88,6 +134,14 @@ const LiveSessionScreen = ({ route, navigation }) => {
   const overlayOpacity = useRef(new Animated.Value(1)).current;
   const [showFallback, setShowFallback] = useState(false);
   const opponentProfile = useUserProfile(opponent?.id);
+
+  useEffect(() => {
+    setInviteStatus(status);
+    setShowGame(false);
+    setCountdown(null);
+    setGameResult(null);
+    setShowFallback(false);
+  }, [inviteId, status, game?.id, opponent?.id]);
 
   const userBadges = computeBadges({
     xp: user?.xp,
@@ -223,7 +277,8 @@ const LiveSessionScreen = ({ route, navigation }) => {
       const newId = await sendGameInvite(opponent.id, game.id);
       Toast.show({ type: 'success', text1: 'Invite sent!' });
       setGameResult(null);
-      navigation.replace('GameSession', {
+      router.replace({
+        pathname: '/games/GameSessionScreen',
         game,
         opponent,
         inviteId: newId,
@@ -242,7 +297,7 @@ const LiveSessionScreen = ({ route, navigation }) => {
     } catch (e) {
       console.warn('Failed to cancel invite', e);
     }
-    navigation.goBack();
+    router.back();
   };
 
   if (!game || !opponent) {
@@ -328,7 +383,7 @@ const LiveSessionScreen = ({ route, navigation }) => {
               showFallback ? (
                 <>
                   <Text style={[local.waitText, { color: theme.text }]}>Game didn't start.</Text>
-                  <TouchableOpacity onPress={() => navigation.navigate('GameWithBot')}>
+                  <TouchableOpacity onPress={() => router.push('/games/GameWithBotScreen')}>
                     <Text style={{ color: theme.accent, marginTop: 10 }}>
                       Play with an AI bot instead
                     </Text>
@@ -341,7 +396,7 @@ const LiveSessionScreen = ({ route, navigation }) => {
                 <>
                   <Text style={[local.waitText, { color: theme.text }]}>Waiting for opponent...</Text>
                   <Loader size="small" style={{ marginTop: 20 }} />
-                  <TouchableOpacity onPress={() => navigation.navigate('GameWithBot')}>
+                  <TouchableOpacity onPress={() => router.push('/games/GameWithBotScreen')}>
                     <Text style={{ color: theme.accent, marginTop: 10 }}>
                       Play with an AI bot instead
                     </Text>
@@ -381,16 +436,16 @@ const LiveSessionScreen = ({ route, navigation }) => {
         }
         onRematch={debouncedRematch}
         rematchDisabled={rematchWaiting}
-        onExit={() => navigation.goBack()}
+        onExit={() => router.back()}
       />
     </GradientBackground>
   );
 };
 
 
-function BotSessionScreen({ route }) {
-  const botId = route.params?.botId;
-  const initialGame = route.params?.game || 'ticTacToe';
+function BotSessionScreen({ params }) {
+  const botId = params?.botId;
+  const initialGame = params?.game || 'ticTacToe';
   const [bot, setBot] = useState(
     bots.find((b) => b.id === botId) || getRandomBot()
   );
@@ -657,12 +712,14 @@ function BotSessionScreen({ route }) {
   );
 }
 
-function SpectatorSessionScreen({ route }) {
+function SpectatorSessionScreen({ params }) {
   const { theme } = useTheme();
   const styles = getSpectatorStyles(theme);
   const anim = useRef(new Animated.Value(0)).current;
   const scrollRef = useRef();
-  const { sessionId, game, players = [] } = route.params || {};
+  const sessionId = params?.sessionId;
+  const game = params?.game;
+  const players = params?.players || [];
   const { moveHistory, ctx, loading } = useGameSession(sessionId, game?.id, '');
 
   useEffect(() => {
@@ -895,20 +952,6 @@ const createStyles = (theme) =>
 });
 
 GameSessionScreen.propTypes = {
-  navigation: PropTypes.shape({
-    navigate: PropTypes.func.isRequired,
-  }).isRequired,
-  route: PropTypes.shape({
-    params: PropTypes.shape({
-      sessionType: PropTypes.string,
-      botId: PropTypes.string,
-      game: PropTypes.string,
-      opponent: PropTypes.object,
-      status: PropTypes.string,
-      inviteId: PropTypes.string,
-      players: PropTypes.array,
-    }),
-  }).isRequired,
   sessionType: PropTypes.string,
 };
 
