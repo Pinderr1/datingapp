@@ -4,7 +4,7 @@ import { Colors, Fonts, screenWidth, Sizes } from '../../constants/styles'
 import { MaterialIcons } from '@expo/vector-icons'
 import { ScrollView } from 'react-native';
 import MyStatusBar from '../../components/myStatusBar';
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 const searchResults = [
     {
@@ -70,7 +70,7 @@ const similarProfiles = [
 
 const SearchResultsScreen = () => {
 
-    const navigation = useNavigation();
+    const router = useRouter();
 
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
@@ -126,9 +126,12 @@ const SearchResultsScreen = () => {
                             activeOpacity={0.7}
                             onPress={() => {
                                 if (!item?.id) return;
-                                navigation.push('profileDetail/profileDetailScreen', {
-                                    userId: item.id,
-                                    initialProfile: JSON.stringify({ ...item, id: item.id }),
+                                router.push({
+                                    pathname: '/profileDetail/profileDetailScreen',
+                                    params: {
+                                        userId: item.id,
+                                        initialProfile: JSON.stringify({ ...item, id: item.id }),
+                                    },
                                 });
                             }}
                             key={`${item.id}`}
@@ -158,7 +161,7 @@ const SearchResultsScreen = () => {
             <View style={{ margin: Sizes.fixPadding * 2.0, justifyContent: 'center' }}>
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => { navigation.pop() }}
+                    onPress={() => { router.back() }}
                     style={styles.backArrowIconWrapStyle}
                 >
                     <MaterialIcons name="arrow-back-ios" size={20} color={Colors.blackColor} style={{ left: 2.0, }} />

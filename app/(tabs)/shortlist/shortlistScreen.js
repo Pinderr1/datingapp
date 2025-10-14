@@ -10,8 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { useNavigation } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { SwipeListView } from 'react-native-swipe-list-view';
 import { Snackbar } from 'react-native-paper';
 import { Colors, Fonts, Sizes, screenWidth } from '../../../constants/styles';
@@ -21,7 +20,7 @@ import { fetchLikedProfiles, likeUser } from '../../../services/userService';
 const defaultUserImage = require('../../../assets/images/users/user1.png');
 
 const ShortlistScreen = () => {
-  const navigation = useNavigation();
+  const router = useRouter();
 
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -128,9 +127,12 @@ const ShortlistScreen = () => {
         activeOpacity={0.7}
         onPress={() => {
           if (!data?.item?.id) return;
-          navigation.push('profileDetail/profileDetailScreen', {
-            userId: data.item.id,
-            initialProfile: JSON.stringify({ ...data.item, id: data.item.id }),
+          router.push({
+            pathname: '/profileDetail/profileDetailScreen',
+            params: {
+              userId: data.item.id,
+              initialProfile: JSON.stringify({ ...data.item, id: data.item.id }),
+            },
           });
         }}
         key={`${data.item.id}`}

@@ -6,7 +6,7 @@ import { Slider } from '@miblanchard/react-native-slider';
 import RangeSlider from 'rn-range-slider';
 import { Dropdown } from 'react-native-element-dropdown';
 import MyStatusBar from '../../components/myStatusBar';
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 const educations = [
     { label: 'Information Technology (IT)' },
@@ -49,7 +49,7 @@ const religions = [
 
 const FilterScreen = () => {
 
-    const navigation = useNavigation();
+    const router = useRouter();
 
     const [location, setlocation] = useState('Irvine, California');
     const [distance, setDistance] = useState(60);
@@ -84,12 +84,12 @@ const FilterScreen = () => {
     function clearAndApplyButton() {
         return (
             <View style={{ flexDirection: 'row', alignItems: 'center', margin: Sizes.fixPadding * 2.0 }}>
-                <Text onPress={() => { navigation.pop() }} style={{ ...Fonts.primaryColor18Bold }}>
+                <Text onPress={() => { router.back() }} style={{ ...Fonts.primaryColor18Bold }}>
                     Clear
                 </Text>
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => { navigation.push('searchResults/searchResultsScreen') }}
+                    onPress={() => { router.push('/searchResults/searchResultsScreen') }}
                     style={styles.buttonStyle}
                 >
                     <Text style={{ ...Fonts.whiteColor20Medium }}>
@@ -331,7 +331,7 @@ const FilterScreen = () => {
             <View style={{ margin: Sizes.fixPadding * 2.0, justifyContent: 'center' }}>
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => { navigation.pop() }}
+                    onPress={() => { router.back() }}
                     style={styles.backArrowIconWrapStyle}
                 >
                     <MaterialIcons name="arrow-back-ios" size={20} color={Colors.blackColor} style={{ left: 2.0, }} />

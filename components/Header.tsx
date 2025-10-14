@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Image, TouchableOpacity, StyleSheet, Platform, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
 import useUnreadNotifications from '../hooks/useUnreadNotifications';
@@ -14,15 +14,15 @@ export interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ showLogoOnly = false }) => {
-  const navigation = useNavigation();
+  const router = useRouter();
   const { darkMode, toggleTheme, theme } = useTheme();
   const { user } = useUser();
   const notificationCount = useUnreadNotifications();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const menuItems = [
-    { label: 'Profile', onPress: () => navigation.navigate('Profile') },
-    { label: 'Settings', onPress: () => navigation.navigate('Settings') },
+    { label: 'Profile', onPress: () => router.push('/(tabs)/profile/profileScreen') },
+    { label: 'Settings', onPress: () => router.push('/settings/settingsScreen') },
     { label: darkMode ? 'Light Mode' : 'Dark Mode', onPress: toggleTheme },
   ];
 
@@ -56,7 +56,7 @@ const Header: React.FC<HeaderProps> = ({ showLogoOnly = false }) => {
                 <Ionicons name="menu" size={24} color={theme.text} />
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => navigation.navigate('Notifications')}
+                onPress={() => router.push('/notifications/notificationsScreen')}
                 style={styles.iconWrapper}
               >
                 <View style={styles.bellWrapper}>

@@ -1,20 +1,16 @@
 import { StyleSheet, Text, View, Image, BackHandler } from 'react-native'
 import React, { useCallback } from 'react'
 import { Colors, Fonts, screenWidth, Sizes } from '../../constants/styles'
-import { useFocusEffect } from '@react-navigation/native'
+import { useFocusEffect, useRouter } from 'expo-router'
 import MyStatusBar from '../../components/myStatusBar'
-import { useNavigation } from 'expo-router'
 
 const PaymentDoneScreen = () => {
 
-    const navigation = useNavigation();
+    const router = useRouter();
 
     const navigateToTabs = useCallback(() => {
-        navigation.reset({
-            index: 0,
-            routes: [{ name: '(tabs)' }],
-        });
-    }, [navigation]);
+        router.replace('/(tabs)/home/homeScreen');
+    }, [router]);
 
     const backAction = useCallback(() => {
         navigateToTabs();

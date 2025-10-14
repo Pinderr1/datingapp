@@ -14,13 +14,13 @@ import { Colors, Sizes, Fonts, screenHeight, screenWidth, CommonStyles } from '.
 import { MaterialIcons } from '@expo/vector-icons';
 import { Snackbar } from 'react-native-paper';
 import MyStatusBar from '../../components/myStatusBar';
-import { useNavigation, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { fetchUserById, likeUser } from '../../services/userService';
 
 const fallbackProfileImage = require('../../assets/images/users/user10.png');
 
 const ProfileDetailScreen = () => {
-  const navigation = useNavigation();
+  const router = useRouter();
   const params = useLocalSearchParams();
   const rawUserId = params?.userId;
   const rawInitialProfile = params?.initialProfile;
@@ -293,7 +293,7 @@ const ProfileDetailScreen = () => {
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => {
-            navigation.pop();
+            router.back();
           }}
           style={styles.bottomButtonStyle}
         >
@@ -319,7 +319,7 @@ const ProfileDetailScreen = () => {
           activeOpacity={0.8}
           style={styles.bottomButtonStyle}
           onPress={() => {
-            navigation.push('message/messageScreen');
+            router.push('/message/messageScreen');
           }}
         >
           <Image
@@ -350,7 +350,7 @@ const ProfileDetailScreen = () => {
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => {
-            navigation.pop();
+            router.back();
           }}
           style={styles.headerIconWrapStyle}
         >

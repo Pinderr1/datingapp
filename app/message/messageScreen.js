@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Colors, Fonts, screenWidth, Sizes } from '../../constants/styles'
 import { MaterialIcons } from '@expo/vector-icons'
 import MyStatusBar from '../../components/myStatusBar';
-import { useNavigation, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { auth, db } from '../../firebaseConfig';
 import { sendMessage as sendMessageService } from '../../services/userService';
@@ -12,7 +12,7 @@ const receiverImage = require('../../assets/images/users/user10.png');
 
 const MessageScreen = () => {
 
-    const navigation = useNavigation();
+    const router = useRouter();
     const params = useLocalSearchParams();
 
     const matchIdParam = useMemo(() => {
@@ -207,7 +207,7 @@ const MessageScreen = () => {
                 <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
                     <TouchableOpacity
                         activeOpacity={0.8}
-                        onPress={() => { navigation.pop() }}
+                        onPress={() => { router.back() }}
                         style={styles.backArrowWrapStyle}
                     >
                         <MaterialIcons name="arrow-back-ios" size={20} color={Colors.blackColor} style={{ left: 2.0 }} />

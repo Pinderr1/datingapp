@@ -3,11 +3,11 @@ import React, { useState, } from 'react'
 import { Colors, Fonts, Sizes, CommonStyles } from '../../constants/styles'
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import MyStatusBar from '../../components/myStatusBar';
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 const RegisterScreen = () => {
 
-    const navigation = useNavigation();
+    const router = useRouter();
 
     const [fullName, setfullName] = useState('');
     const [phoneNumber, setphoneNumber] = useState('');
@@ -38,7 +38,7 @@ const RegisterScreen = () => {
         return (
             <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => { navigation.pop() }}
+                onPress={() => { router.back() }}
                 style={styles.backArrowIconWrapStyle}
             >
                 <MaterialIcons name="arrow-back-ios" size={20} color={Colors.blackColor} style={{ left: 2.0, }} />
@@ -52,7 +52,7 @@ const RegisterScreen = () => {
                 <Text style={{ ...Fonts.grayColor15Regular }}>
                     Already have an account? { }
                 </Text>
-                <Text onPress={() => { navigation.push('auth/loginScreen') }} style={{ ...Fonts.primaryColor15Medium }}>
+                <Text onPress={() => { router.push('/auth/loginScreen') }} style={{ ...Fonts.primaryColor15Medium }}>
                     Login
                 </Text>
             </Text>
@@ -87,7 +87,7 @@ const RegisterScreen = () => {
         return (
             <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => { navigation.push('auth/verificationScreen') }}
+                onPress={() => { router.push('/auth/verificationScreen') }}
                 style={styles.buttonStyle}
             >
                 <Text style={{ ...Fonts.whiteColor20Medium }}>

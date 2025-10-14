@@ -2,7 +2,7 @@ import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView, ActivityIn
 import React from 'react'
 import { Colors, Fonts, screenWidth, Sizes, CommonStyles } from '../../../constants/styles'
 import { Feather } from '@expo/vector-icons'
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useUser } from '../../../context/userContext';
 
 const weeklyActivityList = [
@@ -45,7 +45,7 @@ const weeklyActivityList = [
 
 const ProfileScreen = () => {
 
-    const navigation = useNavigation();
+    const router = useRouter();
     const { profile } = useUser() ?? {};
     const isLoadingProfile = profile === undefined;
     const hasProfile = !!profile;
@@ -125,7 +125,7 @@ const ProfileScreen = () => {
         return (
             <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => { navigation.push('premium/premiumScreen') }}
+                onPress={() => { router.push('/premium/premiumScreen') }}
                 style={styles.buttonStyle}
             >
                 <Text style={{ ...Fonts.whiteColor20Medium }}>
@@ -180,7 +180,7 @@ const ProfileScreen = () => {
             <View style={styles.headerWrapStyle}>
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => { navigation.push('settings/settingsScreen') }}
+                    onPress={() => { router.push('/settings/settingsScreen') }}
                     style={styles.headerIconWrapStyle}
                 >
                     <Feather name="settings" size={20} color={Colors.primaryColor} />
@@ -190,7 +190,7 @@ const ProfileScreen = () => {
                 </Text>
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => { navigation.push('editProfile/editProfileScreen') }}
+                    onPress={() => { router.push('/editProfile/editProfileScreen') }}
                     style={styles.headerIconWrapStyle}
                 >
                     <Feather name="edit-2" size={18} color={Colors.primaryColor} />

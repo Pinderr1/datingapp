@@ -52,9 +52,18 @@ const mockRouter = {
   back: jest.fn(),
 };
 
+const runFocusEffect = (effect) => {
+  if (typeof effect !== 'function') {
+    return () => {};
+  }
+  const cleanup = effect();
+  return typeof cleanup === 'function' ? cleanup : () => {};
+};
+
 jest.mock('expo-router', () => ({
   Stack: ({ children }) => children,
   useRouter: () => mockRouter,
+  useFocusEffect: (effect) => runFocusEffect(effect),
   useNavigation: () => ({
     navigate: jest.fn(),
     push: jest.fn(),
