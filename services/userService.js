@@ -214,24 +214,30 @@ export async function likeUser({ targetUserId, liked }) {
     const matchRef = doc(db, 'matches', matchId);
 
     let matchCreated = false;
+    const timestamp = serverTimestamp();
+
     try {
-      const matchSnapshot = await getDoc(matchRef);
-      const timestamp = serverTimestamp();
-
-      if (!matchSnapshot.exists()) {
-        await setDoc(matchRef, {
-          users: [a, b],
-          createdAt: timestamp,
-          updatedAt: timestamp,
-          matchedAt: timestamp,
-        });
-      } else {
-        await updateDoc(matchRef, { updatedAt: timestamp });
-      }
-
+      await setDoc(matchRef, {
+        users: [a, b],
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        matchedAt: timestamp,
+      });
       matchCreated = true;
-    } catch (_) {
-      matchCreated = false;
+    } catch (setError) {
+      if (setError?.code === 'permission-denied') {
+        try {
+          await updateDoc(matchRef, { updatedAt: timestamp });
+          matchCreated = true;
+        } catch (updateError) {
+          if (updateError?.code === 'permission-denied' || updateError?.code === 'not-found') {
+            return success({ match: false });
+          }
+          throw updateError;
+        }
+      } else {
+        throw setError;
+      }
     }
 
     return success({ match: matchCreated, matchId });
