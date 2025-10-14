@@ -28,6 +28,18 @@ const aiGameMap = allGames.reduce((acc, g) => {
   return acc;
 }, {});
 
+export const deriveRegistryId = (game) => {
+  if (!game) return 'ticTacToe';
+  if (aiGameMap[game.id]) return aiGameMap[game.id];
+
+  const matchedKey = Object.keys(gameRegistry).find((k) => {
+    const title = gameRegistry[k]?.meta?.title;
+    return title && game.title && title.toLowerCase() === game.title.toLowerCase();
+  });
+
+  return matchedKey || 'ticTacToe';
+};
+
 const getAllCategories = () => ['All', ...new Set(allGames.map((g) => g.category))];
 
 export default function PlayScreen() {
@@ -74,24 +86,25 @@ export default function PlayScreen() {
   const handleStartGame = () => {
     if (!previewGame) return;
     setPreviewGame(null);
+    const registryId = deriveRegistryId(previewGame);
     if (previewGame.premium && !isPremiumUser && !devMode) {
-      goToCatalogWith({ gameId: previewGame.id }); // optionally redirect to paywall if you have one
+      goToCatalogWith({ gameId: registryId }); // optionally redirect to paywall if you have one
       return;
     }
     // lightweight “select this game” → index route knows what to do
-    goToCatalogWith({ gameId: previewGame.id });
+    goToCatalogWith({ gameId: registryId });
   };
 
   const handlePracticeGame = () => {
     if (!previewGame) return;
     setPreviewGame(null);
+    const registryId = deriveRegistryId(previewGame);
     if (previewGame.premium && !isPremiumUser && !devMode) {
-      goToCatalogWith({ gameId: previewGame.id });
+      goToCatalogWith({ gameId: registryId });
       return;
     }
     const bot = getRandomBot();
-    const key = aiGameMap[previewGame.id] || 'tic-tac-toe';
-    goToCatalogWith({ gameId: key, botId: bot.id }); // index can decide how to start a bot session
+    goToCatalogWith({ gameId: registryId, botId: bot.id }); // index can decide how to start a bot session
   };
 
   const renderItem = ({ item }) => (
