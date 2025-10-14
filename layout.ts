@@ -9,6 +9,8 @@ export const SPACING = {
   XXL: 32,
 } as const;
 
+export const HEADER_SPACING = HEADER_HEIGHT + SPACING.LG;
+
 export const FONT_SIZES = {
   SM: 14,
   MD: 16,
