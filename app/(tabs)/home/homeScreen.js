@@ -146,12 +146,29 @@ const HomeScreen = () => {
     }
   };
 
-  const changeShortlist = ({ id }) => {
-    setUsers((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, isFavorite: !item.isFavorite } : item
-      )
-    );
+  const changeShortlist = async ({ id }) => {
+    if (!id) return;
+    const target = users.find((item) => item.id === id);
+    if (!target) return;
+
+    const nextLikedState = !target.isFavorite;
+
+    try {
+      setLikingId(id);
+      const result = await likeUser({ targetUserId: id, liked: nextLikedState });
+      if (!result.ok) {
+        Alert.alert('Unable to update shortlist', result.error?.message ?? 'Please try again later.');
+        return;
+      }
+
+      setUsers((prev) =>
+        prev.map((item) =>
+          item.id === id ? { ...item, isFavorite: nextLikedState } : item
+        )
+      );
+    } finally {
+      setLikingId(null);
+    }
   };
 
   const getUserImageSource = (user) => {
