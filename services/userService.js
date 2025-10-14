@@ -9,6 +9,7 @@ import {
   startAfter as startAfterConstraint,
   getDoc,
   getDocs,
+  getDoc,
   addDoc,
   setDoc,
   updateDoc,
