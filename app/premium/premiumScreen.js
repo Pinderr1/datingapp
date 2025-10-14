@@ -4,7 +4,7 @@ import { Colors, Fonts, screenWidth, Sizes, CommonStyles } from '../../constants
 import { MaterialIcons } from '@expo/vector-icons'
 import { ScrollView } from 'react-native';
 import MyStatusBar from '../../components/myStatusBar';
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 const plansList = [
     {
@@ -36,7 +36,7 @@ const subscrptionBenifits = [
 
 const PremiumScreen = () => {
 
-    const navigation = useNavigation();
+    const router = useRouter();
 
     const [selectedPlanIndex, setselectedPlanIndex] = useState(0);
 
@@ -131,7 +131,7 @@ const PremiumScreen = () => {
         return (
             <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => { navigation.push('paymentMethod/paymentMethodScreen') }}
+                onPress={() => { router.push('/paymentMethod/paymentMethodScreen') }}
                 style={styles.buttonStyle}
             >
                 <Text style={{ ...Fonts.whiteColor20Medium }}>
@@ -187,7 +187,7 @@ const PremiumScreen = () => {
             <View style={{ margin: Sizes.fixPadding * 2.0, justifyContent: 'center' }}>
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => { navigation.pop() }}
+                    onPress={() => { router.back() }}
                     style={styles.backArrowIconWrapStyle}
                 >
                     <MaterialIcons name="close" size={22} color={Colors.whiteColor} />

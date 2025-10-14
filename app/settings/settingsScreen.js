@@ -3,13 +3,13 @@ import React, { useState } from 'react'
 import { Colors, Fonts, screenWidth, Sizes } from '../../constants/styles'
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons'
 import MyStatusBar from '../../components/myStatusBar';
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebaseConfig'
 
 const SettingsScreen = () => {
 
-    const navigation = useNavigation();
+    const router = useRouter();
 
     const [resetDislik, setresetDislik] = useState(true);
     const [hideLocation, sethideLocation] = useState(false);
@@ -20,7 +20,7 @@ const SettingsScreen = () => {
         try {
             await signOut(auth);
             setshowLogoutDialog(false);
-            navigation.reset({ index: 0, routes: [{ name: 'auth/loginScreen' }] });
+            router.replace('/auth/loginScreen');
         } catch (error) {
             Alert.alert('Logout Failed', error?.message ?? 'Unable to logout. Please try again.');
         }
@@ -84,11 +84,11 @@ const SettingsScreen = () => {
                 <Text style={{ ...Fonts.grayColor15Regular, marginBottom: Sizes.fixPadding * 2.0 }}>
                     Legal
                 </Text>
-                <Text onPress={() => { navigation.push('contactUs/contactUsScreen') }} style={{ ...Fonts.blackColor16Regular, }}>
+                <Text onPress={() => { router.push('/contactUs/contactUsScreen') }} style={{ ...Fonts.blackColor16Regular, }}>
                     Contact us
                 </Text>
                 {divider()}
-                <Text onPress={() => { navigation.push('termsAndCondition/termsAndConditionScreen') }} style={{ ...Fonts.blackColor16Regular, }}>
+                <Text onPress={() => { router.push('/termsAndCondition/termsAndConditionScreen') }} style={{ ...Fonts.blackColor16Regular, }}>
                     Terms & Conditions
                 </Text>
                 {divider()}
@@ -167,8 +167,8 @@ const SettingsScreen = () => {
                 <Text style={{ ...Fonts.grayColor15Regular, marginBottom: Sizes.fixPadding * 2.0, }}>
                     General
                 </Text>
-                {generalOptionSort({ icon: 'account-outline', color: Colors.blueColor, option: 'Profile Views', onPress: () => { navigation.push('profileViews/profileViewsScreen') } })}
-                {generalOptionSort({ icon: 'bell-badge-outline', color: Colors.purpleColor, option: 'Notifications', onPress: () => { navigation.push('notifications/notificationsScreen') } })}
+                {generalOptionSort({ icon: 'account-outline', color: Colors.blueColor, option: 'Profile Views', onPress: () => { router.push('/profileViews/profileViewsScreen') } })}
+                {generalOptionSort({ icon: 'bell-badge-outline', color: Colors.purpleColor, option: 'Notifications', onPress: () => { router.push('/notifications/notificationsScreen') } })}
                 {generalOptionSort({ icon: 'account-group-outline', color: Colors.cyanColor, option: 'Profile Matches', onPress: () => { } })}
             </View>
         )
@@ -196,7 +196,7 @@ const SettingsScreen = () => {
             <View style={{ margin: Sizes.fixPadding * 2.0, justifyContent: 'center' }}>
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => { navigation.pop() }}
+                    onPress={() => { router.back() }}
                     style={styles.iconWrapStyle}
                 >
                     <MaterialIcons name="arrow-back-ios" size={20} color={Colors.blackColor} style={{ left: 2.0, }} />

@@ -2,9 +2,8 @@ import { StyleSheet, Text, View, BackHandler, Image, ScrollView, TouchableOpacit
 import React, { useState, useCallback } from 'react'
 import { Colors, Fonts, Sizes, CommonStyles } from '../../constants/styles'
 import { Feather } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRouter } from 'expo-router';
 import MyStatusBar from '../../components/myStatusBar';
-import { useRouter } from 'expo-router';
 import { useUser } from '../../context/userContext';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../../firebaseConfig';

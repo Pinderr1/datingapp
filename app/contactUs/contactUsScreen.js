@@ -2,14 +2,14 @@ import { StyleSheet, Text, View, ScrollView, Image, TextInput, TouchableOpacity,
 import React, { useState } from 'react'
 import { Colors, Fonts, screenWidth, Sizes, CommonStyles } from '../../constants/styles'
 import MyStatusBar from '../../components/myStatusBar';
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useUser } from '../../context/userContext';
 import { auth, db } from '../../firebaseConfig';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 
 const ContactUsScreen = () => {
 
-    const navigation = useNavigation();
+    const router = useRouter();
     const { profile } = useUser();
 
     const [name, setname] = useState(profile?.name || '');
@@ -42,7 +42,7 @@ const ContactUsScreen = () => {
                 createdAt: serverTimestamp(),
             });
             Alert.alert('Success', 'Message sent successfully');
-            navigation.pop();
+            router.back();
         } catch (e) {
             Alert.alert('Error', e instanceof Error ? e.message : String(e));
         } finally {

@@ -3,7 +3,7 @@ import React, { useState } from 'react'
 import { Colors, Fonts, screenWidth, Sizes, CommonStyles } from '../../constants/styles'
 import { MaterialIcons } from '@expo/vector-icons'
 import MyStatusBar from '../../components/myStatusBar';
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 const paymentMethods = [
     {
@@ -30,7 +30,7 @@ const paymentMethods = [
 
 const PaymentMethodScreen = () => {
 
-    const navigation = useNavigation();
+    const router = useRouter();
 
     const [selectedPaymentMethodIndex, setselectedPaymentMethodIndex] = useState(0);
 
@@ -49,7 +49,7 @@ const PaymentMethodScreen = () => {
         return (
             <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => { navigation.push('paymentDone/paymentDoneScreen') }}
+                onPress={() => { router.push('/paymentDone/paymentDoneScreen') }}
                 style={styles.buttonStyle}
             >
                 <Text style={{ ...Fonts.whiteColor20Medium }}>
@@ -106,7 +106,7 @@ const PaymentMethodScreen = () => {
             <View style={{ margin: Sizes.fixPadding * 2.0, justifyContent: 'center' }}>
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => { navigation.pop() }}
+                    onPress={() => { router.back() }}
                     style={styles.backArrowIconWrapStyle}
                 >
                     <MaterialIcons name="arrow-back-ios" size={20} color={Colors.blackColor} style={{ left: 2.0, }} />

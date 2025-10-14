@@ -2,7 +2,7 @@ import { StyleSheet, Text, View, TextInput, FlatList, Image, TouchableOpacity } 
 import React, { useEffect, useRef, useState } from 'react'
 import { Colors, Fonts, Sizes } from '../../../constants/styles'
 import { MaterialIcons } from '@expo/vector-icons'
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useUser } from '../../../context/userContext';
 import { auth, db } from '../../../firebaseConfig';
 import { collection, doc, getDoc, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore';
@@ -11,7 +11,7 @@ const defaultUserImage = require('../../../assets/images/users/user1.png');
 
 const ChatScreen = () => {
 
-    const navigation = useNavigation();
+    const router = useRouter();
 
     const [search, setsearch] = useState('');
     const [matches, setMatches] = useState([]);
@@ -230,10 +230,13 @@ const ChatScreen = () => {
                 <TouchableOpacity
                     activeOpacity={0.8}
                     onPress={() => {
-                        navigation.push('message/messageScreen', {
-                            matchId: item.id,
-                            otherUserId: item.otherUserId,
-                            otherUserName: item.otherUserName,
+                        router.push({
+                            pathname: '/message/messageScreen',
+                            params: {
+                                matchId: item.id,
+                                otherUserId: item.otherUserId,
+                                otherUserName: item.otherUserName,
+                            },
                         });
                     }}
                     style={styles.chatWrapStyle}
