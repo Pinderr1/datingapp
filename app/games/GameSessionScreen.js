@@ -14,15 +14,15 @@ import {
   Easing,
 } from 'react-native';
 import { useGlobalSearchParams, useLocalSearchParams, useRouter } from 'expo-router';
-import GradientBackground from '../components/GradientBackground';
-import Header from '../components/Header';
-import ScreenContainer from '../components/ScreenContainer';
-import { useTheme } from '../contexts/ThemeContext';
-import { useDev } from '../contexts/DevContext';
-import { useGameLimit } from '../contexts/GameLimitContext';
+import GradientBackground from '../../components/GradientBackground';
+import Header from '../../components/Header';
+import ScreenContainer from '../../components/ScreenContainer';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useDev } from '../../contexts/DevContext';
+import { useGameLimit } from '../../contexts/GameLimitContext';
 import { HEADER_SPACING } from '../../layout';
-import { useUser } from '../contexts/UserContext';
-import { db } from '../firebaseConfig';
+import { useUser } from '../../contexts/UserContext';
+import { db } from '../../firebaseConfig';
 import {
   doc,
   getDoc,
@@ -32,30 +32,30 @@ import {
 } from 'firebase/firestore';
 import * as Haptics from 'expo-haptics';
 import getGlobalStyles from '../../styles';
-import { games } from '../games';
-import SyncedGame from '../components/SyncedGame';
-import GameOverModal from '../components/GameOverModal';
-import GameContainer from '../components/GameContainer';
-import { useMatchmaking } from '../contexts/MatchmakingContext';
-import { snapshotExists } from '../utils/firestore';
-import { createMatchIfMissing } from '../utils/matches';
+import { games } from './registry';
+import SyncedGame from '../../components/SyncedGame';
+import GameOverModal from '../../components/GameOverModal';
+import GameContainer from '../../components/GameContainer';
+import { useMatchmaking } from '../../contexts/MatchmakingContext';
+import { snapshotExists } from '../../utils/firestore';
+import { createMatchIfMissing } from '../../utils/matchUtils';
 import Toast from 'react-native-toast-message';
-import { bots, getRandomBot } from "../ai/bots";
-import { generateReply } from "../ai/chatBot";
-import useBotGame from "../hooks/useBotGame";
-import { getBotMove } from "../ai/botMoves";
-import SafeKeyboardView from "../components/SafeKeyboardView";
-import Loader from "../components/Loader";
-import { useSound } from '../contexts/SoundContext';
-import EmptyState from '../components/EmptyState';
-import useGameSession from '../hooks/useGameSession';
-import { logGameStats } from '../utils/gameStats';
-import useRequireGameCredits from '../hooks/useRequireGameCredits';
-import useDebouncedCallback from '../hooks/useDebouncedCallback';
-import PlayerInfoBar from '../components/PlayerInfoBar';
-import useUserProfile from '../hooks/useUserProfile';
+import { bots, getRandomBot } from '../../ai/bots';
+import { generateReply } from '../../ai/chatBot';
+import useBotGame from '../../hooks/useBotGame';
+import { getBotMove } from '../../ai/botMoves';
+import SafeKeyboardView from '../../components/SafeKeyboardView';
+import Loader from '../../components/Loader';
+import { useSound } from '../../contexts/SoundContext';
+import EmptyState from '../../components/EmptyState';
+import useGameSession from '../../hooks/useGameSession';
+import { logGameStats } from '../../utils/gameStats';
+import useRequireGameCredits from '../../hooks/useRequireGameCredits';
+import useDebouncedCallback from '../../hooks/useDebouncedCallback';
+import PlayerInfoBar from '../../components/PlayerInfoBar';
+import useUserProfile from '../../hooks/useUserProfile';
 import PropTypes from 'prop-types';
-import { computeBadges } from '../utils/badges';
+import { computeBadges } from '../../utils/badges';
 const toSingleValue = (value) =>
   Array.isArray(value) ? value[0] : value;
 
@@ -733,7 +733,7 @@ function BotSessionScreen({ params }) {
               ListEmptyComponent={
                 <EmptyState
                   text="No messages yet."
-                  image={require('../assets/logo.png')}
+                  image={require('../../assets/logo.png')}
                 />
               }
             />
@@ -796,7 +796,7 @@ function SpectatorSessionScreen({ params }) {
           {players.map((p) => (
             <View key={p.id} style={styles.player}>
               <Image
-                source={p.photo ? { uri: p.photo } : require('../assets/logo.png')}
+                source={p.photo ? { uri: p.photo } : require('../../assets/logo.png')}
                 style={styles.avatar}
               />
               <Text style={styles.playerName}>{p.displayName}</Text>

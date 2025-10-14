@@ -14,6 +14,7 @@ import { ListenerProvider } from '../contexts/ListenerContext';
 import { GameSessionProvider } from '../contexts/GameSessionContext';
 import { ChatProvider } from '../contexts/ChatContext';
 import { GameLimitProvider } from '../contexts/GameLimitContext';
+import { MatchmakingProvider } from '../contexts/MatchmakingContext';
 
 LogBox.ignoreAllLogs();
 
@@ -32,7 +33,9 @@ const Providers = ({ children }) => (
               <ListenerProvider>
                 <GameSessionProvider>
                   <ChatProvider>
-                    <GameLimitProvider>{children}</GameLimitProvider>
+                    <GameLimitProvider>
+                      <MatchmakingProvider>{children}</MatchmakingProvider>
+                    </GameLimitProvider>
                   </ChatProvider>
                 </GameSessionProvider>
               </ListenerProvider>
