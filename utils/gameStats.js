@@ -1,11 +1,11 @@
 import { db } from '../firebaseConfig';
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, orderBy, query, serverTimestamp, setDoc } from 'firebase/firestore';
 import { snapshotExists } from './firestore';
 
 export async function logGameStats(sessionId) {
   if (!sessionId) return;
   try {
-    const ref = doc(db, 'gameSessions', sessionId);
+    const ref = doc(db, 'games', sessionId);
     const snap = await getDoc(ref);
     if (!snapshotExists(snap)) return;
     const data = snap.data() || {};
@@ -20,13 +20,18 @@ export async function logGameStats(sessionId) {
       winner = players[data.gameover.winner];
     }
 
+    const movesSnap = await getDocs(
+      query(collection(db, 'games', sessionId, 'moves'), orderBy('at', 'asc'))
+    );
+    const moves = movesSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+
     const statsRef = doc(db, 'gameStats', sessionId);
     await setDoc(statsRef, {
       gameId: data.gameId,
       players,
       durationSec: duration,
       winner,
-      moves: data.moves || [],
+      moves,
       loggedAt: serverTimestamp(),
     });
   } catch (e) {

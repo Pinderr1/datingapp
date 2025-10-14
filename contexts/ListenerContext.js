@@ -31,7 +31,7 @@ export const ListenerProvider = ({ children }) => {
     setLoading(true);
     setError(null);
 
-    const q = query(collection(db, 'gameSessions'), where('players', 'array-contains', user.uid));
+    const q = query(collection(db, 'games'), where('players', 'array-contains', user.uid));
     const unsub = onSnapshot(
       q,
       (snap) => {
