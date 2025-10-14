@@ -85,6 +85,10 @@ jest.mock('expo-linear-gradient', () => ({
   LinearGradient: ({ children }) => children,
 }));
 
+jest.mock('expo-blur', () => ({
+  BlurView: ({ children }) => children,
+}));
+
 const mockRouter = {
   replace: jest.fn(),
   push: jest.fn(),
@@ -133,4 +137,9 @@ jest.mock('react-native-toast-message', () => ({
 jest.mock('expo-haptics', () => ({
   notificationAsync: jest.fn(() => Promise.resolve()),
   NotificationFeedbackType: { Success: 'success' },
+}));
+
+jest.mock('lottie-react-native', () => ({
+  __esModule: true,
+  default: jest.fn(() => null),
 }));
