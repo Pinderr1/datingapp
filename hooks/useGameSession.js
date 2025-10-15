@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { INVALID_MOVE } from 'boardgame.io/core';
+import { Client } from 'boardgame.io/client';
 import { db } from '../firebaseConfig';
 import {
   addDoc,
@@ -28,22 +29,78 @@ export default function useGameSession(sessionId, gameId, opponentId) {
   useEffect(() => {
     if (!Game || !sessionId || !user?.uid) return;
     const ref = doc(db, 'games', sessionId);
-    let initialized = false;
+    let initializationPromise = null;
+
+    const resolveParticipants = (data) => {
+      if (Array.isArray(data?.players) && data.players.length) {
+        return data.players;
+      }
+      if (Array.isArray(data?.users) && data.users.length) {
+        return data.users;
+      }
+      return [user.uid, opponentId].filter(Boolean);
+    };
+
+    const ensureInitialized = async (existingData, create) => {
+      try {
+        const participants = resolveParticipants(existingData);
+        const numPlayers = Math.max(participants.length || 0, 1);
+        const client = Client({ game: Game, numPlayers });
+        client.start();
+        const state = client.getState();
+        if (typeof client.stop === 'function') {
+          client.stop();
+        }
+
+        const now = serverTimestamp();
+        const payload = {
+          state: state?.G ?? {},
+          currentPlayer: state?.ctx?.currentPlayer ?? '0',
+          players: participants,
+          users: participants,
+          updatedAt: now,
+        };
+
+        if (create || !existingData?.createdAt) {
+          payload.createdAt = existingData?.createdAt || now;
+        }
+
+        if (create) {
+          await setDoc(ref, {
+            gameId,
+            ...payload,
+          });
+        } else {
+          await updateDoc(ref, payload);
+        }
+      } catch (err) {
+        console.warn('Failed to initialize game session', err);
+      }
+    };
+
     const unsub = onSnapshot(ref, async (snap) => {
       if (snapshotExists(snap)) {
         const data = snap.data();
-        if (data.players?.includes(user.uid)) {
+
+        if (!data?.state || !data?.currentPlayer) {
+          if (!initializationPromise) {
+            initializationPromise = ensureInitialized(data, false).finally(() => {
+              initializationPromise = null;
+            });
+          }
+        }
+
+        const participants = Array.isArray(data?.players)
+          ? data.players
+          : Array.isArray(data?.users)
+          ? data.users
+          : [];
+        if (participants.includes(user.uid)) {
           setSession(data);
         }
-      } else if (!initialized) {
-        initialized = true;
-        await setDoc(ref, {
-          gameId,
-          players: [user.uid, opponentId],
-          state: Game.setup(),
-          currentPlayer: '0',
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
+      } else if (!initializationPromise) {
+        initializationPromise = ensureInitialized(null, true).finally(() => {
+          initializationPromise = null;
         });
       }
     });
@@ -66,7 +123,8 @@ export default function useGameSession(sessionId, gameId, opponentId) {
   }, [sessionId, user?.uid, session?.players]);
 
   const sendMove = useCallback(async (moveName, ...args) => {
-    if (!session || !Game) return;
+    if (!session || !Game || !session.state || typeof session.currentPlayer === 'undefined') return;
+    if (!Array.isArray(session.players)) return;
     const idx = session.players.indexOf(user.uid);
     if (idx === -1) return;
     if (String(idx) !== session.currentPlayer) return;
