@@ -20,8 +20,9 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 
 // Firebase (v9 modular)
-import { auth, db } from '../../firebaseConfig';
+import { auth, db, storage } from '../../firebaseConfig';
 import { arrayUnion, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 
 const COLORS = {
   bg: '#0b0b0f',
@@ -91,6 +92,7 @@ export default function OnboardingScreen() {
 
   const [avatarUrl, setAvatarUrl] = useState('');
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [step, setStep] = useState(0);
 
   const progressAnim = useRef(new Animated.Value(1 / steps.length)).current;
@@ -118,7 +120,7 @@ export default function OnboardingScreen() {
   const currentKey = steps[step].key;
   const validateField = () => {
     if (!REQUIRED_KEYS.includes(currentKey)) return true;
-    if (currentKey === 'avatar') return Boolean(answers.avatar);
+    if (currentKey === 'avatar') return Boolean(avatarUrl?.trim());
     if (currentKey === 'displayName') return clamp(answers.displayName, 40).length >= 1;
     if (currentKey === 'ageGender') return isAdult(answers.age) && !!answers.gender;
     return true;
@@ -141,31 +143,35 @@ export default function OnboardingScreen() {
       if (!asset) return;
       setAnswers((p) => ({ ...p, avatar: asset.uri }));
       setAvatarUrl('');
-      console.warn('Storage upload skipped (no bucket)');
-      /*
-      const uid = auth.currentUser?.uid;
-      if (!uid) {
-        Alert.alert('Not signed in');
-        return;
-      }
-      const response = await fetch(asset.uri);
-      const blob = await response.blob();
+
+      const user = ensureSignedIn();
+      if (!user) return;
+
+      setUploadingAvatar(true);
+      let blob;
       try {
-        const avatarRef = ref(storage, `avatars/${uid}/${Date.now()}.jpg`);
+        const response = await fetch(asset.uri);
+        blob = await response.blob();
+        const avatarRef = ref(storage, `avatars/${user.uid}/${Date.now()}.jpg`);
         await uploadBytes(avatarRef, blob, {
           contentType: asset.mimeType || 'image/jpeg',
         });
         const url = await getDownloadURL(avatarRef);
         setAvatarUrl(url);
+      } catch (uploadError) {
+        console.error('avatar upload error', uploadError);
+        Alert.alert('Upload failed', uploadError?.code || uploadError?.message || String(uploadError));
+        setAvatarUrl('');
       } finally {
-        if (typeof blob.close === 'function') {
+        if (blob && typeof blob.close === 'function') {
           blob.close();
         }
+        setUploadingAvatar(false);
       }
-      */
     } catch (e) {
       console.error('avatar upload error', e);
       Alert.alert('Upload failed', e?.code || e?.message || String(e));
+      setAvatarUrl('');
     }
   };
 
@@ -191,6 +197,10 @@ export default function OnboardingScreen() {
   const handleNext = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (saving) return;
+    if (uploadingAvatar) {
+      Alert.alert('Please wait', 'Your photo is still uploading.');
+      return;
+    }
 
     if (step < steps.length - 1) {
       if (!isValid) {
@@ -202,12 +212,13 @@ export default function OnboardingScreen() {
     }
 
     // Final save
+    const photoURL = avatarUrl?.trim();
     if (
       !(
         isAdult(answers.age) &&
         answers.gender &&
         answers.displayName.trim() &&
-        answers.avatar
+        photoURL
       )
     ) {
       Alert.alert('Incomplete', 'Please finish the required fields.');
@@ -229,7 +240,6 @@ export default function OnboardingScreen() {
         location: clamp(answers.location, 80),
         onboardingComplete: true,
       };
-      const photoURL = avatarUrl?.trim() || '';
       const payload = {
         ...profile,
         photoURL,
@@ -435,9 +445,17 @@ export default function OnboardingScreen() {
         <TouchableOpacity
           style={[S.button, !isValid && S.buttonDisabled]}
           onPress={handleNext}
-          disabled={!isValid || saving}
+          disabled={!isValid || saving || uploadingAvatar}
         >
-          <Text style={S.buttonText}>{step < steps.length - 1 ? 'Next' : saving ? 'Saving…' : 'Finish'}</Text>
+          <Text style={S.buttonText}>
+            {step < steps.length - 1
+              ? uploadingAvatar && currentKey === 'avatar'
+                ? 'Uploading…'
+                : 'Next'
+              : saving
+              ? 'Saving…'
+              : 'Finish'}
+          </Text>
         </TouchableOpacity>
       </View>
 
