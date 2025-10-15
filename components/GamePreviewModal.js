@@ -11,6 +11,8 @@ export default function GamePreviewModal({
   onPlayFriend,
   onPracticeBot,
   onClose,
+  friendLabel = 'Invite Match',
+  botLabel = 'Play AI',
 }) {
   const { theme } = useTheme();
   const styles = getStyles(theme);
@@ -55,13 +57,13 @@ export default function GamePreviewModal({
             )}
           </View>
           <GradientButton
-            text="Play With Friend"
+            text={friendLabel}
             onPress={onPlayFriend}
-            disabled={!game?.route}
+            disabled={!game?.route && !game?.title}
             style={{ borderRadius: 12 }}
           />
           <GradientButton
-            text="Practice vs Bot"
+            text={botLabel}
             onPress={onPracticeBot}
             style={{ borderRadius: 12 }}
           />
@@ -80,6 +82,8 @@ GamePreviewModal.propTypes = {
   onPlayFriend: PropTypes.func.isRequired,
   onPracticeBot: PropTypes.func.isRequired,
   onClose: PropTypes.func.isRequired,
+  friendLabel: PropTypes.string,
+  botLabel: PropTypes.string,
 };
 
 const getStyles = (theme) =>
