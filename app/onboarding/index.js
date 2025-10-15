@@ -20,9 +20,8 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 
 // Firebase (v9 modular)
-import { auth, db, storage } from '../../firebaseConfig';
+import { auth, db } from '../../firebaseConfig';
 import { arrayUnion, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 
 const COLORS = {
   bg: '#0b0b0f',
@@ -142,6 +141,9 @@ export default function OnboardingScreen() {
       if (!asset) return;
       setAnswers((p) => ({ ...p, avatar: asset.uri }));
       setAvatarUrl('');
+      console.warn('Storage upload skipped (no bucket)');
+      setAvatarUrl('https://example.com/placeholder.jpg');
+      /*
       const uid = auth.currentUser?.uid;
       if (!uid) {
         Alert.alert('Not signed in');
@@ -161,6 +163,7 @@ export default function OnboardingScreen() {
           blob.close();
         }
       }
+      */
     } catch (e) {
       console.error('avatar upload error', e);
       Alert.alert('Upload failed', e?.code || e?.message || String(e));
