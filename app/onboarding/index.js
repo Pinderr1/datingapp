@@ -118,7 +118,7 @@ export default function OnboardingScreen() {
   const currentKey = steps[step].key;
   const validateField = () => {
     if (!REQUIRED_KEYS.includes(currentKey)) return true;
-    if (currentKey === 'avatar') return Boolean(avatarUrl);
+    if (currentKey === 'avatar') return Boolean(answers.avatar);
     if (currentKey === 'displayName') return clamp(answers.displayName, 40).length >= 1;
     if (currentKey === 'ageGender') return isAdult(answers.age) && !!answers.gender;
     return true;
@@ -142,7 +142,6 @@ export default function OnboardingScreen() {
       setAnswers((p) => ({ ...p, avatar: asset.uri }));
       setAvatarUrl('');
       console.warn('Storage upload skipped (no bucket)');
-      setAvatarUrl('https://example.com/placeholder.jpg');
       /*
       const uid = auth.currentUser?.uid;
       if (!uid) {
@@ -203,7 +202,14 @@ export default function OnboardingScreen() {
     }
 
     // Final save
-    if (!(isAdult(answers.age) && answers.gender && avatarUrl && answers.displayName.trim())) {
+    if (
+      !(
+        isAdult(answers.age) &&
+        answers.gender &&
+        answers.displayName.trim() &&
+        answers.avatar
+      )
+    ) {
       Alert.alert('Incomplete', 'Please finish the required fields.');
       return;
     }
@@ -223,14 +229,18 @@ export default function OnboardingScreen() {
         location: clamp(answers.location, 80),
         onboardingComplete: true,
       };
+      const photoURL = avatarUrl?.trim() || '';
+      const payload = {
+        ...profile,
+        photoURL,
+        updatedAt: serverTimestamp(),
+      };
+      if (photoURL) {
+        payload.photoURLs = arrayUnion(photoURL);
+      }
       await setDoc(
         doc(db, 'users', u.uid),
-        {
-          ...profile,
-          photoURL: avatarUrl,
-          photoURLs: arrayUnion(avatarUrl),
-          updatedAt: serverTimestamp(),
-        },
+        payload,
         { merge: true }
       );
 
