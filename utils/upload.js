@@ -1,13 +1,15 @@
 // utils/upload.js
 
-const PLACEHOLDER_URL = 'https://example.com/placeholder.jpg';
+const IMAGE_PLACEHOLDER_URL = 'https://example.com/placeholder.jpg';
+const INTRO_CLIP_PLACEHOLDER_URL = 'https://example.com/placeholder.mp4';
+const VOICE_PLACEHOLDER_URL = 'https://example.com/placeholder.m4a';
 
 export async function uploadAvatarAsync(uri, uid) {
   if (!uri || !uid) throw new Error('uri and uid required');
   if (uri.startsWith('http')) return uri;
 
   console.warn('Storage upload skipped (no bucket)');
-  return PLACEHOLDER_URL;
+  return IMAGE_PLACEHOLDER_URL;
 }
 
 export async function uploadIntroClipAsync(uri, uid) {
@@ -15,7 +17,7 @@ export async function uploadIntroClipAsync(uri, uid) {
   if (uri.startsWith('http')) return uri;
 
   console.warn('Storage upload skipped (no bucket)');
-  return PLACEHOLDER_URL;
+  return INTRO_CLIP_PLACEHOLDER_URL;
 }
 
 export async function uploadVoiceAsync(uri, uid) {
@@ -23,5 +25,5 @@ export async function uploadVoiceAsync(uri, uid) {
   if (uri.startsWith('http')) return uri;
 
   console.warn('Storage upload skipped (no bucket)');
-  return PLACEHOLDER_URL;
+  return VOICE_PLACEHOLDER_URL;
 }
