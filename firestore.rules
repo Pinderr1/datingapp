@@ -124,6 +124,26 @@ service cloud.firestore {
              isOptionalTimestamp(data, 'createdAt');
     }
 
+    function isValidParticipantList(list) {
+      return list is list &&
+             list.size() > 0 &&
+             list.all(u, u is string && isValidString(u, 1, 128));
+    }
+
+    function gameData(gameId) {
+      return get(/databases/$(database)/documents/games/$(gameId)).data;
+    }
+
+    function gameParticipants(gameId) {
+      let data = gameData(gameId);
+      return data != null && data.players is list && data.players.size() > 0 ? data.players :
+             data != null && data.users is list && data.users.size() > 0 ? data.users : [];
+    }
+
+    function isGameParticipant(gameId) {
+      return isSignedIn() && gameParticipants(gameId).hasAny([request.auth.uid]);
+    }
+
     function isValidContactMessage(data) {
       return data.keys().hasOnly(['name','email','message','createdAt']) &&
              isValidString(data.name, 1, 80) &&
@@ -181,6 +201,78 @@ service cloud.firestore {
         allow create: if isMatchParticipant(matchUsers(matchId)) &&
                        isValidMessageData(request.resource.data);
       }
+    }
+
+    match /games/{gameId} {
+      allow get: if isGameParticipant(gameId);
+
+      allow list: if isSignedIn() &&
+                   request.query != null &&
+                   request.query.where('players', 'array-contains', request.auth.uid) == request.query;
+
+      allow create: if isSignedIn() &&
+                    request.resource.data.keys().hasOnly([
+                      'gameId','status','host','opponent','players','users','createdAt','updatedAt',
+                      'state','currentPlayer','gameover','matchedAt','lastMessage','startedAt','endedAt',
+                      'archived','archivedAt','cancelledAt'
+                    ]) &&
+                    isValidString(request.resource.data.gameId, 1, 200) &&
+                    request.resource.data.host == request.auth.uid &&
+                    isValidParticipantList(request.resource.data.players) &&
+                    isValidParticipantList(request.resource.data.users) &&
+                    request.resource.data.players == request.resource.data.users &&
+                    request.resource.data.players.hasAny([request.auth.uid]) &&
+                    isOptionalString(request.resource.data, 'status', 0, 40) &&
+                    isOptionalString(request.resource.data, 'opponent', 0, 128) &&
+                    isOptionalString(request.resource.data, 'lastMessage', 0, 1000) &&
+                    isOptionalTimestamp(request.resource.data, 'createdAt') &&
+                    isOptionalTimestamp(request.resource.data, 'updatedAt') &&
+                    isOptionalTimestamp(request.resource.data, 'matchedAt') &&
+                    isOptionalTimestamp(request.resource.data, 'startedAt') &&
+                    isOptionalTimestamp(request.resource.data, 'endedAt') &&
+                    isOptionalTimestamp(request.resource.data, 'archivedAt') &&
+                    isOptionalTimestamp(request.resource.data, 'cancelledAt') &&
+                    isOptionalBool(request.resource.data, 'archived');
+
+      allow update: if isGameParticipant(gameId) &&
+                    request.resource.data.keys().hasOnly([
+                      'gameId','status','host','opponent','players','users','createdAt','updatedAt',
+                      'state','currentPlayer','gameover','matchedAt','lastMessage','startedAt','endedAt',
+                      'archived','archivedAt','cancelledAt'
+                    ]) &&
+                    request.resource.data.gameId == resource.data.gameId &&
+                    request.resource.data.host == resource.data.host &&
+                    (!resource.data.keys().hasAny(['opponent']) || request.resource.data.opponent == resource.data.opponent) &&
+                    request.resource.data.players == resource.data.players &&
+                    (
+                      (resource.data.keys().hasAny(['users']) && request.resource.data.users == resource.data.users) ||
+                      (!resource.data.keys().hasAny(['users']) && request.resource.data.users == request.resource.data.players)
+                    ) &&
+                    (!resource.data.keys().hasAny(['createdAt']) || request.resource.data.createdAt == resource.data.createdAt) &&
+                    isOptionalString(request.resource.data, 'lastMessage', 0, 1000) &&
+                    isOptionalTimestamp(request.resource.data, 'updatedAt') &&
+                    isOptionalTimestamp(request.resource.data, 'matchedAt') &&
+                    isOptionalTimestamp(request.resource.data, 'startedAt') &&
+                    isOptionalTimestamp(request.resource.data, 'endedAt') &&
+                    isOptionalTimestamp(request.resource.data, 'archivedAt') &&
+                    isOptionalTimestamp(request.resource.data, 'cancelledAt') &&
+                    isOptionalBool(request.resource.data, 'archived');
+
+      allow delete: if isGameParticipant(gameId);
+
+      match /moves/{moveId} {
+        allow get, list: if isGameParticipant(gameId);
+        allow create: if isGameParticipant(gameId) &&
+                       request.resource.data.keys().hasOnly(['action','player','at']) &&
+                       isValidString(request.resource.data.action, 1, 100) &&
+                       isValidString(request.resource.data.player, 1, 10) &&
+                       isOptionalTimestamp(request.resource.data, 'at');
+      }
+    }
+
+    match /gameStats/{sessionId} {
+      allow get: if isGameParticipant(sessionId);
+      allow create, update: if isGameParticipant(sessionId);
     }
 
     match /contactMessages/{messageId} {
