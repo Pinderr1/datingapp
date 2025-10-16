@@ -22,7 +22,7 @@ const SplashScreen = () => {
         return;
       }
 
-      router.replace('/home');
+      router.replace('/(tabs)/home');
     };
 
     redirect();
