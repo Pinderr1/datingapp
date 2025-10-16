@@ -1,6 +1,5 @@
-// components/GradientButton.tsx
-import React, { useRef } from 'react';
-import type { StyleProp, ViewStyle } from 'react-native';
+// components/GradientButton.js
+import { useRef } from 'react';
 import { View, Text, Pressable, Animated, StyleSheet } from 'react-native';
 
 import * as Haptics from 'expo-haptics';
@@ -10,17 +9,18 @@ import { BUTTON_STYLE, FONT_SIZES } from '../layout';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 
-export interface GradientButtonProps {
-  text: string;
-  onPress?: () => void;
-  width?: number | string;
-  marginVertical?: number;
-  icon?: React.ReactNode;
-  style?: StyleProp<ViewStyle>;
-  disabled?: boolean;
-  onPressIn?: () => void;
-  onPressOut?: () => void;
-}
+/**
+ * @param {object} props
+ * @param {string} props.text
+ * @param {() => void} [props.onPress]
+ * @param {number | string} [props.width]
+ * @param {number} [props.marginVertical]
+ * @param {import('react').ReactNode} [props.icon]
+ * @param {import('react-native').StyleProp<import('react-native').ViewStyle>} [props.style]
+ * @param {boolean} [props.disabled]
+ * @param {() => void} [props.onPressIn]
+ * @param {() => void} [props.onPressOut]
+ */
 export default function GradientButton({
   text,
   onPress,
@@ -31,7 +31,7 @@ export default function GradientButton({
   disabled,
   onPressIn,
   onPressOut,
-}: GradientButtonProps) {
+}) {
   const { theme } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
   const rippleScale = useRef(new Animated.Value(0)).current;

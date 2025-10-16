@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { View, Image, TouchableOpacity, StyleSheet, Platform, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,12 +8,11 @@ import { useUser } from '../contexts/UserContext';
 import useUnreadNotifications from '../hooks/useUnreadNotifications';
 import { HEADER_HEIGHT } from '../layout';
 
-export interface HeaderProps {
-  /** Only show the center logo */
-  showLogoOnly?: boolean;
-}
-
-const Header: React.FC<HeaderProps> = ({ showLogoOnly = false }) => {
+/**
+ * @param {object} props
+ * @param {boolean} [props.showLogoOnly]
+ */
+const Header = ({ showLogoOnly = false }) => {
   const router = useRouter();
   const { darkMode, toggleTheme, theme } = useTheme();
   const { user } = useUser();
