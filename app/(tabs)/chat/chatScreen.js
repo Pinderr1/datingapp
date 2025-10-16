@@ -30,7 +30,9 @@ const ChatScreen = () => {
 
         const matchesQuery = query(
             collection(db, 'matches'),
-            where('users', 'array-contains', currentUserId)
+            where('users', 'array-contains', currentUserId),
+            orderBy('updatedAt', 'desc'),
+            limit(50)
         );
 
         const unsubscribe = onSnapshot(matchesQuery, (snapshot) => {
