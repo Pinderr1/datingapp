@@ -2,7 +2,7 @@ import React from 'react';
 import { View } from 'react-native';
 import Loader from './Loader';
 import useGameSession from '../hooks/useGameSession';
-import { games } from '../app/games/registry';
+import { games } from '../games/registry';
 import PropTypes from 'prop-types';
 import GameContainer from './GameContainer';
 import { useUser } from '../contexts/UserContext';

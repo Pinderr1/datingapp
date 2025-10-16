@@ -1,2 +1,2 @@
 export { default } from '../app/games/index';
-export * from '../app/games/registry';
+export * from './registry';

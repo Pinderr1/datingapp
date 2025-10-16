@@ -18,7 +18,7 @@ import GameFilters from '../../components/GameFilters';
 import EmptyState from '../../components/EmptyState';
 
 import { allGames } from '../../data/games';           // your static list
-import { games as gameRegistry } from './registry';     // boardgame registry
+import { games as gameRegistry } from '../../games/registry';     // boardgame registry
 import { getRandomBot } from '../../ai/bots';
 import { HEADER_SPACING } from '../../layout';
 
