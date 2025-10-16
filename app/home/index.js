@@ -386,6 +386,18 @@ const HomeScreen = () => {
     </View>
   );
 
+  const swipeNowCta = () => (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      style={styles.swipeNowButton}
+      onPress={() => router.push('/(tabs)/swipe')}
+      accessibilityRole="button"
+      accessibilityLabel="Swipe Now"
+    >
+      <Text style={Fonts.whiteColor18Bold}>Swipe Now</Text>
+    </TouchableOpacity>
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
       <View style={{ flex: 1 }}>
@@ -393,6 +405,7 @@ const HomeScreen = () => {
         {searchInfo()}
         <View style={{ flex: 1 }}>{deckArea()}</View>
       </View>
+      <View style={styles.swipeNowContainer}>{swipeNowCta()}</View>
     </View>
   );
 };
@@ -495,5 +508,18 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     borderRadius: Sizes.fixPadding * 3.0,
     backgroundColor: '#ddd',
+  },
+  swipeNowContainer: {
+    paddingHorizontal: Sizes.fixPadding * 2.0,
+    paddingBottom: Sizes.fixPadding * 2.5,
+    paddingTop: Sizes.fixPadding,
+    backgroundColor: Colors.whiteColor,
+  },
+  swipeNowButton: {
+    backgroundColor: Colors.primaryColor,
+    borderRadius: Sizes.fixPadding * 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Sizes.fixPadding * 1.5,
   },
 });
