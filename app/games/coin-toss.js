@@ -9,7 +9,7 @@ const CoinTossGame = {
   setup: () => ({ choice: null, result: null }),
   turn: { moveLimit: 1 },
   moves: {
-    choose: ({ G }, guess) => {
+    choose: ({ G, ctx }, guess) => {
       if (G.choice) return INVALID_MOVE;
       G.choice = guess;
       G.result = ctx.random.D2() === 1 ? 'Heads' : 'Tails';
