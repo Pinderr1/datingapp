@@ -16,7 +16,7 @@ const LoginScreen = () => {
 
     const redirectBasedOnOnboarding = (userData) => {
         if (userData?.onboardingComplete) {
-            router.replace('/(tabs)/home/homeScreen');
+            router.replace('/(tabs)/discover');
         } else {
             router.replace('/onboarding');
         }

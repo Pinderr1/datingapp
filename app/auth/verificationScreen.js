@@ -72,7 +72,7 @@ const VerificationScreen = () => {
                     setisLoading(true)
                     setTimeout(() => {
                         setisLoading(false)
-                        router.replace('/(tabs)/home/homeScreen')
+                        router.replace('/(tabs)/discover')
                     }, 2000);
                 }}
                 style={styles.buttonStyle}
@@ -106,7 +106,7 @@ const VerificationScreen = () => {
                         setisLoading(true)
                         setTimeout(() => {
                             setisLoading(false)
-                            router.replace('/(tabs)/home/homeScreen')
+                            router.replace('/(tabs)/discover')
                         }, 2000);
                     }
                 }}
