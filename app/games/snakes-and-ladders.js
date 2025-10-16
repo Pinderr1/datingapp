@@ -1,6 +1,7 @@
 import React from 'react';
 import createGameClient from './createGameClient';
 import { View, Text, TouchableOpacity } from 'react-native';
+import useOnGameOver from '../../hooks/useOnGameOver';
 
 const snakes = { 16: 6, 47: 26, 49: 11, 56: 53, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 98: 78 };
 const ladders = { 1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100 };
@@ -29,7 +30,9 @@ const SnakesLaddersGame = {
 
 const cellStyle = { width: 30, height: 30, borderWidth: 1, alignItems: 'center', justifyContent: 'center' };
 
-const SnakesLaddersBoard = ({ G, ctx, moves }) => {
+const SnakesLaddersBoard = ({ G, ctx, moves, onGameEnd }) => {
+  useOnGameOver(ctx.gameover, onGameEnd);
+
   const rows = [];
   for (let r = 9; r >= 0; r--) {
     const cells = [];
