@@ -52,7 +52,7 @@ export default function TabLayout() {
         }}
       >
         <Tabs.Screen
-          name='home/homeScreen'
+          name='discover/index'
           options={{
             tabBarIcon: ({ focused }) => tabShort({ icon: require('../../assets/images/icons/home.png'), focused: focused })
           }}
@@ -67,6 +67,12 @@ export default function TabLayout() {
           name='chat/chatScreen'
           options={{
             tabBarIcon: ({ focused }) => tabShort({ icon: require('../../assets/images/icons/chat.png'), focused: focused })
+          }}
+        />
+        <Tabs.Screen
+          name='games/index'
+          options={{
+            tabBarIcon: ({ focused }) => tabShort({ icon: require('../../assets/Icons/games.png'), focused: focused })
           }}
         />
         <Tabs.Screen
