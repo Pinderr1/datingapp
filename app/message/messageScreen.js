@@ -5,8 +5,9 @@ import { MaterialIcons } from '@expo/vector-icons'
 import MyStatusBar from '../../components/myStatusBar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
-import { auth, db } from '../../firebaseConfig';
+import { db } from '../../firebaseConfig';
 import { sendMessage as sendMessageService } from '../../services/userService';
+import { useUser } from '../../contexts/UserContext';
 
 const receiverImage = require('../../assets/images/users/user10.png');
 
@@ -30,13 +31,14 @@ const MessageScreen = () => {
     }, [params]);
 
     const matchId = typeof matchIdParam === 'string' ? matchIdParam : undefined;
-    const currentUserId = auth.currentUser?.uid ?? null;
+    const { firebaseUser } = useUser();
+    const currentUserId = firebaseUser?.uid ?? null;
 
     const [messagesList, setMessagesList] = useState([]);
     const [messageText, setMessageText] = useState('');
 
     useEffect(() => {
-        if (!matchId) {
+        if (!matchId || !currentUserId) {
             setMessagesList([]);
             return undefined;
         }
@@ -62,7 +64,7 @@ const MessageScreen = () => {
         return () => {
             unsubscribe();
         };
-    }, [matchId]);
+    }, [matchId, currentUserId]);
 
     const handleSendMessage = async () => {
         const trimmedMessage = messageText.trim();
