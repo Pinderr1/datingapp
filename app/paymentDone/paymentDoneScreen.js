@@ -9,7 +9,7 @@ const PaymentDoneScreen = () => {
     const router = useRouter();
 
     const navigateToTabs = useCallback(() => {
-        router.replace('/(tabs)/discover');
+        router.replace('/(tabs)/swipe');
     }, [router]);
 
     const backAction = useCallback(() => {
