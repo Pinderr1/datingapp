@@ -52,14 +52,15 @@ export default function TabLayout() {
         }}
       >
         <Tabs.Screen
-          name='discover/index'
+          name='home/homeScreen'
           options={{
             tabBarIcon: ({ focused }) => tabShort({ icon: require('../../assets/images/icons/home.png'), focused: focused })
           }}
         />
         <Tabs.Screen
-          name='shortlist/shortlistScreen'
+          name='swipe'
           options={{
+            title: 'Swipe',
             tabBarIcon: ({ focused }) => tabShort({ icon: require('../../assets/images/icons/shortlist.png'), focused: focused })
           }}
         />
