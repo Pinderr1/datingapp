@@ -113,7 +113,7 @@ export default function OnboardingScreen() {
       if (!u) return;
       const snap = await getDoc(doc(db, 'users', u.uid));
       const data = snap.exists() ? snap.data() : null;
-      if (data?.onboardingComplete) router.replace('/home');
+      if (data?.onboardingComplete) router.replace('/(tabs)/discover');
     })().catch(() => {});
   }, [router]);
 
@@ -254,7 +254,7 @@ export default function OnboardingScreen() {
         { merge: true }
       );
 
-      router.replace('/home');
+      router.replace('/(tabs)/discover');
     } catch (e) {
       console.error('avatar upload error', e);
       Alert.alert('Upload failed', e?.code || e?.message || String(e));
@@ -293,7 +293,7 @@ export default function OnboardingScreen() {
         },
         { merge: true }
       );
-      router.replace('/home');
+      router.replace('/(tabs)/discover');
     } catch (e) {
       Alert.alert('Skip failed', e.message || 'Could not skip now.');
     } finally {
