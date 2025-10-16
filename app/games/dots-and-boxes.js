@@ -2,6 +2,7 @@ import React from 'react';
 import createGameClient from './createGameClient';
 import { INVALID_MOVE } from 'boardgame.io/core';
 import { View, Text, TouchableOpacity } from 'react-native';
+import useOnGameOver from '../../hooks/useOnGameOver';
 
 const SIZE = 2; // 2x2 boxes
 
@@ -84,7 +85,9 @@ const DotsBoxesGame = {
   },
 };
 
-const DotsBoxesBoard = ({ G, ctx, moves }) => {
+const DotsBoxesBoard = ({ G, ctx, moves, onGameEnd }) => {
+  useOnGameOver(ctx.gameover, onGameEnd);
+
   const rows = [];
   for (let r = 0; r <= SIZE; r++) {
     const cells = [];
