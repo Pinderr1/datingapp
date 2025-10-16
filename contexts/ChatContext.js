@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useUser } from './UserContext';
 
@@ -42,7 +42,12 @@ export const ChatProvider = ({ children }) => {
       return undefined;
     }
     setLoading(true);
-    const q = query(collection(db, 'matches'), where('users', 'array-contains', user.uid));
+    const q = query(
+      collection(db, 'matches'),
+      where('users', 'array-contains', user.uid),
+      orderBy('updatedAt', 'desc'),
+      limit(50)
+    );
     const unsubscribe = onSnapshot(
       q,
       (snap) => {
