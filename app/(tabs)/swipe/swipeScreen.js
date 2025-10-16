@@ -5,13 +5,14 @@ import {
     TextInput,
     TouchableOpacity,
     ImageBackground,
+    FlatList,
+    Animated,
 } from 'react-native'
 import React, { useState, useRef, useEffect } from 'react'
 import { Colors, Fonts, screenHeight, screenWidth, Sizes } from '../../../constants/styles'
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons'
 import { usersList } from '../../../components/usersList'
 import { useNavigation } from 'expo-router'
-import TinderCard from 'react-tinder-card'
 import { LinearGradient } from 'expo-linear-gradient'
 
 const HomeScreen = () => {
@@ -22,11 +23,12 @@ const HomeScreen = () => {
     const [search, setsearch] = useState('');
     const searchFieldRef = useRef(null);
     const [cardLength, setCardLength] = useState(usersList.length);
+    const cardAnimations = useRef(new Map()).current;
 
     useEffect(() => {
         if (cardLength == 0) {
-            setCardLength(14);
             setusers(usersList);
+            setCardLength(usersList.length);
         }
         return () => { }
     }, [cardLength])
@@ -43,15 +45,21 @@ const HomeScreen = () => {
         </View>
     )
 
+    function getCardAnimation(id) {
+        if (!cardAnimations.has(id)) {
+            cardAnimations.set(id, new Animated.Value(1));
+        }
+        return cardAnimations.get(id);
+    }
+
     function removeCard(id) {
-        const copyUsers = users;
-        const newUsers = copyUsers.filter((item) => item.id !== id);
+        const newUsers = users.filter((item) => item.id !== id);
         setusers(newUsers);
+        setCardLength(newUsers.length);
     };
 
     function changeShortlist({ id }) {
-        const copyUsers = users;
-        const newUsers = copyUsers.map((item) => {
+        const newUsers = users.map((item) => {
             if (item.id == id) {
                 return { ...item, isFavorite: !item.isFavorite }
             }
@@ -67,65 +75,79 @@ const HomeScreen = () => {
             <View style={{ flex: 1, alignItems: 'center' }}>
                 <View style={styles.imageBottomContainre1} >
                     <View style={styles.imageBottomContainre2} >
-                        {cardLength !== 0 && users.map((item, index) => (
-                            <View
-                                key={`${item.id}`}
-                                style={styles.tinderCardWrapper}
-                            >
-                                <TinderCard onCardLeftScreen={() => { setCardLength(index) }}>
-                                    <ImageBackground
-                                        source={item.image}
-                                        style={{ height: '100%', width: '100%', }}
-                                        resizeMode='cover'
-                                        borderRadius={Sizes.fixPadding * 3.0}
-                                    >
-                                        <LinearGradient
-                                            colors={['rgba(0, 0, 0, 0.58)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.58)']}
-                                            style={{
-                                                flex: 1,
-                                                justifyContent: 'space-between',
-                                                borderRadius: Sizes.fixPadding * 3.0
-                                            }}
+                        {cardLength !== 0 && (
+                            <FlatList
+                                data={users}
+                                keyExtractor={(item) => `${item.id}`}
+                                scrollEnabled={false}
+                                renderItem={({ item, index }) => {
+                                    const scale = getCardAnimation(item.id);
+                                    return (
+                                        <Animated.View
+                                            style={[
+                                                styles.tinderCardWrapper,
+                                                {
+                                                    transform: [{ scale }],
+                                                    zIndex: users.length - index,
+                                                },
+                                            ]}
                                         >
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', margin: Sizes.fixPadding }}>
-                                                <MaterialIcons name="location-pin" size={18} color={Colors.whiteColor} />
-                                                <Text style={{ ...Fonts.whiteColor15Regular, marginLeft: Sizes.fixPadding - 5.0, }}>
-                                                    {item.address} • {item.distance}
-                                                </Text>
-                                            </View>
-                                            <View style={styles.userInfoWithOptionWrapper}>
-                                                <TouchableOpacity
-                                                    activeOpacity={0.8}
-                                                    onPress={() => { removeCard(item.id); setCardLength(index) }}
-                                                    style={styles.closeAndShortlistIconWrapStyle}
+                                            {/* TODO: Replace this temporary FlatList stack with an Expo-compatible swipe solution (e.g. react-native-deck-swiper) once the target library is validated. */}
+                                            <ImageBackground
+                                                source={item.image}
+                                                style={{ height: '100%', width: '100%', }}
+                                                resizeMode='cover'
+                                                borderRadius={Sizes.fixPadding * 3.0}
+                                            >
+                                                <LinearGradient
+                                                    colors={['rgba(0, 0, 0, 0.58)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.58)']}
+                                                    style={{
+                                                        flex: 1,
+                                                        justifyContent: 'space-between',
+                                                        borderRadius: Sizes.fixPadding * 3.0
+                                                    }}
                                                 >
-                                                    <MaterialIcons name="close" size={24} color={Colors.primaryColor} />
-                                                </TouchableOpacity>
-                                                <TouchableOpacity
-                                                    activeOpacity={0.8}
-                                                    onPress={() => { navigation.push('profileDetail/profileDetailScreen') }}
-                                                    style={{ maxWidth: screenWidth - 190, alignItems: 'center', justifyContent: 'center', marginHorizontal: Sizes.fixPadding }}
-                                                >
-                                                    <Text numberOfLines={1} style={{ ...Fonts.whiteColor20Bold }}>
-                                                        {item.name}, {item.age}
-                                                    </Text>
-                                                    <Text numberOfLines={1} style={{ ...Fonts.whiteColor15Regular }}>
-                                                        {item.profession}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                                <TouchableOpacity
-                                                    activeOpacity={0.8}
-                                                    onPress={() => { changeShortlist({ id: item.id }) }}
-                                                    style={{ ...styles.closeAndShortlistIconWrapStyle, }}
-                                                >
-                                                    <MaterialIcons name={item.isFavorite ? "favorite" : "favorite-border"} size={24} color={Colors.primaryColor} />
-                                                </TouchableOpacity>
-                                            </View>
-                                        </LinearGradient>
-                                    </ImageBackground>
-                                </TinderCard>
-                            </View>
-                        ))}
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', margin: Sizes.fixPadding }}>
+                                                        <MaterialIcons name="location-pin" size={18} color={Colors.whiteColor} />
+                                                        <Text style={{ ...Fonts.whiteColor15Regular, marginLeft: Sizes.fixPadding - 5.0, }}>
+                                                            {item.address} • {item.distance}
+                                                        </Text>
+                                                    </View>
+                                                    <View style={styles.userInfoWithOptionWrapper}>
+                                                        <TouchableOpacity
+                                                            activeOpacity={0.8}
+                                                            onPress={() => { removeCard(item.id); }}
+                                                            style={styles.closeAndShortlistIconWrapStyle}
+                                                        >
+                                                            <MaterialIcons name="close" size={24} color={Colors.primaryColor} />
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity
+                                                            activeOpacity={0.8}
+                                                            onPress={() => { navigation.push('profileDetail/profileDetailScreen') }}
+                                                            style={{ maxWidth: screenWidth - 190, alignItems: 'center', justifyContent: 'center', marginHorizontal: Sizes.fixPadding }}
+                                                        >
+                                                            <Text numberOfLines={1} style={{ ...Fonts.whiteColor20Bold }}>
+                                                                {item.name}, {item.age}
+                                                            </Text>
+                                                            <Text numberOfLines={1} style={{ ...Fonts.whiteColor15Regular }}>
+                                                                {item.profession}
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity
+                                                            activeOpacity={0.8}
+                                                            onPress={() => { changeShortlist({ id: item.id }) }}
+                                                            style={{ ...styles.closeAndShortlistIconWrapStyle, }}
+                                                        >
+                                                            <MaterialIcons name={item.isFavorite ? "favorite" : "favorite-border"} size={24} color={Colors.primaryColor} />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </LinearGradient>
+                                            </ImageBackground>
+                                        </Animated.View>
+                                    )
+                                }}
+                            />
+                        )}
                     </View>
                 </View>
             </View>
