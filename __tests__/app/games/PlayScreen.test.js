@@ -1,5 +1,5 @@
 import { deriveRegistryId } from '../../../app/games/PlayScreen';
-import { games as gameRegistry } from '../../../app/games/registry';
+import { games as gameRegistry } from '../../../games/registry';
 import { allGames } from '../../../data/games';
 
 jest.mock('expo-router', () => ({

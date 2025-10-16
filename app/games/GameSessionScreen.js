@@ -32,7 +32,7 @@ import {
 } from 'firebase/firestore';
 import * as Haptics from 'expo-haptics';
 import getGlobalStyles from '../../styles';
-import { games } from './registry';
+import { games } from '../../games/registry';
 import SyncedGame from '../../components/SyncedGame';
 import GameOverModal from '../../components/GameOverModal';
 import GameContainer from '../../components/GameContainer';

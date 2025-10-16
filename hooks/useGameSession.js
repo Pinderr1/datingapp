@@ -13,7 +13,7 @@ import {
   setDoc,
   updateDoc,
 } from 'firebase/firestore';
-import { games } from '../app/games/registry';
+import { games } from '../games/registry';
 import { useUser } from '../contexts/UserContext';
 import { useSound } from '../contexts/SoundContext';
 import { snapshotExists } from '../utils/firestore';

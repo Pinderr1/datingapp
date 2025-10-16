@@ -5,7 +5,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useGameSessions } from '../contexts/GameSessionContext';
 import { useChats } from '../contexts/ChatContext';
 import { useUser } from '../contexts/UserContext';
-import { games } from '../app/games/registry';
+import { games } from '../games/registry';
 import Card from './Card';
 import GradientButton from './GradientButton';
 

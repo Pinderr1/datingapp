@@ -32,7 +32,7 @@ import getGlobalStyles from '../../styles';
 import { allGames } from '../../data/games';
 import { getRandomBot } from '../../ai/bots';
 import { SPACING, HEADER_SPACING } from '../../layout';
-import { games } from './registry';
+import { games } from '../../games/registry';
 
 const toStr = (v) => (Array.isArray(v) ? v[0] : typeof v === 'string' ? v : undefined);
 
