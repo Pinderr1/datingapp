@@ -186,5 +186,9 @@ service cloud.firestore {
     match /contactMessages/{messageId} {
       allow create: if isValidContactMessage(request.resource.data);
     }
+
+    match /config/{docId} {
+      allow get, list: if true;
+    }
   }
 }
