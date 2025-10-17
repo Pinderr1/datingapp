@@ -498,6 +498,8 @@ const LiveSessionScreen = ({ params, router }) => {
 function BotSessionScreen({ params }) {
   const botId = params?.botId;
   const initialGame = params?.game || 'ticTacToe';
+  const aiKeyMap = { rockPaperScissors: 'rps' };
+  const normalizedInitialGame = aiKeyMap[initialGame] || initialGame;
   const [bot, setBot] = useState(
     bots.find((b) => b.id === botId) || getRandomBot()
   );
@@ -505,9 +507,7 @@ function BotSessionScreen({ params }) {
   const botStyles = getBotStyles(theme);
   const { user } = useUser();
   const { play } = useSound();
-  const [game, setGame] = useState(initialGame);
-
-  const aiKeyMap = { rockPaperScissors: 'rps' };
+  const [game, setGame] = useState(normalizedInitialGame);
   const gameMap = Object.keys(games).reduce((acc, key) => {
     const info = games[key];
     const aiKey = aiKeyMap[key] || key;
@@ -523,7 +523,8 @@ function BotSessionScreen({ params }) {
     return acc;
   }, {});
 
-  const fallbackKey = 'ticTacToe';
+  const fallbackKey =
+    gameMap[normalizedInitialGame] ? normalizedInitialGame : aiKeyMap['ticTacToe'] || 'ticTacToe';
   const activeKey = gameMap[game] ? game : fallbackKey;
   if (!gameMap[game]) console.warn('Unknown game key', game);
   const { G, ctx, moves, reset } = gameMap[activeKey].state;
