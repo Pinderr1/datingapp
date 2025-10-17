@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -96,6 +96,21 @@ const useResolvedSearchParams = () => {
     };
   }, [global, local]);
 };
+
+const BOT_AI_KEY_MAP = {
+  rockPaperScissors: 'rps',
+};
+
+const BOT_GAME_METADATA = Object.entries(games).reduce((acc, [key, info]) => {
+  const aiKey = BOT_AI_KEY_MAP[key] || key;
+  acc[key] = {
+    aiKey,
+    title: info.meta?.title || info.name,
+    Board: info.Board,
+    Game: info.Game,
+  };
+  return acc;
+}, {});
 
 const GameSessionScreen = ({ sessionType }) => {
   const router = useRouter();
@@ -497,7 +512,7 @@ const LiveSessionScreen = ({ params, router }) => {
 
 function BotSessionScreen({ params }) {
   const botId = params?.botId;
-  const initialGame = params?.game || 'ticTacToe';
+  const requestedGame = params?.game || 'ticTacToe';
   const [bot, setBot] = useState(
     bots.find((b) => b.id === botId) || getRandomBot()
   );
@@ -505,30 +520,18 @@ function BotSessionScreen({ params }) {
   const botStyles = getBotStyles(theme);
   const { user } = useUser();
   const { play } = useSound();
+  const fallbackKey = 'ticTacToe';
+  if (!BOT_GAME_METADATA[requestedGame]) {
+    console.warn('Unknown game key', requestedGame);
+  }
+  const initialGame = BOT_GAME_METADATA[requestedGame]
+    ? requestedGame
+    : fallbackKey;
   const [game, setGame] = useState(initialGame);
 
-  const aiKeyMap = { rockPaperScissors: 'rps' };
-  const gameMap = Object.keys(games).reduce((acc, key) => {
-    const info = games[key];
-    const aiKey = aiKeyMap[key] || key;
-    acc[aiKey] = {
-      title: info.meta?.title || info.name,
-      board: info.Board,
-      state: useBotGame(
-        info.Game,
-        (G, player, gameObj) => getBotMove(aiKey, G, player, gameObj),
-        (res) => handleGameEnd(res, aiKey)
-      ),
-    };
-    return acc;
-  }, {});
-
-  const fallbackKey = 'ticTacToe';
-  const activeKey = gameMap[game] ? game : fallbackKey;
-  if (!gameMap[game]) console.warn('Unknown game key', game);
-  const { G, ctx, moves, reset } = gameMap[activeKey].state;
-  const BoardComponent = gameMap[activeKey].board;
-  const title = gameMap[activeKey].title;
+  const activeKey = BOT_GAME_METADATA[game] ? game : fallbackKey;
+  if (!BOT_GAME_METADATA[game]) console.warn('Unknown game key', game);
+  const activeGame = BOT_GAME_METADATA[activeKey];
 
   const [gameOver, setGameOver] = useState(false);
   const [messages, setMessages] = useState([
@@ -537,17 +540,38 @@ function BotSessionScreen({ params }) {
   const [text, setText] = useState('');
   const [showBoard, setShowBoard] = useState(true);
 
-  function handleGameEnd(res, gameId) {
-    if (gameId !== game || !res) return;
-    let msg = 'Draw.';
-    if (res.winner === '0') msg = 'You win!';
-    else if (res.winner === '1') msg = `${bot.name} wins.`;
-    setGameOver(true);
-    addSystemMessage(`Game over. ${msg}`);
-  }
+  const addSystemMessage = useCallback((t) => {
+    setMessages((m) => [
+      { id: Date.now().toString(), sender: 'system', text: t },
+      ...m,
+    ]);
+  }, []);
 
-  const addSystemMessage = (t) =>
-    setMessages((m) => [{ id: Date.now().toString(), sender: 'system', text: t }, ...m]);
+  const handleGameEnd = useCallback(
+    (res) => {
+      if (!res) return;
+      let msg = 'Draw.';
+      if (res.winner === '0') msg = 'You win!';
+      else if (res.winner === '1') msg = `${bot.name} wins.`;
+      setGameOver(true);
+      addSystemMessage(`Game over. ${msg}`);
+    },
+    [addSystemMessage, bot.name]
+  );
+
+  const getBotMoveForGame = useCallback(
+    (G, player, gameObj) =>
+      getBotMove(activeGame.aiKey, G, player, gameObj),
+    [activeGame.aiKey]
+  );
+
+  const { G, ctx, moves, reset } = useBotGame(
+    activeGame.Game,
+    getBotMoveForGame,
+    handleGameEnd
+  );
+  const BoardComponent = activeGame.Board;
+  const title = activeGame.title;
 
   const sendMessage = (t) => {
     setMessages((m) => [
@@ -597,15 +621,16 @@ function BotSessionScreen({ params }) {
   };
 
   const switchGame = (g) => {
-    if (!gameMap[g]) {
+    if (!BOT_GAME_METADATA[g]) {
       console.warn('Unknown game key', g);
       return;
     }
-    if (g === game) return;
+    if (g === activeKey) return;
+    reset();
     setGame(g);
-    gameMap[g].state.reset();
     setGameOver(false);
-    addSystemMessage(`Switched to ${gameMap[g].title}.`);
+    setShowBoard(true);
+    addSystemMessage(`Switched to ${BOT_GAME_METADATA[g].title}.`);
   };
 
   const renderMessage = ({ item }) => {
@@ -671,7 +696,7 @@ function BotSessionScreen({ params }) {
             showsHorizontalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {Object.entries(gameMap).map(([key, val]) => (
+            {Object.entries(BOT_GAME_METADATA).map(([key, val]) => (
               <TouchableOpacity
                 key={key}
                 style={[botStyles.tab, game === key ? botStyles.tabActive : null]}
@@ -698,7 +723,7 @@ function BotSessionScreen({ params }) {
                     G={G}
                     ctx={ctx}
                     moves={moves}
-                    onGameEnd={(res) => handleGameEnd(res, game)}
+                    onGameEnd={handleGameEnd}
                   />
                 </View>
                 <TouchableOpacity style={botStyles.resetBtn} onPress={reset}>
