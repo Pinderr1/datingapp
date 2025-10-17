@@ -10,7 +10,7 @@ import {
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Colors, Fonts, screenWidth, Sizes } from '../../../constants/styles'
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons'
-import { useNavigation, useRouter } from 'expo-router'
+import { useRouter } from 'expo-router'
 import { LinearGradient } from 'expo-linear-gradient'
 import Swiper from 'react-native-deck-swiper'
 import Toast from 'react-native-toast-message'
@@ -21,7 +21,6 @@ const PAGE_SIZE = 20
 
 const HomeScreen = () => {
 
-    const navigation = useNavigation();
     const router = useRouter();
 
     const [users, setUsers] = useState([])
@@ -372,7 +371,7 @@ const HomeScreen = () => {
                     </TouchableOpacity>
                     <TouchableOpacity
                         activeOpacity={0.8}
-                        onPress={() => { navigation.push('profileDetail/profileDetailScreen') }}
+                        onPress={() => { router.push('/profileDetail/profileDetailScreen') }}
                         style={{ maxWidth: screenWidth - 190, alignItems: 'center', justifyContent: 'center', marginHorizontal: Sizes.fixPadding }}
                     >
                         <Text numberOfLines={1} style={{ ...Fonts.whiteColor20Bold }}>
@@ -461,7 +460,7 @@ const HomeScreen = () => {
                 </View>
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => { navigation.push('filter/filterScreen') }}
+                    onPress={() => { router.push('/filter/filterScreen') }}
                     style={styles.filterButtonStyle}
                 >
                     <MaterialCommunityIcons name="tune-variant" size={26} color={Colors.whiteColor} />
@@ -497,7 +496,7 @@ const HomeScreen = () => {
                     </TouchableOpacity>
                     <TouchableOpacity
                         activeOpacity={0.8}
-                        onPress={() => { navigation.push('notifications/notificationsScreen') }}
+                        onPress={() => { router.push('/notifications/notificationsScreen') }}
                         style={{ ...styles.iconWrapStyle, marginLeft: Sizes.fixPadding + 5.0 }}
                     >
                         <MaterialCommunityIcons name="bell-badge-outline" size={22} color={Colors.primaryColor} />
