@@ -7,31 +7,101 @@ import {
     ImageBackground,
     FlatList,
     Animated,
+    ActivityIndicator,
 } from 'react-native'
-import React, { useState, useRef, useEffect } from 'react'
-import { Colors, Fonts, screenHeight, screenWidth, Sizes } from '../../../constants/styles'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { Colors, Fonts, screenWidth, Sizes } from '../../../constants/styles'
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons'
-import { usersList } from '../../../components/usersList'
 import { useNavigation } from 'expo-router'
 import { LinearGradient } from 'expo-linear-gradient'
+import Toast from 'react-native-toast-message'
+import { fetchSwipeCandidates } from '../../../services/userService'
+
+const PAGE_SIZE = 20
 
 const HomeScreen = () => {
 
     const navigation = useNavigation();
 
-    const [users, setusers] = useState(usersList)
+    const [users, setUsers] = useState([])
+    const [loading, setLoading] = useState(false)
+    const [loadingMore, setLoadingMore] = useState(false)
+    const [error, setError] = useState(null)
+    const [nextCursor, setNextCursor] = useState(null)
     const [search, setsearch] = useState('');
     const searchFieldRef = useRef(null);
-    const [cardLength, setCardLength] = useState(usersList.length);
+    const initialLoadRef = useRef(false);
     const cardAnimations = useRef(new Map()).current;
 
-    useEffect(() => {
-        if (cardLength == 0) {
-            setusers(usersList);
-            setCardLength(usersList.length);
+    const showErrorToast = useCallback((message) => {
+        if (!message) {
+            return;
         }
-        return () => { }
-    }, [cardLength])
+        Toast.show({ type: 'error', text1: message });
+    }, [])
+
+    const handleFetchCandidates = useCallback(async ({ reset = false, startAfter } = {}) => {
+        if (reset) {
+            if (loading) {
+                return;
+            }
+            setLoading(true);
+        } else {
+            if (loadingMore || loading || (!nextCursor && !startAfter)) {
+                return;
+            }
+            setLoadingMore(true);
+        }
+
+        const params = {
+            limit: PAGE_SIZE,
+            startAfter: reset ? null : (startAfter ?? nextCursor ?? null),
+        };
+
+        try {
+            const result = await fetchSwipeCandidates(params);
+
+            if (result.ok && result.data) {
+                const incomingUsers = Array.isArray(result.data.users) ? result.data.users : [];
+                setUsers((prev) => (reset ? incomingUsers : [...prev, ...incomingUsers]));
+                setNextCursor(result.data.nextCursor ?? null);
+                setError(null);
+            } else {
+                const message = result?.error?.message || 'Unable to load more profiles right now.';
+                setError(message);
+                showErrorToast(message);
+            }
+        } catch (err) {
+            const message = err?.message || 'Unable to load more profiles right now.';
+            setError(message);
+            showErrorToast(message);
+        } finally {
+            if (reset) {
+                setLoading(false);
+            } else {
+                setLoadingMore(false);
+            }
+        }
+    }, [loading, loadingMore, nextCursor, showErrorToast])
+
+    useEffect(() => {
+        if (initialLoadRef.current) {
+            return;
+        }
+        initialLoadRef.current = true;
+        handleFetchCandidates({ reset: true });
+    }, [handleFetchCandidates])
+
+    const handleRefresh = useCallback(() => {
+        handleFetchCandidates({ reset: true });
+    }, [handleFetchCandidates])
+
+    const handleLoadMore = useCallback(() => {
+        if (!nextCursor || loading || loadingMore) {
+            return;
+        }
+        handleFetchCandidates({ startAfter: nextCursor });
+    }, [handleFetchCandidates, loading, loadingMore, nextCursor])
 
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor, }}>
@@ -53,9 +123,13 @@ const HomeScreen = () => {
     }
 
     function removeCard(id) {
-        const newUsers = users.filter((item) => item.id !== id);
-        setusers(newUsers);
-        setCardLength(newUsers.length);
+        setUsers((prev) => {
+            const updated = prev.filter((item) => item.id !== id);
+            if (updated.length <= 5) {
+                handleLoadMore();
+            }
+            return updated;
+        });
     };
 
     function changeShortlist({ id }) {
@@ -67,19 +141,48 @@ const HomeScreen = () => {
                 return item
             }
         })
-        setusers(newUsers);
+        setUsers(newUsers);
     }
 
     function usersInfo() {
+        if (loading && users.length === 0) {
+            return (
+                <View style={styles.loadingWrap}>
+                    <ActivityIndicator size="large" color={Colors.primaryColor} />
+                </View>
+            )
+        }
+
+        if (!loading && users.length === 0 && !nextCursor) {
+            return (
+                <View style={styles.emptyStateWrap}>
+                    <Text style={{ ...Fonts.grayColor15Regular, textAlign: 'center' }}>
+                        You're all caught up for now. Check back later for new profiles!
+                    </Text>
+                    <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={handleRefresh}
+                        style={styles.retryButtonStyle}
+                    >
+                        <Text style={{ ...Fonts.primaryColor16Bold }}>
+                            Refresh
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            )
+        }
+
         return (
             <View style={{ flex: 1, alignItems: 'center' }}>
                 <View style={styles.imageBottomContainre1} >
                     <View style={styles.imageBottomContainre2} >
-                        {cardLength !== 0 && (
+                        {users.length !== 0 && (
                             <FlatList
                                 data={users}
                                 keyExtractor={(item) => `${item.id}`}
                                 scrollEnabled={false}
+                                refreshing={loading && !loadingMore}
+                                onRefresh={handleRefresh}
                                 renderItem={({ item, index }) => {
                                     const scale = getCardAnimation(item.id);
                                     return (
@@ -150,6 +253,23 @@ const HomeScreen = () => {
                         )}
                     </View>
                 </View>
+                {error && (
+                    <Text style={{ ...Fonts.grayColor13Regular, marginBottom: Sizes.fixPadding }}>
+                        {error}
+                    </Text>
+                )}
+                {nextCursor && users.length > 0 && (
+                    <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={handleLoadMore}
+                        disabled={loadingMore}
+                        style={[styles.loadMoreButton, loadingMore && { opacity: 0.6 }]}
+                    >
+                        <Text style={{ ...Fonts.whiteColor16Bold }}>
+                            {loadingMore ? 'Loading…' : 'Load more'}
+                        </Text>
+                    </TouchableOpacity>
+                )}
             </View>
         )
     }
@@ -230,6 +350,25 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center'
     },
+    loadingWrap: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: Sizes.fixPadding * 2.0,
+    },
+    emptyStateWrap: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: Sizes.fixPadding * 3.0,
+    },
+    retryButtonStyle: {
+        marginTop: Sizes.fixPadding * 2.0,
+        paddingHorizontal: Sizes.fixPadding * 3.0,
+        paddingVertical: Sizes.fixPadding,
+        borderRadius: Sizes.fixPadding,
+        backgroundColor: Colors.bgColor,
+    },
     searchInfoWrapStyle: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -285,6 +424,14 @@ const styles = StyleSheet.create({
         alignSelf: 'center',
         width: screenWidth - 40,
         position: 'absolute',
+    },
+    loadMoreButton: {
+        marginTop: Sizes.fixPadding,
+        marginBottom: Sizes.fixPadding * 2.0,
+        paddingVertical: Sizes.fixPadding,
+        paddingHorizontal: Sizes.fixPadding * 3.0,
+        borderRadius: Sizes.fixPadding,
+        backgroundColor: Colors.primaryColor,
     },
     userInfoWithOptionWrapper: {
         flexDirection: 'row',
