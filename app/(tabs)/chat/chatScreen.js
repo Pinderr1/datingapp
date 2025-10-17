@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, TextInput, FlatList, Image, TouchableOpacity } from 'react-native'
+import { Animated, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import React, { useEffect, useRef, useState } from 'react'
 import { Colors, Fonts, Sizes } from '../../../constants/styles'
 import { MaterialIcons } from '@expo/vector-icons'
@@ -8,6 +8,7 @@ import { auth, db } from '../../../firebaseConfig';
 import { collection, doc, getDoc, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 
 const defaultUserImage = require('../../../assets/images/users/user1.png');
+const LOADING_DISPLAY_NAME = 'Loading…';
 
 const ChatScreen = () => {
 
@@ -21,6 +22,11 @@ const ChatScreen = () => {
     const pendingProfileFetchesRef = useRef(new Map());
 
     const currentUserId = profile?.uid || auth.currentUser?.uid || null;
+
+    useEffect(() => {
+        userProfileCacheRef.current.clear()
+        pendingProfileFetchesRef.current.clear()
+    }, [currentUserId])
 
     useEffect(() => {
         if (!currentUserId) {
@@ -42,16 +48,19 @@ const ChatScreen = () => {
                     const users = Array.isArray(data.users) ? data.users : [];
                     const otherUserId = users.find((id) => id !== currentUserId) || currentUserId;
                     const profiles = data.profiles && typeof data.profiles === 'object' ? data.profiles : {};
-                    const otherUserDataFromMatch = profiles?.[otherUserId] || null;
+                    const rawProfileFromMatch = profiles?.[otherUserId];
+                    const profileFromMatch = rawProfileFromMatch && typeof rawProfileFromMatch === 'object' ? rawProfileFromMatch : null;
+                    const hasProfileFromMatch = !!(profileFromMatch && Object.keys(profileFromMatch).length > 0);
                     const cachedUserData = userProfileCacheRef.current.get(otherUserId) ?? null;
-                    const otherUserData = otherUserDataFromMatch || cachedUserData;
+                    const resolvedProfile = combineProfiles(cachedUserData, profileFromMatch);
 
                     return {
                         id: matchDoc.id,
                         otherUserId,
-                        otherUserData,
-                        otherUserName: otherUserData?.name || 'Unknown User',
+                        otherUserData: resolvedProfile,
+                        otherUserName: getProfileDisplayName(resolvedProfile),
                         matchedAt: data.matchedAt ?? null,
+                        hasProfileFromMatch,
                     };
                 });
 
@@ -60,12 +69,15 @@ const ChatScreen = () => {
                     const nextMatches = entries.map((entry) => {
                         const previous = prevMap.get(entry.id);
                         const cachedProfile = userProfileCacheRef.current.get(entry.otherUserId) ?? null;
-                        const resolvedProfile = entry.otherUserData ?? cachedProfile ?? previous?.otherUserData ?? null;
+                        const resolvedProfile = combineProfiles(previous?.otherUserData, cachedProfile, entry.otherUserData);
+                        const fallbackName = previous?.otherUserName && previous.otherUserName !== LOADING_DISPLAY_NAME ? previous.otherUserName : '';
+                        const resolvedName = getProfileDisplayName(resolvedProfile) || entry.otherUserName || fallbackName || LOADING_DISPLAY_NAME;
+
                         return {
                             id: entry.id,
                             otherUserId: entry.otherUserId,
                             otherUserData: resolvedProfile,
-                            otherUserName: resolvedProfile?.name || entry.otherUserName || previous?.otherUserName || 'Unknown User',
+                            otherUserName: resolvedName,
                             matchedAt: entry.matchedAt ?? previous?.matchedAt ?? null,
                             lastMessage: previous?.lastMessage ?? '',
                             lastMessageCreatedAt: previous?.lastMessageCreatedAt ?? null,
@@ -76,8 +88,13 @@ const ChatScreen = () => {
                 });
 
                 entries.forEach((entry) => {
-                    if (!entry.otherUserData) {
-                        fetchProfileForMatch(entry.id, entry.otherUserId);
+                    const hasCachedProfile = userProfileCacheRef.current.has(entry.otherUserId);
+                    const cachedProfile = userProfileCacheRef.current.get(entry.otherUserId) ?? null;
+                    const resolvedName = getProfileDisplayName(entry.otherUserData || cachedProfile);
+                    const shouldFetchProfile = !!currentUserId && ((!entry.hasProfileFromMatch && !hasCachedProfile) || (!resolvedName && !hasCachedProfile));
+
+                    if (shouldFetchProfile) {
+                        fetchProfileForMatch(entry.otherUserId);
                     }
                 });
 
@@ -91,6 +108,10 @@ const ChatScreen = () => {
 
                 entries.forEach((entry) => {
                     if (messageListenersRef.current[entry.id]) {
+                        return;
+                    }
+
+                    if (!currentUserId) {
                         return;
                     }
 
@@ -139,20 +160,22 @@ const ChatScreen = () => {
         };
     }, [currentUserId]);
 
-    const fetchProfileForMatch = (matchId, otherUserId) => {
-        if (!otherUserId) {
+    const fetchProfileForMatch = (otherUserId) => {
+        if (!currentUserId || !otherUserId) {
             return;
         }
 
         if (userProfileCacheRef.current.has(otherUserId)) {
             const cachedProfile = userProfileCacheRef.current.get(otherUserId);
             if (cachedProfile) {
+                const displayName = getProfileDisplayName(cachedProfile);
                 setMatches((prevMatches) => prevMatches.map((item) => {
-                    if (item.id === matchId) {
+                    if (item.otherUserId === otherUserId) {
+                        const mergedProfile = combineProfiles(item.otherUserData, cachedProfile);
                         return {
                             ...item,
-                            otherUserData: cachedProfile,
-                            otherUserName: cachedProfile?.name || item.otherUserName,
+                            otherUserData: mergedProfile,
+                            otherUserName: displayName || item.otherUserName || LOADING_DISPLAY_NAME,
                         };
                     }
                     return item;
@@ -166,19 +189,37 @@ const ChatScreen = () => {
         }
 
         pendingProfileFetchesRef.current.set(otherUserId, true);
+        const activeUserId = currentUserId;
 
         (async () => {
             try {
-                const userDoc = await getDoc(doc(db, 'users', otherUserId));
+                if (!activeUserId) {
+                    return;
+                }
+
+                if (!currentUserId || currentUserId !== activeUserId) {
+                    return;
+                }
+
+                const userDocRef = doc(db, 'users', otherUserId);
+                const userDoc = await getDoc(userDocRef);
+
+                if (activeUserId !== currentUserId) {
+                    return;
+                }
+
                 if (userDoc.exists()) {
                     const userData = userDoc.data();
-                    userProfileCacheRef.current.set(otherUserId, userData);
+                    const normalizedProfile = combineProfiles(userData);
+                    userProfileCacheRef.current.set(otherUserId, normalizedProfile);
+                    const displayName = getProfileDisplayName(normalizedProfile);
                     setMatches((prevMatches) => prevMatches.map((item) => {
-                        if (item.id === matchId) {
+                        if (item.otherUserId === otherUserId) {
+                            const mergedProfile = combineProfiles(item.otherUserData, normalizedProfile);
                             return {
                                 ...item,
-                                otherUserData: userData,
-                                otherUserName: userData?.name || item.otherUserName,
+                                otherUserData: mergedProfile,
+                                otherUserName: displayName || item.otherUserName || LOADING_DISPLAY_NAME,
                             };
                         }
                         return item;
@@ -224,7 +265,8 @@ const ChatScreen = () => {
 
     function chatsInfo() {
         const renderItem = ({ item }) => {
-            const imageSource = getUserImageSource(item.otherUserData);
+            const { source: imageSource, isRemote, cacheKey } = getUserImageInfo(item.otherUserData);
+            const displayName = item.otherUserName || LOADING_DISPLAY_NAME;
             const lastMessageText = item.lastMessage?.trim() ? item.lastMessage : 'Say hello to start chatting';
             const formattedTime = formatTimestamp(item.lastMessageCreatedAt);
 
@@ -237,7 +279,7 @@ const ChatScreen = () => {
                             params: {
                                 matchId: item.id,
                                 otherUserId: item.otherUserId,
-                                otherUserName: item.otherUserName,
+                                otherUserName: displayName,
                             },
                         });
                     }}
@@ -245,14 +287,11 @@ const ChatScreen = () => {
                 >
                     <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
                         <View>
-                            <Image
-                                source={imageSource}
-                                style={{ width: 50.0, height: 50.0, borderRadius: 25.0, }}
-                            />
+                            <ChatAvatar source={imageSource} isRemote={isRemote} cacheKey={cacheKey} />
                         </View>
                         <View style={{ flex: 1, marginHorizontal: Sizes.fixPadding + 2.0, }}>
                             <Text numberOfLines={1} style={{ ...Fonts.blackColor17Medium }}>
-                                {item.otherUserName}
+                                {displayName}
                             </Text>
                             <Text numberOfLines={1} style={{ ...Fonts.grayColor15Regular, marginTop: Sizes.fixPadding - 5.0, }}>
                                 {lastMessageText}
@@ -320,24 +359,110 @@ const ChatScreen = () => {
     }
 }
 
-function getUserImageSource(user) {
-    if (!user) {
-        return defaultUserImage;
+const ChatAvatar = React.memo(({ source, isRemote, cacheKey }) => {
+    const fadeAnim = useRef(new Animated.Value(isRemote ? 0 : 1)).current;
+    const [showPlaceholder, setShowPlaceholder] = useState(isRemote);
+
+    useEffect(() => {
+        fadeAnim.setValue(isRemote ? 0 : 1);
+        setShowPlaceholder(isRemote);
+    }, [fadeAnim, isRemote, cacheKey]);
+
+    const handleOnLoad = () => {
+        Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 180,
+            useNativeDriver: true,
+        }).start(() => {
+            setShowPlaceholder(false);
+        });
+    };
+
+    return (
+        <View style={styles.avatarContainer}>
+            {showPlaceholder && (
+                <Image
+                    source={defaultUserImage}
+                    style={[styles.avatarImage, StyleSheet.absoluteFillObject]}
+                />
+            )}
+            {isRemote ? (
+                <Animated.Image
+                    source={source}
+                    onLoad={handleOnLoad}
+                    style={[styles.avatarImage, StyleSheet.absoluteFillObject, { opacity: fadeAnim }]}
+                />
+            ) : (
+                <Image
+                    source={source}
+                    style={styles.avatarImage}
+                />
+            )}
+        </View>
+    );
+}, (prevProps, nextProps) => {
+    return (
+        prevProps.cacheKey === nextProps.cacheKey &&
+        prevProps.isRemote === nextProps.isRemote
+    );
+});
+
+function getUserImageInfo(user) {
+    if (!user || typeof user !== 'object') {
+        return { source: defaultUserImage, isRemote: false, cacheKey: 'default' };
     }
 
     if (typeof user.image === 'number') {
-        return user.image;
+        return { source: user.image, isRemote: false, cacheKey: String(user.image) };
     }
 
-    if (user.image) {
-        return { uri: user.image };
+    const remoteUri = [
+        user.image,
+        user.photoURL,
+        user.avatarUrl,
+        user.avatar,
+        user.profileImage,
+        user.profilePhoto,
+        user.profilePicture,
+    ].find((value) => typeof value === 'string' && value.trim().length > 0);
+
+    if (remoteUri) {
+        return { source: { uri: remoteUri }, isRemote: true, cacheKey: remoteUri };
     }
 
-    if (user.photoURL) {
-        return { uri: user.photoURL };
+    return { source: defaultUserImage, isRemote: false, cacheKey: 'default' };
+}
+
+function getProfileDisplayName(profile) {
+    if (!profile || typeof profile !== 'object') {
+        return '';
     }
 
-    return defaultUserImage;
+    const candidates = [profile.name, profile.displayName, profile.fullName, profile.username];
+    for (const candidate of candidates) {
+        if (typeof candidate === 'string') {
+            const trimmed = candidate.trim();
+            if (trimmed) {
+                return trimmed;
+            }
+        }
+    }
+
+    return '';
+}
+
+function combineProfiles(...profiles) {
+    return profiles.reduce((result, profile) => {
+        if (!profile || typeof profile !== 'object') {
+            return result;
+        }
+
+        if (!result) {
+            return { ...profile };
+        }
+
+        return { ...result, ...profile };
+    }, null);
 }
 
 function formatTimestamp(timestamp) {
@@ -377,5 +502,19 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginVertical: Sizes.fixPadding + 2.0,
         marginHorizontal: Sizes.fixPadding * 2.0,
+    },
+    avatarContainer: {
+        width: 50.0,
+        height: 50.0,
+        borderRadius: 25.0,
+        overflow: 'hidden',
+        backgroundColor: Colors.bgColor,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    avatarImage: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 25.0,
     }
 })
