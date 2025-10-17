@@ -5,23 +5,24 @@ import {
     TextInput,
     TouchableOpacity,
     ImageBackground,
-    FlatList,
-    Animated,
     ActivityIndicator,
 } from 'react-native'
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Colors, Fonts, screenWidth, Sizes } from '../../../constants/styles'
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons'
-import { useNavigation } from 'expo-router'
+import { useNavigation, useRouter } from 'expo-router'
 import { LinearGradient } from 'expo-linear-gradient'
+import Swiper from 'react-native-deck-swiper'
 import Toast from 'react-native-toast-message'
-import { fetchSwipeCandidates } from '../../../services/userService'
+import * as Haptics from 'expo-haptics'
+import { fetchSwipeCandidates, likeUser } from '../../../services/userService'
 
 const PAGE_SIZE = 20
 
 const HomeScreen = () => {
 
     const navigation = useNavigation();
+    const router = useRouter();
 
     const [users, setUsers] = useState([])
     const [loading, setLoading] = useState(false)
@@ -31,7 +32,18 @@ const HomeScreen = () => {
     const [search, setsearch] = useState('');
     const searchFieldRef = useRef(null);
     const initialLoadRef = useRef(false);
-    const cardAnimations = useRef(new Map()).current;
+    const swiperRef = useRef(null);
+    const usersRef = useRef(users);
+    const [processingCardIds, setProcessingCardIds] = useState({});
+    const processingCardIdsRef = useRef(processingCardIds);
+
+    useEffect(() => {
+        usersRef.current = users;
+    }, [users]);
+
+    useEffect(() => {
+        processingCardIdsRef.current = processingCardIds;
+    }, [processingCardIds]);
 
     const showErrorToast = useCallback((message) => {
         if (!message) {
@@ -39,6 +51,36 @@ const HomeScreen = () => {
         }
         Toast.show({ type: 'error', text1: message });
     }, [])
+
+    const setCardProcessing = useCallback((id, value) => {
+        if (!id) {
+            return;
+        }
+        setProcessingCardIds((prev) => {
+            let nextState = prev;
+            if (value) {
+                if (!prev[id]) {
+                    nextState = { ...prev, [id]: true };
+                }
+            } else if (prev[id]) {
+                nextState = { ...prev };
+                delete nextState[id];
+            }
+
+            if (nextState !== prev) {
+                processingCardIdsRef.current = nextState;
+            }
+
+            return nextState;
+        });
+    }, []);
+
+    const isCardProcessing = useCallback((id) => {
+        if (!id) {
+            return false;
+        }
+        return Boolean(processingCardIdsRef.current[id]);
+    }, []);
 
     const handleFetchCandidates = useCallback(async ({ reset = false, startAfter } = {}) => {
         if (reset) {
@@ -103,6 +145,91 @@ const HomeScreen = () => {
         handleFetchCandidates({ startAfter: nextCursor });
     }, [handleFetchCandidates, loading, loadingMore, nextCursor])
 
+    const handleDecision = useCallback(async (candidate, liked) => {
+        const candidateId = candidate?.id;
+        if (!candidateId) {
+            return;
+        }
+
+        if (processingCardIdsRef.current[candidateId]) {
+            return;
+        }
+
+        setCardProcessing(candidateId, true);
+
+        let previousUsers = usersRef.current;
+        let updatedUsers = usersRef.current;
+        let removed = false;
+
+        setUsers((prev) => {
+            previousUsers = prev;
+            if (!Array.isArray(prev) || !prev.some((item) => item?.id === candidateId)) {
+                return prev;
+            }
+            removed = true;
+            updatedUsers = prev.filter((item) => item?.id !== candidateId);
+            usersRef.current = updatedUsers;
+            return updatedUsers;
+        });
+
+        if (!removed) {
+            setCardProcessing(candidateId, false);
+            return;
+        }
+
+        if (!updatedUsers || updatedUsers.length <= 5) {
+            handleLoadMore();
+        }
+
+        try {
+            const result = await likeUser({ targetUserId: candidateId, liked });
+
+            if (!result?.ok) {
+                const message = result?.error?.message || 'Unable to submit your decision right now.';
+                throw new Error(message);
+            }
+
+            const { match, matchId } = result?.data ?? {};
+            if (match && matchId) {
+                try {
+                    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                } catch (hapticsError) {
+                    console.warn('Unable to trigger haptics feedback.', hapticsError);
+                }
+                Toast.show({ type: 'success', text1: "It's a match!" });
+                router.push({ pathname: '/(tabs)/chat/chatScreen', params: { matchId } });
+            }
+        } catch (err) {
+            setUsers((prev) => {
+                if (prev.some((item) => item?.id === candidateId)) {
+                    return prev;
+                }
+                usersRef.current = previousUsers;
+                return previousUsers;
+            });
+            const message = err?.message || 'Unable to submit your decision right now.';
+            showErrorToast(message);
+        } finally {
+            setCardProcessing(candidateId, false);
+        }
+    }, [handleLoadMore, router, setCardProcessing, showErrorToast])
+
+    const handleButtonDecision = useCallback((liked) => {
+        const topCandidate = usersRef.current?.[0];
+        if (!topCandidate) {
+            return;
+        }
+        if (processingCardIdsRef.current[topCandidate.id]) {
+            return;
+        }
+        const swipeMethod = liked ? 'swipeRight' : 'swipeLeft';
+        if (swiperRef.current?.[swipeMethod]) {
+            swiperRef.current[swipeMethod]();
+        } else {
+            handleDecision(topCandidate, liked);
+        }
+    }, [handleDecision])
+
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor, }}>
             <View style={{ flex: 1 }}>
@@ -114,35 +241,6 @@ const HomeScreen = () => {
             </View>
         </View>
     )
-
-    function getCardAnimation(id) {
-        if (!cardAnimations.has(id)) {
-            cardAnimations.set(id, new Animated.Value(1));
-        }
-        return cardAnimations.get(id);
-    }
-
-    function removeCard(id) {
-        setUsers((prev) => {
-            const updated = prev.filter((item) => item.id !== id);
-            if (updated.length <= 5) {
-                handleLoadMore();
-            }
-            return updated;
-        });
-    };
-
-    function changeShortlist({ id }) {
-        const newUsers = users.map((item) => {
-            if (item.id == id) {
-                return { ...item, isFavorite: !item.isFavorite }
-            }
-            else {
-                return item
-            }
-        })
-        setUsers(newUsers);
-    }
 
     function usersInfo() {
         if (loading && users.length === 0) {
@@ -177,77 +275,32 @@ const HomeScreen = () => {
                 <View style={styles.imageBottomContainre1} >
                     <View style={styles.imageBottomContainre2} >
                         {users.length !== 0 && (
-                            <FlatList
-                                data={users}
-                                keyExtractor={(item) => `${item.id}`}
-                                scrollEnabled={false}
-                                refreshing={loading && !loadingMore}
-                                onRefresh={handleRefresh}
-                                renderItem={({ item, index }) => {
-                                    const scale = getCardAnimation(item.id);
-                                    return (
-                                        <Animated.View
-                                            style={[
-                                                styles.tinderCardWrapper,
-                                                {
-                                                    transform: [{ scale }],
-                                                    zIndex: users.length - index,
-                                                },
-                                            ]}
-                                        >
-                                            {/* TODO: Replace this temporary FlatList stack with an Expo-compatible swipe solution (e.g. react-native-deck-swiper) once the target library is validated. */}
-                                            <ImageBackground
-                                                source={item.image}
-                                                style={{ height: '100%', width: '100%', }}
-                                                resizeMode='cover'
-                                                borderRadius={Sizes.fixPadding * 3.0}
-                                            >
-                                                <LinearGradient
-                                                    colors={['rgba(0, 0, 0, 0.58)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.58)']}
-                                                    style={{
-                                                        flex: 1,
-                                                        justifyContent: 'space-between',
-                                                        borderRadius: Sizes.fixPadding * 3.0
-                                                    }}
-                                                >
-                                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', margin: Sizes.fixPadding }}>
-                                                        <MaterialIcons name="location-pin" size={18} color={Colors.whiteColor} />
-                                                        <Text style={{ ...Fonts.whiteColor15Regular, marginLeft: Sizes.fixPadding - 5.0, }}>
-                                                            {item.address} • {item.distance}
-                                                        </Text>
-                                                    </View>
-                                                    <View style={styles.userInfoWithOptionWrapper}>
-                                                        <TouchableOpacity
-                                                            activeOpacity={0.8}
-                                                            onPress={() => { removeCard(item.id); }}
-                                                            style={styles.closeAndShortlistIconWrapStyle}
-                                                        >
-                                                            <MaterialIcons name="close" size={24} color={Colors.primaryColor} />
-                                                        </TouchableOpacity>
-                                                        <TouchableOpacity
-                                                            activeOpacity={0.8}
-                                                            onPress={() => { navigation.push('profileDetail/profileDetailScreen') }}
-                                                            style={{ maxWidth: screenWidth - 190, alignItems: 'center', justifyContent: 'center', marginHorizontal: Sizes.fixPadding }}
-                                                        >
-                                                            <Text numberOfLines={1} style={{ ...Fonts.whiteColor20Bold }}>
-                                                                {item.name}, {item.age}
-                                                            </Text>
-                                                            <Text numberOfLines={1} style={{ ...Fonts.whiteColor15Regular }}>
-                                                                {item.profession}
-                                                            </Text>
-                                                        </TouchableOpacity>
-                                                        <TouchableOpacity
-                                                            activeOpacity={0.8}
-                                                            onPress={() => { changeShortlist({ id: item.id }) }}
-                                                            style={{ ...styles.closeAndShortlistIconWrapStyle, }}
-                                                        >
-                                                            <MaterialIcons name={item.isFavorite ? "favorite" : "favorite-border"} size={24} color={Colors.primaryColor} />
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                </LinearGradient>
-                                            </ImageBackground>
-                                        </Animated.View>
-                                    )
+                            <Swiper
+                                ref={swiperRef}
+                                key={users[0]?.id ?? 'empty'}
+                                cards={users}
+                                backgroundColor="transparent"
+                                stackSize={3}
+                                cardHorizontalMargin={0}
+                                cardVerticalMargin={0}
+                                disableTopSwipe
+                                disableBottomSwipe
+                                renderCard={(item) => renderCandidateCard(item)}
+                                cardStyle={styles.tinderCardWrapper}
+                                onSwipedLeft={(cardIndex) => {
+                                    const candidate = usersRef.current?.[cardIndex];
+                                    if (candidate) {
+                                        handleDecision(candidate, false);
+                                    }
+                                }}
+                                onSwipedRight={(cardIndex) => {
+                                    const candidate = usersRef.current?.[cardIndex];
+                                    if (candidate) {
+                                        handleDecision(candidate, true);
+                                    }
+                                }}
+                                onSwipedAll={() => {
+                                    handleLoadMore();
                                 }}
                             />
                         )}
@@ -272,6 +325,122 @@ const HomeScreen = () => {
                 )}
             </View>
         )
+    }
+
+    function renderCandidateCard(item) {
+        if (!item) {
+            return (
+                <View style={[styles.tinderCardWrapper, styles.cardFallback]}>
+                    <View style={styles.emptyCardContent}>
+                        <Text style={{ ...Fonts.grayColor15Regular, textAlign: 'center' }}>
+                            No more profiles right now. Try refreshing!
+                        </Text>
+                    </View>
+                </View>
+            );
+        }
+
+        const isProcessing = isCardProcessing(item.id);
+        const photoSource = resolveCandidateImage(item);
+        const distanceLabel = item?.distance ? `${item.distance}` : null;
+
+        const cardContent = (
+            <LinearGradient
+                colors={['rgba(0, 0, 0, 0.58)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.58)']}
+                style={{
+                    flex: 1,
+                    justifyContent: 'space-between',
+                    borderRadius: Sizes.fixPadding * 3.0
+                }}
+            >
+                {(item?.address || distanceLabel) && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', margin: Sizes.fixPadding }}>
+                        <MaterialIcons name="location-pin" size={18} color={Colors.whiteColor} />
+                        <Text style={{ ...Fonts.whiteColor15Regular, marginLeft: Sizes.fixPadding - 5.0 }}>
+                            {[item?.address, distanceLabel].filter(Boolean).join(' • ')}
+                        </Text>
+                    </View>
+                )}
+                <View style={styles.userInfoWithOptionWrapper}>
+                    <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => handleButtonDecision(false)}
+                        disabled={isProcessing}
+                        style={[styles.closeAndShortlistIconWrapStyle, isProcessing && styles.disabledButton]}
+                    >
+                        <MaterialIcons name="close" size={24} color={Colors.primaryColor} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => { navigation.push('profileDetail/profileDetailScreen') }}
+                        style={{ maxWidth: screenWidth - 190, alignItems: 'center', justifyContent: 'center', marginHorizontal: Sizes.fixPadding }}
+                    >
+                        <Text numberOfLines={1} style={{ ...Fonts.whiteColor20Bold }}>
+                            {[item?.name, item?.age].filter(Boolean).join(', ')}
+                        </Text>
+                        {item?.profession ? (
+                            <Text numberOfLines={1} style={{ ...Fonts.whiteColor15Regular }}>
+                                {item.profession}
+                            </Text>
+                        ) : null}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => handleButtonDecision(true)}
+                        disabled={isProcessing}
+                        style={[styles.closeAndShortlistIconWrapStyle, isProcessing && styles.disabledButton]}
+                    >
+                        <MaterialIcons name="favorite" size={24} color={Colors.primaryColor} />
+                    </TouchableOpacity>
+                </View>
+            </LinearGradient>
+        );
+
+        if (photoSource) {
+            return (
+                <ImageBackground
+                    source={photoSource}
+                    style={{ height: '100%', width: '100%' }}
+                    resizeMode='cover'
+                    borderRadius={Sizes.fixPadding * 3.0}
+                >
+                    {cardContent}
+                </ImageBackground>
+            );
+        }
+
+        return (
+            <View style={[styles.tinderCardWrapper, styles.cardFallback]}>
+                {cardContent}
+            </View>
+        );
+    }
+
+    function resolveCandidateImage(candidate) {
+        if (!candidate) {
+            return null;
+        }
+        const photos = Array.isArray(candidate?.photos) ? candidate.photos : [];
+        const primaryPhoto = photos.length > 0 ? photos[0] : null;
+        const fallback = primaryPhoto ?? candidate?.photoURL ?? candidate?.image;
+
+        if (!fallback) {
+            return null;
+        }
+
+        if (typeof fallback === 'string') {
+            return { uri: fallback };
+        }
+
+        if (typeof fallback === 'object') {
+            const possibleUri = fallback?.uri || fallback?.url || fallback?.downloadURL;
+            if (typeof possibleUri === 'string' && possibleUri.length > 0) {
+                return { uri: possibleUri };
+            }
+            return fallback;
+        }
+
+        return null;
     }
 
     function searchInfo() {
@@ -422,8 +591,7 @@ const styles = StyleSheet.create({
     tinderCardWrapper: {
         height: '100%',
         alignSelf: 'center',
-        width: screenWidth - 40,
-        position: 'absolute',
+        width: screenWidth - 70,
     },
     loadMoreButton: {
         marginTop: Sizes.fixPadding,
@@ -438,5 +606,18 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         margin: Sizes.fixPadding + 8.0
-    }
+    },
+    disabledButton: {
+        opacity: 0.6,
+    },
+    emptyCardContent: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: Sizes.fixPadding * 2.0,
+    },
+    cardFallback: {
+        borderRadius: Sizes.fixPadding * 3.0,
+        backgroundColor: Colors.bgColor,
+    },
 })
