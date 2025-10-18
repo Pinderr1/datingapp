@@ -254,6 +254,14 @@ const ChatScreen = () => {
 
     const sortedMatches = [...filteredMatches].sort((a, b) => getSortTimestamp(b) - getSortTimestamp(a));
 
+    if (!currentUserId) {
+        return (
+            <View style={{ flex: 1, backgroundColor: Colors.whiteColor, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Sizes.fixPadding * 2.0 }}>
+                <Text style={{ ...Fonts.blackColor18Bold, textAlign: 'center' }}>Please sign in</Text>
+            </View>
+        );
+    }
+
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
             <View style={{ flex: 1 }}>
