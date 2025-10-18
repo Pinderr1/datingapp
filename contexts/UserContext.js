@@ -8,8 +8,10 @@ import React, {
   useState,
 } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, increment, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
+
+const DEFAULT_GAME_XP = 10;
 
 const UserContext = createContext({
   user: undefined,
@@ -18,6 +20,7 @@ const UserContext = createContext({
   setProfile: () => {},
   updateUser: () => {},
   refreshUser: () => {},
+  addGameXP: async () => undefined,
   firebaseUser: null,
   isAuthenticated: false,
 });
@@ -133,6 +136,42 @@ export const UserProvider = ({ children }) => {
     });
   }, [setProfileWithUid]);
 
+  const addGameXP = useCallback(
+    async (xpAward = DEFAULT_GAME_XP) => {
+      const uid = firebaseUser?.uid ?? profile?.uid;
+      if (!uid) {
+        return profile ?? null;
+      }
+
+      const amount =
+        typeof xpAward === 'number' && Number.isFinite(xpAward)
+          ? Math.max(0, xpAward)
+          : DEFAULT_GAME_XP;
+
+      if (amount === 0) {
+        return profile ?? null;
+      }
+
+      const userRef = doc(db, 'users', uid);
+
+      try {
+        await updateDoc(userRef, { xp: increment(amount) });
+      } catch (error) {
+        if (error?.code === 'not-found') {
+          await setDoc(userRef, { xp: amount }, { merge: true });
+        } else {
+          console.warn('Failed to award game XP', error);
+          throw error;
+        }
+      }
+
+      const refreshedProfile = await fetchProfile(uid);
+      setProfileWithUid(refreshedProfile);
+      return refreshedProfile;
+    },
+    [firebaseUser?.uid, profile, fetchProfile, setProfileWithUid]
+  );
+
   const value = useMemo(
     () => ({
       user: profile,
@@ -141,10 +180,19 @@ export const UserProvider = ({ children }) => {
       setProfile: setProfileWithUid,
       updateUser,
       refreshUser,
+      addGameXP,
       firebaseUser,
       isAuthenticated: !!firebaseUser,
     }),
-    [profile, loading, updateUser, refreshUser, firebaseUser, setProfileWithUid]
+    [
+      profile,
+      loading,
+      updateUser,
+      refreshUser,
+      addGameXP,
+      firebaseUser,
+      setProfileWithUid,
+    ]
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
