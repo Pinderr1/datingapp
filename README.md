@@ -82,6 +82,16 @@ firebase deploy --only storage
 
 The command uploads the rules defined in `firebase.json` to the default Firebase project configured for this repository. Ensure you are authenticated with the Firebase CLI (`firebase login`) and have selected the correct project (`firebase use <project-id>`) before deploying.
 
+## Deploy Firestore indexes
+
+After updating composite queries, deploy the Firestore indexes declared in `firestore.indexes.json`:
+
+```bash
+firebase firestore:indexes
+```
+
+This creates the composite index on `games` required by the listener query (`players` array membership ordered by `updatedAt` descending) and prevents missing index prompts in the Firestore console once deployment completes.
+
 ## Learn more
 
 To learn more about developing your project with Expo, look at the following resources:
