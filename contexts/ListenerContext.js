@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useUser } from './UserContext';
 
@@ -31,7 +31,11 @@ export const ListenerProvider = ({ children }) => {
     setLoading(true);
     setError(null);
 
-    const q = query(collection(db, 'games'), where('players', 'array-contains', user.uid));
+    const q = query(
+      collection(db, 'games'),
+      where('players', 'array-contains', user.uid),
+      orderBy('updatedAt', 'desc')
+    );
     const unsub = onSnapshot(
       q,
       (snap) => {
