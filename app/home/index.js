@@ -116,8 +116,14 @@ const HomeScreen = () => {
   }, []);
 
   const removeCard = (id) => {
-    setUsers((prev) => prev.filter((item) => item.id !== id));
+    let updatedLength = null;
+    setUsers((prev) => {
+      const filtered = prev.filter((item) => item.id !== id);
+      updatedLength = filtered.length;
+      return filtered;
+    });
     markCandidateSeen(id).catch(() => {});
+    return updatedLength;
   };
 
   const handleSwipe = async (direction, userId) => {
@@ -142,9 +148,14 @@ const HomeScreen = () => {
       }
     } finally {
       setLikingId(null);
-      removeCard(userId);
+      const updatedLength = removeCard(userId);
 
-      if (users.length < 5 && nextCursor && !loading) {
+      if (
+        typeof updatedLength === 'number' &&
+        updatedLength < 5 &&
+        nextCursor &&
+        !loading
+      ) {
         loadCandidates();
       }
     }
