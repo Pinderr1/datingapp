@@ -6,6 +6,7 @@ import {
   TextInput,
   TouchableOpacity,
   ImageBackground,
+  Image,
   Alert,
   ActivityIndicator,
 } from 'react-native';
@@ -17,11 +18,17 @@ import { Colors, Fonts, screenWidth, Sizes } from '../../constants/styles';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { auth } from '../../firebaseConfig';
 import { fetchSwipeCandidates, likeUser } from '../../services/userService';
+import { useUser } from '../../contexts/UserContext';
+import { useChats } from '../../contexts/ChatContext';
+import useWinLossStats from '../../hooks/useWinLossStats';
 
 const PAGE_SIZE = 20;
 
 const HomeScreen = () => {
   const router = useRouter();
+  const { user: profile, loading: profileLoading } = useUser();
+  const { matches, loading: matchesLoading } = useChats();
+  const winLossStats = useWinLossStats(profile?.uid);
 
   const [users, setUsers] = useState([]);
   const [nextCursor, setNextCursor] = useState(null);
@@ -350,41 +357,129 @@ const HomeScreen = () => {
     </View>
   );
 
-  const header = () => (
-    <View style={{ margin: Sizes.fixPadding * 2.0, flexDirection: 'row', alignItems: 'center' }}>
-      <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ ...Fonts.grayColor15Regular, marginRight: Sizes.fixPadding - 5.0 }}>Location</Text>
-          <MaterialIcons name="keyboard-arrow-down" size={18} color={Colors.primaryColor} />
+  const header = () => {
+    const avatarSource = (() => {
+      const uriCandidate = profile?.photoURL || profile?.photoUri || profile?.image;
+      if (uriCandidate && typeof uriCandidate === 'string') {
+        return { uri: uriCandidate };
+      }
+      return defaultUserImage;
+    })();
+
+    const displayName =
+      profile?.displayName ||
+      profile?.name ||
+      profile?.fullName ||
+      profile?.username ||
+      'Player';
+
+    const xpValue = (() => {
+      if (profile?.xp === 0) return 0;
+      if (typeof profile?.xp === 'number' && Number.isFinite(profile.xp)) {
+        return Math.max(0, Math.round(profile.xp));
+      }
+      if (typeof profile?.xp === 'string' && profile.xp.trim().length) {
+        const parsed = Number.parseInt(profile.xp, 10);
+        if (Number.isFinite(parsed)) {
+          return Math.max(0, parsed);
+        }
+      }
+      return undefined;
+    })();
+
+    const badgeCount = Array.isArray(profile?.badges)
+      ? profile.badges.filter(Boolean).length
+      : undefined;
+
+    const statItems = [
+      {
+        key: 'matches',
+        label: 'Matches',
+        value: matchesLoading ? '—' : (matches?.length ?? 0),
+      },
+      {
+        key: 'wins',
+        label: 'Wins',
+        value: winLossStats.loading ? '—' : winLossStats.wins ?? 0,
+      },
+      {
+        key: 'losses',
+        label: 'Losses',
+        value: winLossStats.loading ? '—' : winLossStats.losses ?? 0,
+      },
+    ];
+
+    return (
+      <View style={styles.headerContainer}>
+        <View style={styles.headerTopRow}>
+          <View style={styles.profileSummary}>
+            <Image source={avatarSource} style={styles.profileAvatar} resizeMode="cover" />
+            <View style={styles.profileInfo}>
+              <Text
+                numberOfLines={1}
+                style={profileLoading ? styles.profileLoadingText : styles.profileNameText}
+              >
+                {profileLoading ? 'Loading profile…' : displayName}
+              </Text>
+              <View style={styles.profileMetaRow}>
+                <View style={styles.metaPill}>
+                  <MaterialCommunityIcons
+                    name="flash"
+                    size={16}
+                    color={Colors.primaryColor}
+                  />
+                  <Text style={styles.metaPillText}>
+                    {profileLoading ? '—' : xpValue !== undefined ? `${xpValue} XP` : 'XP pending'}
+                  </Text>
+                </View>
+                <View style={styles.metaPill}>
+                  <MaterialCommunityIcons
+                    name="shield-star-outline"
+                    size={16}
+                    color={Colors.primaryColor}
+                  />
+                  <Text style={styles.metaPillText}>
+                    {profileLoading
+                      ? '—'
+                      : badgeCount !== undefined
+                      ? `${badgeCount} Badge${badgeCount === 1 ? '' : 's'}`
+                      : 'No badges yet'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => searchFieldRef.current?.focus()}
+              style={styles.iconWrapStyle}
+            >
+              <MaterialIcons name="search" size={22} color={Colors.primaryColor} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                if (nextCursor && !loading) loadCandidates();
+                else loadCandidates({ reset: true });
+              }}
+              style={[styles.iconWrapStyle, styles.refreshButton]}
+            >
+              <MaterialCommunityIcons name="refresh" size={22} color={Colors.primaryColor} />
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={{ marginTop: Sizes.fixPadding - 5.0, flexDirection: 'row', alignItems: 'center' }}>
-          <MaterialIcons name="location-pin" size={20} color={Colors.primaryColor} />
-          <Text numberOfLines={1} style={{ flex: 1, ...Fonts.blackColor18Bold, marginLeft: Sizes.fixPadding - 5.0 }}>
-            Irvine, California
-          </Text>
+        <View style={styles.statsRow}>
+          {statItems.map((item) => (
+            <View key={item.key} style={styles.statItem}>
+              <Text style={styles.statValue}>{item.value}</Text>
+              <Text style={styles.statLabel}>{item.label}</Text>
+            </View>
+          ))}
         </View>
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => searchFieldRef.current?.focus()}
-          style={styles.iconWrapStyle}
-        >
-          <MaterialIcons name="search" size={22} color={Colors.primaryColor} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => {
-            if (nextCursor && !loading) loadCandidates();
-            else loadCandidates({ reset: true });
-          }}
-          style={[styles.iconWrapStyle, { marginLeft: Sizes.fixPadding + 5.0 }]}
-        >
-          <MaterialCommunityIcons name="refresh" size={22} color={Colors.primaryColor} />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+    );
+  };
 
   const swipeNowCta = () => (
     <TouchableOpacity
@@ -413,6 +508,83 @@ const HomeScreen = () => {
 export default HomeScreen;
 
 const styles = StyleSheet.create({
+  headerContainer: {
+    margin: Sizes.fixPadding * 2.0,
+    marginBottom: Sizes.fixPadding,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  profileSummary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  profileAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.bgColor,
+    marginRight: Sizes.fixPadding,
+  },
+  profileInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  profileNameText: {
+    ...Fonts.blackColor18Bold,
+  },
+  profileLoadingText: {
+    ...Fonts.grayColor15Regular,
+  },
+  profileMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: Sizes.fixPadding / 2,
+  },
+  metaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.bgColor,
+    paddingHorizontal: Sizes.fixPadding,
+    paddingVertical: Sizes.fixPadding / 2,
+    borderRadius: Sizes.fixPadding,
+    marginRight: Sizes.fixPadding,
+  },
+  metaPillText: {
+    ...Fonts.blackColor14Regular,
+    marginLeft: Sizes.fixPadding / 2,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: Sizes.fixPadding,
+  },
+  refreshButton: {
+    marginLeft: Sizes.fixPadding + 5.0,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.bgColor,
+    borderRadius: Sizes.fixPadding * 1.5,
+    paddingVertical: Sizes.fixPadding,
+    paddingHorizontal: Sizes.fixPadding * 1.5,
+    marginTop: Sizes.fixPadding * 1.5,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    ...Fonts.blackColor16Bold,
+  },
+  statLabel: {
+    ...Fonts.grayColor13Regular,
+    marginTop: 4,
+  },
   iconWrapStyle: {
     width: 40.0,
     height: 40.0,
