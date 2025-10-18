@@ -45,19 +45,29 @@ export const MatchmakingProvider = ({ children }) => {
     [user?.uid]
   );
 
-  const cancelInvite = useCallback(async (inviteId) => {
-    if (!inviteId) return;
-    const now = serverTimestamp();
-    await setDoc(
-      doc(db, 'games', inviteId),
-      {
-        status: 'cancelled',
-        cancelledAt: now,
-        updatedAt: now,
-      },
-      { merge: true }
-    );
-  }, []);
+  const cancelInvite = useCallback(
+    async (inviteId) => {
+      if (!user?.uid) {
+        throw new Error('User must be authenticated to cancel a game invite.');
+      }
+
+      if (!inviteId) {
+        throw new Error('Invite id is required to cancel a game invite.');
+      }
+
+      const now = serverTimestamp();
+      await setDoc(
+        doc(db, 'games', inviteId),
+        {
+          status: 'cancelled',
+          cancelledAt: now,
+          updatedAt: now,
+        },
+        { merge: true }
+      );
+    },
+    [user?.uid]
+  );
 
   const value = useMemo(
     () => ({ sendGameInvite, cancelInvite }),
