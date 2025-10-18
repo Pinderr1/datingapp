@@ -13,15 +13,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Swiper from 'react-native-deck-swiper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts, screenWidth, Sizes } from '../../constants/styles';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { auth } from '../../firebaseConfig';
 import { fetchSwipeCandidates, likeUser } from '../../services/userService';
+import GradientButton from '../../components/GradientButton';
 
 const PAGE_SIZE = 20;
 
 const HomeScreen = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [users, setUsers] = useState([]);
   const [nextCursor, setNextCursor] = useState(null);
@@ -386,16 +389,28 @@ const HomeScreen = () => {
     </View>
   );
 
-  const swipeNowCta = () => (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      style={styles.swipeNowButton}
-      onPress={() => router.push('/(tabs)/swipe')}
-      accessibilityRole="button"
-      accessibilityLabel="Swipe Now"
-    >
-      <Text style={Fonts.whiteColor18Bold}>Swipe Now</Text>
-    </TouchableOpacity>
+  const footerActions = () => (
+    <View style={styles.footerButtonRow}>
+      <View style={[styles.footerButtonWrapper, { marginRight: Sizes.fixPadding }]}> 
+        <GradientButton
+          text="Find Matches"
+          onPress={() => router.push('/(tabs)/swipe')}
+          width="100%"
+          marginVertical={0}
+        />
+      </View>
+      <View style={styles.footerButtonWrapper}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => router.push('/games')}
+          style={styles.secondaryButton}
+          accessibilityRole="button"
+          accessibilityLabel="Play Games"
+        >
+          <Text style={styles.secondaryButtonText}>Play Games</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 
   return (
@@ -405,7 +420,14 @@ const HomeScreen = () => {
         {searchInfo()}
         <View style={{ flex: 1 }}>{deckArea()}</View>
       </View>
-      <View style={styles.swipeNowContainer}>{swipeNowCta()}</View>
+      <View
+        style={[
+          styles.footerContainer,
+          { paddingBottom: insets.bottom ? insets.bottom + Sizes.fixPadding : Sizes.fixPadding * 2.5 },
+        ]}
+      >
+        {footerActions()}
+      </View>
     </View>
   );
 };
@@ -509,17 +531,27 @@ const styles = StyleSheet.create({
     borderRadius: Sizes.fixPadding * 3.0,
     backgroundColor: '#ddd',
   },
-  swipeNowContainer: {
+  footerContainer: {
     paddingHorizontal: Sizes.fixPadding * 2.0,
-    paddingBottom: Sizes.fixPadding * 2.5,
     paddingTop: Sizes.fixPadding,
     backgroundColor: Colors.whiteColor,
   },
-  swipeNowButton: {
-    backgroundColor: Colors.primaryColor,
+  footerButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  footerButtonWrapper: {
+    flex: 1,
+  },
+  secondaryButton: {
     borderRadius: Sizes.fixPadding * 1.5,
+    borderWidth: 1,
+    borderColor: Colors.primaryColor,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: Sizes.fixPadding * 1.5,
+  },
+  secondaryButtonText: {
+    ...Fonts.primaryColor18Bold,
   },
 });
