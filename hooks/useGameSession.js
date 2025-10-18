@@ -26,6 +26,68 @@ export default function useGameSession(sessionId, gameId, opponentId) {
   const [session, setSession] = useState(null);
   const [moveHistory, setMoveHistory] = useState([]);
 
+  const serializeState = useCallback((state) => {
+    if (!state) {
+      return null;
+    }
+    const snapshot = {
+      G: state.G ?? {},
+      ctx: state.ctx ?? {},
+      plugins: state.plugins ?? {},
+    };
+    if (typeof state._stateID === 'number') {
+      snapshot._stateID = state._stateID;
+    }
+    return JSON.parse(JSON.stringify(snapshot));
+  }, []);
+
+  const hydrateClient = useCallback(
+    (client, storedState, fallbackCurrentPlayer) => {
+      let baseState = client.getState();
+      let stateToLoad = baseState;
+
+      if (storedState?.G || storedState?.ctx || storedState?.plugins || typeof storedState?._stateID !== 'undefined') {
+        stateToLoad = {
+          ...baseState,
+          ...storedState,
+          G: storedState.G ?? baseState.G,
+          ctx: {
+            ...baseState.ctx,
+            ...(storedState.ctx ?? {}),
+          },
+          plugins: {
+            ...baseState.plugins,
+            ...(storedState.plugins ?? {}),
+          },
+        };
+        if (typeof storedState._stateID === 'number') {
+          stateToLoad._stateID = storedState._stateID;
+        }
+      } else if (storedState) {
+        stateToLoad = {
+          ...baseState,
+          G: storedState,
+        };
+      }
+
+      stateToLoad = {
+        ...stateToLoad,
+        ctx: {
+          ...stateToLoad.ctx,
+          currentPlayer:
+            fallbackCurrentPlayer ??
+            storedState?.ctx?.currentPlayer ??
+            baseState?.ctx?.currentPlayer ??
+            '0',
+        },
+      };
+
+      client.updateState(JSON.parse(JSON.stringify(stateToLoad)));
+      return client.getState();
+    },
+    []
+  );
+
   useEffect(() => {
     if (!Game || !sessionId || !user?.uid) return;
     const ref = doc(db, 'games', sessionId);
@@ -54,7 +116,7 @@ export default function useGameSession(sessionId, gameId, opponentId) {
 
         const now = serverTimestamp();
         const payload = {
-          state: state?.G ?? {},
+          state: serializeState(state) ?? { G: {}, ctx: {}, plugins: {} },
           currentPlayer: state?.ctx?.currentPlayer ?? '0',
           players: participants,
           users: participants,
@@ -105,7 +167,7 @@ export default function useGameSession(sessionId, gameId, opponentId) {
       }
     });
     return unsub;
-  }, [Game, sessionId, user?.uid, opponentId, gameId]);
+  }, [Game, sessionId, user?.uid, opponentId, gameId, serializeState]);
 
   useEffect(() => {
     if (!sessionId || !user?.uid || !session?.players?.includes(user.uid)) {
@@ -123,41 +185,56 @@ export default function useGameSession(sessionId, gameId, opponentId) {
   }, [sessionId, user?.uid, session?.players]);
 
   const sendMove = useCallback(async (moveName, ...args) => {
-    if (!session || !Game || !session.state || typeof session.currentPlayer === 'undefined') return;
+    const storedCurrentPlayer =
+      session?.currentPlayer ?? session?.state?.ctx?.currentPlayer;
+    if (!session || !Game || !session.state || typeof storedCurrentPlayer === 'undefined') return;
     if (!Array.isArray(session.players)) return;
     const idx = session.players.indexOf(user.uid);
     if (idx === -1) return;
-    if (String(idx) !== session.currentPlayer) return;
-    if (session.gameover) return;
-
-    const G = JSON.parse(JSON.stringify(session.state));
-    let nextPlayer = session.currentPlayer;
-    const ctx = {
-      currentPlayer: session.currentPlayer,
-      events: {
-        endTurn: () => {
-          nextPlayer = session.currentPlayer === '0' ? '1' : '0';
-        },
-      },
-    };
+    if (String(idx) !== String(storedCurrentPlayer)) return;
+    const isGameover = session.gameover ?? session.state?.ctx?.gameover;
+    if (isGameover) return;
 
     const move = Game.moves[moveName];
     if (!move) return;
-    const res = move({ G, ctx }, ...args);
-    if (res === INVALID_MOVE) return;
+    const numPlayers = Math.max(session.players.length || 0, 1);
+    const playerID = String(idx);
 
-    if (Game.turn?.moveLimit === 1 && nextPlayer === session.currentPlayer) {
-      nextPlayer = session.currentPlayer === '0' ? '1' : '0';
+    const client = Client({ game: Game, numPlayers, playerID });
+    client.start();
+
+    hydrateClient(client, session.state, storedCurrentPlayer);
+
+    const clientMove = client.moves?.[moveName];
+    if (typeof clientMove !== 'function') {
+      if (typeof client.stop === 'function') {
+        client.stop();
+      }
+      return;
     }
 
-    const gameover = Game.endIf ? Game.endIf({ G, ctx: { currentPlayer: nextPlayer } }) : undefined;
+    const res = clientMove(...args);
+    if (res === INVALID_MOVE) {
+      if (typeof client.stop === 'function') {
+        client.stop();
+      }
+      return;
+    }
+
+    const nextState = client.getState();
+    if (typeof client.stop === 'function') {
+      client.stop();
+    }
+
+    const nextPlayer = nextState?.ctx?.currentPlayer ?? storedCurrentPlayer;
+    const gameover = nextState?.ctx?.gameover ?? null;
 
     try {
       const sessionRef = doc(db, 'games', sessionId);
       await updateDoc(sessionRef, {
-        state: G,
+        state: serializeState(nextState) ?? { G: nextState?.G ?? {}, ctx: nextState?.ctx ?? {}, plugins: nextState?.plugins ?? {} },
         currentPlayer: nextPlayer,
-        gameover: gameover || null,
+        gameover,
         updatedAt: serverTimestamp(),
       });
       await addDoc(collection(db, 'games', sessionId, 'moves'), {
@@ -169,7 +246,7 @@ export default function useGameSession(sessionId, gameId, opponentId) {
     } catch (e) {
       console.warn('Failed to update game session', e);
     }
-  }, [session, Game, sessionId, user?.uid]);
+  }, [session, Game, sessionId, user?.uid, hydrateClient, serializeState, play]);
 
   const moves = {};
   if (Game) {
@@ -178,9 +255,21 @@ export default function useGameSession(sessionId, gameId, opponentId) {
     }
   }
 
+  const storedCtx = session?.state?.ctx;
+  const derivedCtx = storedCtx
+    ? {
+        ...storedCtx,
+        currentPlayer: storedCtx.currentPlayer ?? session?.currentPlayer,
+        gameover: storedCtx.gameover ?? session?.gameover ?? null,
+      }
+    : {
+        currentPlayer: session?.currentPlayer,
+        gameover: session?.gameover ?? null,
+      };
+
   return {
-    G: session?.state,
-    ctx: { currentPlayer: session?.currentPlayer, gameover: session?.gameover },
+    G: session?.state?.G ?? session?.state ?? {},
+    ctx: derivedCtx,
     moves,
     moveHistory,
     loading: !session,
