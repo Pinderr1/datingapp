@@ -208,7 +208,14 @@ service cloud.firestore {
 
       allow list: if isSignedIn() &&
                    request.query != null &&
-                   request.query.where('players', 'array-contains', request.auth.uid) == request.query;
+                   (
+                     request.query.where('players', 'array-contains', request.auth.uid) == request.query ||
+                     request.query.where('players', 'array-contains', request.auth.uid)
+                                   .orderBy('updatedAt', 'desc') == request.query ||
+                     request.query.where('players', 'array-contains', request.auth.uid)
+                                   .orderBy('updatedAt', 'desc')
+                                   .limit(50) == request.query
+                   );
 
       allow create: if isSignedIn() &&
                     request.resource.data.keys().hasOnly([
