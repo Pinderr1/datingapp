@@ -116,9 +116,9 @@ const HomeScreen = () => {
   }, []);
 
   const removeCard = (id) => {
-    let updatedLength = null;
-    setUsers((prev) => {
-      const filtered = prev.filter((item) => item.id !== id);
+    let updatedLength = 0;
+    setUsers((prevUsers) => {
+      const filtered = prevUsers.filter((item) => item.id !== id);
       updatedLength = filtered.length;
       return filtered;
     });
