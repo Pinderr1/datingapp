@@ -41,6 +41,7 @@ const HomeScreen = () => {
 
   const searchFieldRef = useRef(null);
   const swiperRef = useRef(null);
+  const deckLengthRef = useRef(null);
   const defaultUserImage = require('../../assets/images/users/user1.png');
 
   const seenStateRef = useRef({ key: null, set: new Set() });
@@ -116,14 +117,28 @@ const HomeScreen = () => {
   }, []);
 
   const removeCard = (id) => {
-    if (!id) return users.length;
+    if (!id) return;
 
-    const filtered = users.filter((item) => item.id !== id);
-    setUsers(filtered);
+    setUsers((prev) => {
+      const filtered = prev.filter((item) => item.id !== id);
+      deckLengthRef.current = filtered.length;
+      return filtered;
+    });
+
     markCandidateSeen(id).catch(() => {});
-
-    return filtered.length;
   };
+
+  useEffect(() => {
+    if (
+      deckLengthRef.current !== null &&
+      deckLengthRef.current < 5 &&
+      nextCursor &&
+      !loading
+    ) {
+      loadCandidates();
+      deckLengthRef.current = null;
+    }
+  }, [users.length, nextCursor, loading, loadCandidates]);
 
   const handleSwipe = async (direction, userId) => {
     if (!userId) return;
@@ -147,16 +162,7 @@ const HomeScreen = () => {
       }
     } finally {
       setLikingId(null);
-      const updatedLength = removeCard(userId);
-
-      if (
-        typeof updatedLength === 'number' &&
-        updatedLength < 5 &&
-        nextCursor &&
-        !loading
-      ) {
-        loadCandidates();
-      }
+      removeCard(userId);
     }
   };
 
