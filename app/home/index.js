@@ -119,11 +119,10 @@ const HomeScreen = () => {
     if (!id) return users.length;
 
     const filtered = users.filter((item) => item.id !== id);
-    const updatedLength = filtered.length;
     setUsers(filtered);
     markCandidateSeen(id).catch(() => {});
 
-    return updatedLength;
+    return filtered.length;
   };
 
   const handleSwipe = async (direction, userId) => {
