@@ -118,15 +118,15 @@ const HomeScreen = () => {
   const removeCard = (id) => {
     if (!id) return users.length;
 
-    let filteredLength = users.length;
+    let updatedLength = users.length;
     setUsers((prev) => {
       const filtered = prev.filter((item) => item.id !== id);
-      filteredLength = filtered.length;
+      updatedLength = filtered.length;
       return filtered;
     });
     markCandidateSeen(id).catch(() => {});
 
-    return filteredLength;
+    return updatedLength;
   };
 
   const handleSwipe = async (direction, userId) => {
