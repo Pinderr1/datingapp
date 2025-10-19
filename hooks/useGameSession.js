@@ -227,6 +227,11 @@ export default function useGameSession(sessionId, gameId, opponentId) {
       return;
     }
 
+    // Grab the master state directly from the store to avoid the player-specific sanitization
+    // that happens when calling getState(); we need the full data persisted to avoid
+    // regressions when secrets or metadata are required server-side.
+    const storeState = typeof client.store?.getState === 'function' ? client.store.getState() : null;
+    const masterState = storeState?._state ?? null;
     const nextState = client.getState();
     if (typeof client.stop === 'function') {
       client.stop();
@@ -234,11 +239,17 @@ export default function useGameSession(sessionId, gameId, opponentId) {
 
     const nextPlayer = nextState?.ctx?.currentPlayer ?? storedCurrentPlayer;
     const gameover = nextState?.ctx?.gameover ?? null;
+    const persistedState = masterState ?? nextState;
 
     try {
       const sessionRef = doc(db, 'games', sessionId);
       await updateDoc(sessionRef, {
-        state: serializeState(nextState) ?? { G: nextState?.G ?? {}, ctx: nextState?.ctx ?? {}, plugins: nextState?.plugins ?? {} },
+        state:
+          serializeState(persistedState) ?? {
+            G: persistedState?.G ?? {},
+            ctx: persistedState?.ctx ?? {},
+            plugins: persistedState?.plugins ?? {},
+          },
         currentPlayer: nextPlayer,
         gameover,
         updatedAt: serverTimestamp(),
