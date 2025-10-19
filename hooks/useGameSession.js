@@ -203,12 +203,27 @@ export default function useGameSession(sessionId, gameId, opponentId) {
     const client = Client({ game: Game, numPlayers });
     client.start();
 
-    hydrateClient(client, session.state, storedCurrentPlayer);
-
     if (typeof client.updatePlayerID === 'function') {
       client.updatePlayerID(playerID);
     } else {
       client.playerID = playerID;
+    }
+
+    const hydratedState = hydrateClient(client, session.state, storedCurrentPlayer);
+
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        const hydratedSnapshot = serializeState(hydratedState);
+        const storedSnapshot = serializeState(session.state);
+        if (hydratedSnapshot && storedSnapshot) {
+          console.assert(
+            JSON.stringify(hydratedSnapshot) === JSON.stringify(storedSnapshot),
+            'Hydrated client state does not match persisted session state'
+          );
+        }
+      } catch (err) {
+        console.warn('Failed to verify hydrated state consistency', err);
+      }
     }
 
     const clientMove = client.moves?.[moveName];
