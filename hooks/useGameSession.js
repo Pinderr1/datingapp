@@ -200,10 +200,16 @@ export default function useGameSession(sessionId, gameId, opponentId) {
     const numPlayers = Math.max(session.players.length || 0, 1);
     const playerID = String(idx);
 
-    const client = Client({ game: Game, numPlayers, playerID });
+    const client = Client({ game: Game, numPlayers });
     client.start();
 
     hydrateClient(client, session.state, storedCurrentPlayer);
+
+    if (typeof client.updatePlayerID === 'function') {
+      client.updatePlayerID(playerID);
+    } else {
+      client.playerID = playerID;
+    }
 
     const clientMove = client.moves?.[moveName];
     if (typeof clientMove !== 'function') {
