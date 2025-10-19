@@ -118,10 +118,14 @@ const HomeScreen = () => {
   const removeCard = (id) => {
     if (!id) return users.length;
 
-    const filteredUsers = users.filter((item) => item.id !== id);
-    const updatedLength = filteredUsers.length;
+    let updatedLength = users.length;
 
-    setUsers(filteredUsers);
+    setUsers((prev) => {
+      const filtered = prev.filter((item) => item.id !== id);
+      updatedLength = filtered.length;
+      return filtered;
+    });
+
     markCandidateSeen(id).catch(() => {});
 
     return updatedLength;
