@@ -1,293 +1,117 @@
-// Firestore Security Rules — Pinged MVP (aligned with app writes + lastMessage)
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isSignedIn() { return request.auth != null; }
-    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
-
-    function matchUsers(matchId) {
-      let m = get(/databases/$(database)/documents/matches/$(matchId));
-      return m.data != null && m.data.users != null ? m.data.users : [];
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    function isValidString(s, min, max) {
-      return s is string && s.size() >= min && s.size() <= max;
-    }
-    function isOptionalString(data, key, min, max) {
-      return (!data.keys().hasAny([key])) || isValidString(data[key], min, max);
-    }
-    function isOptionalTimestamp(data, key) {
-      return (!data.keys().hasAny([key])) || (data[key] is timestamp);
-    }
-    function isOptionalUrlList(data, key) {
-      return (!data.keys().hasAny([key])) ||
-             (data[key] is list && data[key].all(u, u is string && u.size() > 0 && u.size() <= 2048));
-    }
-    function isOptionalNumberInRange(data, key, min, max) {
-      return (!data.keys().hasAny([key])) ||
-             ((data[key] is int || data[key] is float) &&
-              data[key] >= min &&
-              data[key] <= max);
-    }
-    function isOptionalBool(data, key) {
-      return (!data.keys().hasAny([key])) || (data[key] is bool);
-    }
-    function isOptionalStringList(data, key, itemMin, itemMax) {
-      return (!data.keys().hasAny([key])) ||
-             (data[key] is list && data[key].all(v, v is string && v.size() >= itemMin && v.size() <= itemMax));
-    }
-    function isOptionalGeoPoint(data, key) {
-      return (!data.keys().hasAny([key])) || (data[key] is latlng);
+    function hasUidField(data) {
+      return data != null && data.keys().hasAny(['uid']);
     }
 
-    function isValidUserData(data) {
-      return data.keys().hasOnly([
-        'uid',
-        'email',
-        'displayName',
-        'name',
-        'photoURL',
-        'phoneNumber',
-        'providerId',
-        'bio',
-        'gender',
-        'age',
-        'photoURLs',
-        'location',
-        'onboardingComplete',
-        'createdAt',
-        'updatedAt',
-        'avatarOverlay',
-        'introClipUrl',
-        'genderPref',
-        'mood',
-        'favoriteGames',
-        'promptResponses',
-        'personalityTags',
-        'badgePrefs',
-        'themePreset',
-        'geo'
-      ]) &&
-
-      isOptionalString(data, 'uid', 1, 128) &&
-      isOptionalString(data, 'email', 3, 320) &&
-      isOptionalString(data, 'displayName', 0, 40) &&
-      isOptionalString(data, 'name', 0, 80) &&
-      isOptionalString(data, 'photoURL', 0, 2048) &&
-      isOptionalString(data, 'phoneNumber', 7, 20) &&
-      isOptionalString(data, 'providerId', 0, 100) &&
-      isOptionalString(data, 'bio', 0, 300) &&
-      isOptionalString(data, 'gender', 0, 40) &&
-      isOptionalNumberInRange(data, 'age', 18, 120) &&
-      isOptionalUrlList(data, 'photoURLs') &&
-      isOptionalString(data, 'location', 0, 120) &&
-      isOptionalBool(data, 'onboardingComplete') &&
-      isOptionalTimestamp(data, 'createdAt') &&
-      isOptionalTimestamp(data, 'updatedAt') &&
-
-      isOptionalString(data, 'avatarOverlay', 0, 40) &&
-      isOptionalString(data, 'introClipUrl', 0, 2048) &&
-      isOptionalString(data, 'genderPref', 0, 40) &&
-      isOptionalString(data, 'mood', 0, 120) &&
-      isOptionalStringList(data, 'favoriteGames', 1, 60) &&
-      isOptionalStringList(data, 'promptResponses', 1, 300) &&
-      isOptionalString(data, 'personalityTags', 0, 300) &&
-      isOptionalStringList(data, 'badgePrefs', 1, 60) &&
-      isOptionalString(data, 'themePreset', 0, 40) &&
-      isOptionalGeoPoint(data, 'geo');
+    function ownerMatches(data) {
+      return !hasUidField(data) || (isSignedIn() && data.uid == request.auth.uid);
     }
 
-    function isMatchParticipant(users) {
-      return isSignedIn() && users is list && users.hasAny([request.auth.uid]);
-    }
-    function isValidMatchUsers(users) {
-      return users is list &&
-             users.size() == 2 &&
-             users.all(u, u is string) &&
-             users[0] != users[1];
-    }
-    function otherUidFromUsers(users) {
-      return request.auth.uid == users[0] ? users[1] : users[0];
-    }
-    function hasReciprocalLike(users) {
-      return isSignedIn() &&
-             isValidMatchUsers(users) &&
-             get(/databases/$(database)/documents/likes/$(otherUidFromUsers(users))/outgoing/$(request.auth.uid)).exists();
+    function isMatchParticipant(data) {
+      return data != null &&
+             data.keys().hasAny(['users']) &&
+             data.users is list &&
+             data.users.hasAny([request.auth.uid]);
     }
 
-    function isValidMessageData(data) {
-      return data.keys().hasOnly(['senderId','content','createdAt']) &&
-             data.senderId is string &&
-             data.senderId == request.auth.uid &&
-             isValidString(data.content, 1, 1000) &&
-             isOptionalTimestamp(data, 'createdAt');
-    }
-
-    function isValidParticipantList(list) {
-      return list is list &&
-             list.size() > 0 &&
-             list.all(u, u is string && isValidString(u, 1, 128));
-    }
-
-    function gameData(gameId) {
-      return get(/databases/$(database)/documents/games/$(gameId)).data;
-    }
-
-    function gameParticipants(gameId) {
-      let data = gameData(gameId);
-      return data != null && data.players is list && data.players.size() > 0 ? data.players :
-             data != null && data.users is list && data.users.size() > 0 ? data.users : [];
-    }
-
-    function isGameParticipant(gameId) {
-      return isSignedIn() && gameParticipants(gameId).hasAny([request.auth.uid]);
-    }
-
-    function isValidContactMessage(data) {
-      return data.keys().hasOnly(['name','email','message','createdAt']) &&
-             isValidString(data.name, 1, 80) &&
-             isValidString(data.email, 3, 120) &&
-             isValidString(data.message, 1, 2000) &&
-             isOptionalTimestamp(data, 'createdAt');
+    function isGameParticipant(data) {
+      return data != null &&
+             data.keys().hasAny(['players']) &&
+             data.players is list &&
+             data.players.hasAny([request.auth.uid]);
     }
 
     match /users/{uid} {
-      allow get, list: if isSignedIn();
-      allow create, update: if isOwner(uid) && isValidUserData(request.resource.data);
-      allow delete: if isOwner(uid);
-    }
+      allow read: if isSignedIn();
 
-    match /likes/{uid}/outgoing/{targetId} {
-      allow read: if isOwner(uid);
-      allow create, update: if isOwner(uid) &&
-                            request.auth.uid != targetId &&
-                            request.resource.data.keys().hasOnly(['liked','createdAt','updatedAt']) &&
-                            (request.resource.data.liked is bool) &&
-                            isOptionalTimestamp(request.resource.data, 'createdAt') &&
-                            isOptionalTimestamp(request.resource.data, 'updatedAt');
-      allow delete: if isOwner(uid);
+      allow create: if isSignedIn() &&
+                     request.auth.uid == uid &&
+                     hasUidField(request.resource.data) &&
+                     request.resource.data.uid == uid;
+
+      allow update: if isSignedIn() &&
+                     request.auth.uid == uid &&
+                     hasUidField(request.resource.data) &&
+                     request.resource.data.uid == uid &&
+                     hasUidField(resource.data) &&
+                     resource.data.uid == uid;
+
+      allow delete: if isSignedIn() &&
+                     request.auth.uid == uid &&
+                     ownerMatches(resource.data);
     }
 
     match /matches/{matchId} {
-      allow get: if isMatchParticipant(resource.data.users);
-      allow list: if request.auth != null &&
-                   request.query != null &&
-                   request.query.where('users', 'array-contains', request.auth.uid)
-                                 .orderBy('updatedAt', 'desc')
-                                 .limit(50) == request.query;
-
-      allow create: if isSignedIn() &&
-                    request.resource.data.keys().hasOnly(['users','createdAt','updatedAt','matchedAt','lastMessage']) &&
-                    isValidMatchUsers(request.resource.data.users) &&
-                    request.resource.data.users.hasAny([request.auth.uid]) &&
-                    isOptionalString(request.resource.data, 'lastMessage', 0, 1000) &&
-                    isOptionalTimestamp(request.resource.data, 'matchedAt') &&
-                    hasReciprocalLike(request.resource.data.users);
-
-      allow update: if isMatchParticipant(resource.data.users) &&
-                    request.resource.data.keys().hasOnly(['users','createdAt','updatedAt','matchedAt','lastMessage']) &&
-                    isValidMatchUsers(request.resource.data.users) &&
-                    request.resource.data.users == resource.data.users &&
-                    isOptionalString(request.resource.data, 'lastMessage', 0, 1000) &&
-                    isOptionalTimestamp(request.resource.data, 'matchedAt') &&
-                    (!request.resource.data.keys().hasAny(['matchedAt']) ||
-                     request.resource.data.matchedAt == resource.data.matchedAt);
-
-      allow delete: if isMatchParticipant(resource.data.users);
-
-      match /messages/{msgId} {
-        allow get, list: if isMatchParticipant(matchUsers(matchId));
-        allow create: if isMatchParticipant(matchUsers(matchId)) &&
-                       isValidMessageData(request.resource.data);
-      }
-    }
-
-    match /games/{gameId} {
-      allow get: if isGameParticipant(gameId);
+      allow get: if isSignedIn() &&
+                  (ownerMatches(resource.data) || isMatchParticipant(resource.data));
 
       allow list: if isSignedIn() &&
                    request.query != null &&
-                   (
-                     request.query.where('players', 'array-contains', request.auth.uid) == request.query ||
-                     request.query.where('players', 'array-contains', request.auth.uid)
-                                   .orderBy('updatedAt', 'desc') == request.query ||
-                     request.query.where('players', 'array-contains', request.auth.uid)
-                                   .orderBy('updatedAt', 'desc')
-                                   .limit(50) == request.query
-                   );
+                   request.query.where('users', 'array-contains', request.auth.uid) == request.query;
 
       allow create: if isSignedIn() &&
-                    request.resource.data.keys().hasOnly([
-                      'gameId','status','host','opponent','players','users','createdAt','updatedAt',
-                      'state','currentPlayer','gameover','matchedAt','lastMessage','startedAt','endedAt',
-                      'archived','archivedAt','cancelledAt'
-                    ]) &&
-                    isValidString(request.resource.data.gameId, 1, 200) &&
-                    request.resource.data.host == request.auth.uid &&
-                    isValidParticipantList(request.resource.data.players) &&
-                    isValidParticipantList(request.resource.data.users) &&
-                    request.resource.data.players == request.resource.data.users &&
-                    request.resource.data.players.hasAny([request.auth.uid]) &&
-                    isOptionalString(request.resource.data, 'status', 0, 40) &&
-                    isOptionalString(request.resource.data, 'opponent', 0, 128) &&
-                    isOptionalString(request.resource.data, 'lastMessage', 0, 1000) &&
-                    isOptionalTimestamp(request.resource.data, 'createdAt') &&
-                    isOptionalTimestamp(request.resource.data, 'updatedAt') &&
-                    isOptionalTimestamp(request.resource.data, 'matchedAt') &&
-                    isOptionalTimestamp(request.resource.data, 'startedAt') &&
-                    isOptionalTimestamp(request.resource.data, 'endedAt') &&
-                    isOptionalTimestamp(request.resource.data, 'archivedAt') &&
-                    isOptionalTimestamp(request.resource.data, 'cancelledAt') &&
-                    isOptionalBool(request.resource.data, 'archived');
+                     ownerMatches(request.resource.data) &&
+                     isMatchParticipant(request.resource.data);
 
-      allow update: if isGameParticipant(gameId) &&
-                    request.resource.data.keys().hasOnly([
-                      'gameId','status','host','opponent','players','users','createdAt','updatedAt',
-                      'state','currentPlayer','gameover','matchedAt','lastMessage','startedAt','endedAt',
-                      'archived','archivedAt','cancelledAt'
-                    ]) &&
-                    request.resource.data.gameId == resource.data.gameId &&
-                    request.resource.data.host == resource.data.host &&
-                    (!resource.data.keys().hasAny(['opponent']) || request.resource.data.opponent == resource.data.opponent) &&
-                    request.resource.data.players == resource.data.players &&
-                    (
-                      (resource.data.keys().hasAny(['users']) && request.resource.data.users == resource.data.users) ||
-                      (!resource.data.keys().hasAny(['users']) && request.resource.data.users == request.resource.data.players)
-                    ) &&
-                    (!resource.data.keys().hasAny(['createdAt']) || request.resource.data.createdAt == resource.data.createdAt) &&
-                    isOptionalString(request.resource.data, 'lastMessage', 0, 1000) &&
-                    isOptionalTimestamp(request.resource.data, 'updatedAt') &&
-                    isOptionalTimestamp(request.resource.data, 'matchedAt') &&
-                    isOptionalTimestamp(request.resource.data, 'startedAt') &&
-                    isOptionalTimestamp(request.resource.data, 'endedAt') &&
-                    isOptionalTimestamp(request.resource.data, 'archivedAt') &&
-                    isOptionalTimestamp(request.resource.data, 'cancelledAt') &&
-                    isOptionalBool(request.resource.data, 'archived');
+      allow update: if isSignedIn() &&
+                     ownerMatches(resource.data) &&
+                     ownerMatches(request.resource.data) &&
+                     isMatchParticipant(resource.data) &&
+                     isMatchParticipant(request.resource.data);
 
-      allow delete: if isGameParticipant(gameId);
-
-      match /moves/{moveId} {
-        allow get, list: if isGameParticipant(gameId);
-        allow create: if isGameParticipant(gameId) &&
-                       request.resource.data.keys().hasOnly(['action','player','at']) &&
-                       isValidString(request.resource.data.action, 1, 100) &&
-                       isValidString(request.resource.data.player, 1, 10) &&
-                       isOptionalTimestamp(request.resource.data, 'at');
-      }
+      allow delete: if isSignedIn() &&
+                     ownerMatches(resource.data) &&
+                     isMatchParticipant(resource.data);
     }
 
-    match /gameStats/{sessionId} {
-      allow get: if isGameParticipant(sessionId);
-      allow create, update: if isGameParticipant(sessionId);
+    match /sessions/{sessionId} {
+      allow read: if isSignedIn() && ownerMatches(resource.data);
+
+      allow create: if isSignedIn() && ownerMatches(request.resource.data);
+
+      allow update: if isSignedIn() &&
+                     ownerMatches(resource.data) &&
+                     ownerMatches(request.resource.data);
+
+      allow delete: if isSignedIn() && ownerMatches(resource.data);
     }
 
-    match /contactMessages/{messageId} {
-      allow create: if isValidContactMessage(request.resource.data);
+    match /games/{gameId} {
+      allow get: if isSignedIn() &&
+                  (ownerMatches(resource.data) || isGameParticipant(resource.data));
+
+      allow list: if isSignedIn() &&
+                   request.query != null &&
+                   request.query.where('players', 'array-contains', request.auth.uid) == request.query;
+
+      allow create: if isSignedIn() &&
+                     ownerMatches(request.resource.data) &&
+                     isGameParticipant(request.resource.data);
+
+      allow update: if isSignedIn() &&
+                     ownerMatches(resource.data) &&
+                     ownerMatches(request.resource.data) &&
+                     isGameParticipant(resource.data) &&
+                     isGameParticipant(request.resource.data);
+
+      allow delete: if isSignedIn() &&
+                     ownerMatches(resource.data) &&
+                     isGameParticipant(resource.data);
     }
 
-    match /config/{docId} {
+    match /config/app {
       allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
