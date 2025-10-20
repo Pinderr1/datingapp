@@ -41,7 +41,7 @@ const HomeScreen = () => {
 
   const searchFieldRef = useRef(null);
   const swiperRef = useRef(null);
-  const deckLengthRef = useRef(Number.POSITIVE_INFINITY);
+  const deckLengthRef = useRef(null);
   const defaultUserImage = require('../../assets/images/users/user1.png');
 
   const seenStateRef = useRef({ key: null, set: new Set() });
@@ -154,8 +154,13 @@ const HomeScreen = () => {
   };
 
   useEffect(() => {
-    if (deckLengthRef.current < 5 && nextCursor && !loading) {
-      deckLengthRef.current = Number.POSITIVE_INFINITY;
+    if (
+      typeof deckLengthRef.current === 'number' &&
+      deckLengthRef.current < 5 &&
+      nextCursor &&
+      !loading
+    ) {
+      deckLengthRef.current = null;
       loadCandidates();
     }
   }, [users.length, nextCursor, loading]);
