@@ -43,6 +43,18 @@ export const ListenerProvider = ({ children }) => {
         setLoading(false);
       },
       (err) => {
+        const message = typeof err?.message === 'string' ? err.message.toLowerCase() : '';
+        const isPermissionError =
+          err?.code === 'permission-denied' ||
+          message.includes('missing or insufficient permissions');
+
+        if (isPermissionError) {
+          console.warn('Insufficient permissions to load game sessions', err);
+          setSessions([]);
+          setLoading(false);
+          return;
+        }
+
         console.error('Failed to load game sessions', err);
         setError(err);
         setSessions([]);
