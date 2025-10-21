@@ -19,7 +19,7 @@ import { fetchSwipeCandidates, likeUser } from '../../../services/userService'
 
 const PAGE_SIZE = 20
 
-const HomeScreen = () => {
+const SwipeScreen = () => {
 
     const router = useRouter();
 
@@ -507,7 +507,7 @@ const HomeScreen = () => {
     }
 }
 
-export default HomeScreen
+export default SwipeScreen
 
 const styles = StyleSheet.create({
     iconWrapStyle: {

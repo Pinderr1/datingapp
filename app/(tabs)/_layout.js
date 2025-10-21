@@ -1,35 +1,36 @@
 import { Tabs } from 'expo-router';
-import React, { useState, useCallback } from "react";
-import { BackHandler, Text, View, StyleSheet, Pressable } from 'react-native'
+import React, { useState, useCallback } from 'react';
+import { BackHandler, Text, View, StyleSheet, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { Colors, Sizes, Fonts } from "../../constants/styles";
 import { useFocusEffect } from 'expo-router';
-import MyStatusBar from "../../components/myStatusBar";
+import MyStatusBar from '../../components/myStatusBar';
+
+// Unified color scheme
+const Colors = {
+  primary: '#ff5a5f', // coral
+  gray: '#9b9b9b',
+  white: '#fff',
+  background: '#ffffff',
+};
 
 export default function TabLayout() {
+  const [backClickCount, setBackClickCount] = useState(0);
 
   const backAction = () => {
-    backClickCount == 1 ? BackHandler.exitApp() : _spring();
+    if (backClickCount === 1) BackHandler.exitApp();
+    else {
+      setBackClickCount(1);
+      setTimeout(() => setBackClickCount(0), 1000);
+    }
     return true;
   };
 
   useFocusEffect(
     useCallback(() => {
-      const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
-      return () => {
-        backHandler.remove();
-      };
-    }, [backAction])
+      const sub = BackHandler.addEventListener('hardwareBackPress', backAction);
+      return () => sub.remove();
+    }, [backClickCount])
   );
-
-  function _spring() {
-    setBackClickCount(1);
-    setTimeout(() => {
-      setBackClickCount(0)
-    }, 1000)
-  }
-
-  const [backClickCount, setBackClickCount] = useState(0);
 
   return (
     <View style={{ flex: 1 }}>
@@ -37,113 +38,117 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: Colors.primaryColor,
-          tabBarInactiveTintColor: Colors.grayColor,
+          tabBarActiveTintColor: Colors.primary,
+          tabBarInactiveTintColor: Colors.gray,
           tabBarHideOnKeyboard: true,
           tabBarShowLabel: false,
-          tabBarStyle: { ...styles.tabBarStyle },
+          tabBarStyle: styles.tabBar,
           tabBarButton: (props) => (
-            <Pressable
-              {...props}
-              android_ripple={{
-                color: Colors.whiteColor,
-              }}
-            />
+            <Pressable {...props} android_ripple={{ color: '#f2f2f2' }} />
           ),
         }}
       >
         <Tabs.Screen
-          name='home/homeScreen'
+          name="home/homeScreen"
           options={{
-            tabBarIcon: ({ focused }) => tabShort({ iconName: 'home', focused })
+            title: 'Home',
+            tabBarIcon: ({ focused }) => renderIcon('home', focused),
           }}
         />
         <Tabs.Screen
-          name='swipe'
+          name="swipe"
           options={{
             title: 'Swipe',
-            tabBarIcon: ({ focused }) => tabShort({ iconName: 'heart', focused })
+            tabBarIcon: ({ focused }) => renderIcon('heart', focused),
           }}
         />
         <Tabs.Screen
-          name='chat/chatScreen'
+          name="games/index"
           options={{
-            tabBarIcon: ({ focused }) => tabShort({ iconName: 'message-circle', focused })
+            title: 'Games',
+            tabBarIcon: ({ focused }) => renderIcon('grid', focused),
           }}
         />
         <Tabs.Screen
-          name='shortlist/shortlistScreen'
+          name="chat/chatScreen"
           options={{
-            tabBarIcon: ({ focused }) => tabShort({ iconName: 'star', focused })
+            title: 'Chat',
+            tabBarIcon: ({ focused }) => renderIcon('message-circle', focused),
           }}
         />
         <Tabs.Screen
-          name='profile/profileScreen'
+          name="shortlist/shortlistScreen"
           options={{
-            tabBarIcon: ({ focused }) => tabShort({ iconName: 'user', focused })
+            title: 'Shortlist',
+            tabBarIcon: ({ focused }) => renderIcon('star', focused),
+          }}
+        />
+        <Tabs.Screen
+          name="profile/profileScreen"
+          options={{
+            title: 'Profile',
+            tabBarIcon: ({ focused }) => renderIcon('user', focused),
           }}
         />
       </Tabs>
-      {exitInfo()}
+
+      {backClickCount === 1 && (
+        <View style={styles.exitNotice}>
+          <Text style={styles.exitText}>Press back again to exit.</Text>
+        </View>
+      )}
     </View>
   );
 
-  function exitInfo() {
+  function renderIcon(name, focused) {
     return (
-      backClickCount == 1
-        ?
-        <View style={styles.exitWrapStyle}>
-          <Text style={{ ...Fonts.whiteColor15Medium }}>
-            Press Back Once Again to Exit.
-          </Text>
-        </View>
-        :
-        null
-    )
-  }
-
-  function tabShort({ iconName, focused }) {
-    return (
-      <View style={[styles.tabIconWrapStyle, focused && styles.activeTabIconWrapStyle]}>
+      <View
+        style={[
+          styles.iconWrap,
+          focused && { borderColor: Colors.primary, borderWidth: 1.5 },
+        ]}
+      >
         <Feather
-          name={iconName}
+          name={name}
           size={24}
-          color={focused ? Colors.primaryColor : Colors.grayColor}
+          color={focused ? Colors.primary : Colors.gray}
         />
       </View>
-    )
+    );
   }
 }
 
 const styles = StyleSheet.create({
-  exitWrapStyle: {
-    backgroundColor: Colors.grayColor,
-    position: "absolute",
-    bottom: 20,
-    alignSelf: 'center',
-    borderRadius: Sizes.fixPadding * 3.0,
-    paddingHorizontal: Sizes.fixPadding + 10.0,
-    paddingVertical: Sizes.fixPadding + 3.0,
-    justifyContent: "center",
-    alignItems: "center",
+  tabBar: {
+    height: 70,
+    backgroundColor: Colors.background,
+    borderTopWidth: 0,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: -2 },
+    paddingTop: 10,
   },
-  tabBarStyle: {
-    height: 70.0,
-    backgroundColor: Colors.whiteColor,
-    borderTopWidth: 0.0,
-    elevation: 3.0,
-    paddingTop: Sizes.fixPadding + 7.0
-  },
-  tabIconWrapStyle: {
-    width: 44.0,
-    height: 44.0,
-    borderRadius: 22.0,
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.whiteColor,
+    backgroundColor: Colors.white,
   },
-  activeTabIconWrapStyle: {
-    borderColor: Colors.primaryColor,
-    borderWidth: 1.5,
+  exitNotice: {
+    backgroundColor: '#333',
+    position: 'absolute',
+    bottom: 20,
+    alignSelf: 'center',
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
   },
-})
+  exitText: {
+    color: Colors.white,
+    fontSize: 14,
+  },
+});

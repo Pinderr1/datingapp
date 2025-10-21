@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import { db, auth } from '../firebaseConfig';
 import { useUser } from './UserContext';
 
 const ListenerContext = createContext({
@@ -17,52 +17,71 @@ export const ListenerProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [refreshIndex, setRefreshIndex] = useState(0);
 
-  const refresh = useCallback(() => {
-    setRefreshIndex((i) => i + 1);
-  }, []);
+  const refresh = useCallback(() => setRefreshIndex((i) => i + 1), []);
 
   useEffect(() => {
-    if (!user?.uid) {
-      setSessions([]);
-      setLoading(false);
-      setError(null);
-      return undefined;
-    }
-    setLoading(true);
-    setError(null);
+    let unsubscribe;
+    let mounted = true;
 
-    const q = query(
-      collection(db, 'games'),
-      where('players', 'array-contains', user.uid),
-      orderBy('updatedAt', 'desc')
-    );
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        setSessions(snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
-        setLoading(false);
-      },
-      (err) => {
-        const message = typeof err?.message === 'string' ? err.message.toLowerCase() : '';
-        const isPermissionError =
-          err?.code === 'permission-denied' ||
-          message.includes('missing or insufficient permissions');
-
-        if (isPermissionError) {
-          console.warn('Insufficient permissions to load game sessions', err);
-          setSessions([]);
-          setLoading(false);
-          return;
-        }
-
-        console.error('Failed to load game sessions', err);
-        setError(err);
+    const initListener = async () => {
+      const currentUser = auth.currentUser || user;
+      if (!currentUser?.uid) {
         setSessions([]);
         setLoading(false);
+        setError(null);
+        return;
       }
-    );
 
-    return () => unsub();
+      setLoading(true);
+      setError(null);
+
+      try {
+        const q = query(
+          collection(db, 'games'),
+          where('players', 'array-contains', currentUser.uid),
+          orderBy('updatedAt', 'desc')
+        );
+
+        unsubscribe = onSnapshot(
+          q,
+          (snap) => {
+            if (!mounted) return;
+            const rows = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+            setSessions(rows);
+            setLoading(false);
+          },
+          (err) => {
+            const message = typeof err?.message === 'string' ? err.message.toLowerCase() : '';
+            const isPermissionError =
+              err?.code === 'permission-denied' ||
+              message.includes('missing or insufficient permissions');
+
+            if (isPermissionError) {
+              console.warn('Insufficient permissions to load game sessions', err);
+              setSessions([]);
+              setLoading(false);
+              return;
+            }
+
+            console.error('Failed to load game sessions', err);
+            setError(err);
+            setSessions([]);
+            setLoading(false);
+          }
+        );
+      } catch (err) {
+        console.error('Failed to initialize game listener:', err);
+        setError(err);
+        setLoading(false);
+      }
+    };
+
+    initListener();
+
+    return () => {
+      mounted = false;
+      if (unsubscribe) unsubscribe();
+    };
   }, [user?.uid, refreshIndex]);
 
   const value = useMemo(
@@ -79,5 +98,4 @@ export const ListenerProvider = ({ children }) => {
 };
 
 export const useListeners = () => useContext(ListenerContext);
-
 export default ListenerContext;

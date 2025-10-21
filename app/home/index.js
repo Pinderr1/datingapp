@@ -1,744 +1,373 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  StyleSheet,
-  Text,
   View,
-  TextInput,
+  Text,
+  ScrollView,
   TouchableOpacity,
-  ImageBackground,
+  StyleSheet,
   Image,
-  Alert,
-  ActivityIndicator,
+  Modal,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import Swiper from 'react-native-deck-swiper';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, Fonts, screenWidth, Sizes } from '../../constants/styles';
-import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { auth } from '../../firebaseConfig';
-import { fetchSwipeCandidates, likeUser } from '../../services/userService';
+import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import { Colors, Fonts, Sizes } from '../../constants/styles';
 import { useUser } from '../../contexts/UserContext';
 import { useChats } from '../../contexts/ChatContext';
 import useWinLossStats from '../../hooks/useWinLossStats';
 import GradientButton from '../../components/GradientButton';
-
-const PAGE_SIZE = 20;
+import ProgressBar from '../../components/ProgressBar';
 
 const HomeScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user: profile, loading: profileLoading } = useUser();
-  const { matches, loading: matchesLoading } = useChats();
-  const winLossStats = useWinLossStats(profile?.uid);
+  const { user, loginBonus } = useUser();
+  const { matches } = useChats();
+  const winLossStats = useWinLossStats(user?.uid);
 
-  const [users, setUsers] = useState([]);
-  const [nextCursor, setNextCursor] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [likingId, setLikingId] = useState(null);
-  const [search, setSearch] = useState('');
-
-  const searchFieldRef = useRef(null);
-  const swiperRef = useRef(null);
-  const deckLengthRef = useRef(null);
+  const [showBonus, setShowBonus] = useState(false);
+  const [showGamePicker, setShowGamePicker] = useState(false);
   const defaultUserImage = require('../../assets/images/users/user1.png');
 
-  const seenStateRef = useRef({ key: null, set: new Set() });
-  const getTodayKey = () => {
-    const isoDate = new Date().toISOString().split('T')[0];
-    return `seenCandidates:${isoDate}`;
-  };
-  const ensureSeenState = async () => {
-    const todayKey = getTodayKey();
-    if (seenStateRef.current.key === todayKey) return seenStateRef.current;
-    try {
-      const stored = await AsyncStorage.getItem(todayKey);
-      let parsed = [];
-      if (stored) {
-        try {
-          const data = JSON.parse(stored);
-          if (Array.isArray(data)) parsed = data.filter((v) => typeof v === 'string');
-        } catch {}
-      }
-      seenStateRef.current = { key: todayKey, set: new Set(parsed) };
-    } catch {
-      seenStateRef.current = { key: todayKey, set: new Set() };
-    }
-    return seenStateRef.current;
-  };
-  const markCandidateSeen = async (id) => {
-    if (!id) return;
-    const { key, set } = await ensureSeenState();
-    if (set.has(id)) return;
-    set.add(id);
-    try {
-      await AsyncStorage.setItem(key, JSON.stringify(Array.from(set)));
-    } catch {}
-  };
-
-  const loadCandidates = async ({ reset = false } = {}) => {
-    if (loading) return;
-    setLoading(true);
-    try {
-      console.log('current user uid', auth.currentUser?.uid);
-      const seenState = await ensureSeenState();
-      const result = await fetchSwipeCandidates({
-        startAfter: reset ? null : nextCursor,
-        limit: PAGE_SIZE,
-      });
-
-      if (result.ok && result.data?.users) {
-        const incoming = result.data.users.filter(
-          (u) => u?.id && !seenState.set.has(u.id)
-        );
-        setUsers((prev) => (reset ? incoming : [...prev, ...incoming]));
-        setNextCursor(result.data.nextCursor ?? null);
-      } else if (!result.ok) {
-        Alert.alert(
-          'Unable to load profiles',
-          result.error?.message ?? 'Please try again later.'
-        );
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  const level = Math.floor((user?.xp || 0) / 100);
+  const xpProgress = (user?.xp || 0) % 100;
+  const streakProgress = Math.min((user?.streak || 0) % 7, 7);
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      if (!mounted) return;
-      await loadCandidates({ reset: true });
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const removeCard = (id) => {
-    if (!id) return;
-
-    setUsers((prev) => {
-      const filtered = prev.filter((item) => item.id !== id);
-      deckLengthRef.current = filtered.length;
-      return filtered;
-    });
-    markCandidateSeen(id).catch(() => {});
-  };
-
-  const handleSwipe = async (direction, userId) => {
-    if (!userId) return;
-    const liked = direction === 'right';
-
-    try {
-      setLikingId(userId);
-      const result = await likeUser({ targetUserId: userId, liked });
-
-      if (!result.ok) {
-        Alert.alert('Action failed', result.error?.message ?? 'Please try again later.');
-      } else if (result.data?.match) {
-        Alert.alert("It's a match!");
-        const matchId = result.data.matchId;
-        if (matchId) {
-          router.push({
-            pathname: '/message/messageScreen',
-            params: { matchId },
-          });
-        }
-      }
-    } finally {
-      setLikingId(null);
-      removeCard(userId);
+    if (loginBonus) {
+      setShowBonus(true);
+      const t = setTimeout(() => setShowBonus(false), 4000);
+      return () => clearTimeout(t);
     }
-  };
+  }, [loginBonus]);
 
-  useEffect(() => {
-    if (
-      typeof deckLengthRef.current === 'number' &&
-      deckLengthRef.current < 5 &&
-      nextCursor &&
-      !loading
-    ) {
-      deckLengthRef.current = null;
-      loadCandidates();
-    }
-  }, [users.length, nextCursor, loading]);
+  const avatarSource = user?.photoURL ? { uri: user.photoURL } : defaultUserImage;
 
-  const changeShortlist = async ({ id }) => {
-    if (!id) return;
-    const target = users.find((item) => item.id === id);
-    if (!target) return;
-
-    const nextLikedState = !target.isFavorite;
-
-    try {
-      setLikingId(id);
-      const result = await likeUser({ targetUserId: id, liked: nextLikedState });
-      if (!result.ok) {
-        Alert.alert('Unable to update shortlist', result.error?.message ?? 'Please try again later.');
-        return;
-      }
-
-      setUsers((prev) =>
-        prev.map((item) =>
-          item.id === id ? { ...item, isFavorite: nextLikedState } : item
-        )
-      );
-    } finally {
-      setLikingId(null);
-    }
-  };
-
-  const getUserImageSource = (user) => {
-    if (!user) return defaultUserImage;
-    if (typeof user.image === 'number') return user.image;
-    if (user.image) return { uri: user.image };
-    if (user.photoURL) return { uri: user.photoURL };
-    return defaultUserImage;
-  };
-
-  const renderCard = (item) => {
-    if (!item) return <View style={styles.cardPlaceholder} />;
-
-    return (
-      <View style={styles.cardShell}>
-        <ImageBackground
-          source={getUserImageSource(item)}
-          style={{ height: '100%', width: '100%' }}
-          resizeMode="cover"
-          borderRadius={Sizes.fixPadding * 3.0}
-        >
-          <LinearGradient
-            colors={['rgba(0, 0, 0, 0.58)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.58)']}
-            style={styles.cardGradient}
-          >
-            <View style={styles.locationRow}>
-              <MaterialIcons name="location-pin" size={18} color={Colors.whiteColor} />
-              <Text style={{ ...Fonts.whiteColor15Regular, marginLeft: Sizes.fixPadding - 5.0 }}>
-                {item.address ?? 'Nearby'} • {item.distance ?? ''}
-              </Text>
-            </View>
-
-            <View style={styles.userInfoWithOptionWrapper}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => swiperRef.current?.swipeLeft()}
-                style={styles.closeAndShortlistIconWrapStyle}
-                disabled={likingId === item.id}
-              >
-                <MaterialIcons name="close" size={24} color={Colors.primaryColor} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => {
-                  if (!item?.id) return;
-                  router.push({
-                    pathname: '/profileDetail/profileDetailScreen',
-                    params: {
-                      userId: item.id,
-                      initialProfile: JSON.stringify({ ...item, id: item.id }),
-                    },
-                  });
-                }}
-                style={styles.centerNameWrap}
-              >
-                <Text numberOfLines={1} style={{ ...Fonts.whiteColor20Bold }}>
-                  {item.name ?? item.displayName ?? 'Someone'}, {item.age ?? ''}
-                </Text>
-                <Text numberOfLines={1} style={{ ...Fonts.whiteColor15Regular }}>
-                  {item.profession ?? ''}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => changeShortlist({ id: item.id })}
-                style={styles.closeAndShortlistIconWrapStyle}
-                disabled={likingId === item.id}
-              >
-                <MaterialIcons
-                  name={item.isFavorite ? 'favorite' : 'favorite-border'}
-                  size={24}
-                  color={Colors.primaryColor}
-                />
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
-        </ImageBackground>
-      </View>
-    );
-  };
-
-  const deckArea = () => {
-    if (!auth.currentUser) {
-      return (
-        <View style={styles.centerWrap}>
-          <ActivityIndicator />
-          <Text style={{ ...Fonts.grayColor15Regular, marginTop: 8 }}>Connecting…</Text>
-        </View>
-      );
-    }
-
-    if (loading && users.length === 0) {
-      return (
-        <View style={styles.centerWrap}>
-          <ActivityIndicator />
-          <Text style={{ ...Fonts.grayColor15Regular, marginTop: 8 }}>Loading profiles…</Text>
-        </View>
-      );
-    }
-
-    if (!loading && users.length === 0) {
-      return (
-        <View style={styles.centerWrap}>
-          <Text style={{ ...Fonts.grayColor15Regular, marginBottom: 12 }}>
-            No more profiles right now.
-          </Text>
-          <TouchableOpacity onPress={() => loadCandidates({ reset: true })} style={styles.filterButtonStyle}>
-            <MaterialCommunityIcons name="refresh" size={26} color={Colors.whiteColor} />
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
-    return (
-      <View style={{ flex: 1, alignItems: 'center' }}>
-        <View style={styles.imageBottomContainre1}>
-          <View style={styles.imageBottomContainre2}>
-            <Swiper
-              ref={swiperRef}
-              cards={users}
-              renderCard={renderCard}
-              backgroundColor="transparent"
-              cardHorizontalMargin={0}
-              stackSize={3}
-              stackSeparation={12}
-              animateCardOpacity
-              onSwipedLeft={(index) => {
-                const u = users[index];
-                if (u?.id) handleSwipe('left', u.id);
-              }}
-              onSwipedRight={(index) => {
-                const u = users[index];
-                if (u?.id) handleSwipe('right', u.id);
-              }}
-              onSwipedAll={() => {
-                if (nextCursor && !loading) loadCandidates();
-              }}
-              disableTopSwipe
-              disableBottomSwipe
-              outputRotationRange={["-15deg", "0deg", "15deg"]}
-              overlayLabels={{
-                left: { title: 'NOPE', style: { label: { color: '#ff6b6b', fontSize: 24 } } },
-                right: { title: 'LIKE', style: { label: { color: '#2ecc71', fontSize: 24 } } },
-              }}
-            />
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  const searchInfo = () => (
-    <View style={styles.searchInfoWrapStyle}>
-      <View style={styles.searchFieldWrapStyle}>
-        <MaterialIcons name="search" size={22} color={Colors.grayColor} />
-        <TextInput
-          ref={searchFieldRef}
-          placeholder="Search Partner..."
-          placeholderTextColor={Colors.grayColor}
-          style={{
-            padding: 0,
-            flex: 1,
-            marginLeft: Sizes.fixPadding - 2.0,
-            ...Fonts.blackColor15Regular,
-            height: 20.0,
-          }}
-          cursorColor={Colors.primaryColor}
-          value={search}
-          onChangeText={(value) => setSearch(value)}
-          selectionColor={Colors.primaryColor}
-        />
-      </View>
-      <TouchableOpacity
-        activeOpacity={0.8}
-        onPress={() => {
-          if (nextCursor && !loading) loadCandidates();
-          else loadCandidates({ reset: true });
-        }}
-        style={styles.filterButtonStyle}
-      >
-        <MaterialCommunityIcons name="tune-variant" size={26} color={Colors.whiteColor} />
-      </TouchableOpacity>
-    </View>
-  );
-
-  const header = () => {
-    const avatarSource = (() => {
-      const uriCandidate = profile?.photoURL || profile?.photoUri || profile?.image;
-      if (uriCandidate && typeof uriCandidate === 'string') {
-        return { uri: uriCandidate };
-      }
-      return defaultUserImage;
-    })();
-
-    const displayName =
-      profile?.displayName ||
-      profile?.name ||
-      profile?.fullName ||
-      profile?.username ||
-      'Player';
-
-    const xpValue = (() => {
-      if (profile?.xp === 0) return 0;
-      if (typeof profile?.xp === 'number' && Number.isFinite(profile.xp)) {
-        return Math.max(0, Math.round(profile.xp));
-      }
-      if (typeof profile?.xp === 'string' && profile.xp.trim().length) {
-        const parsed = Number.parseInt(profile.xp, 10);
-        if (Number.isFinite(parsed)) {
-          return Math.max(0, parsed);
-        }
-      }
-      return undefined;
-    })();
-
-    const badgeCount = Array.isArray(profile?.badges)
-      ? profile.badges.filter(Boolean).length
-      : undefined;
-
-    const statItems = [
-      {
-        key: 'matches',
-        label: 'Matches',
-        value: matchesLoading ? '—' : (matches?.length ?? 0),
-      },
-      {
-        key: 'wins',
-        label: 'Wins',
-        value: winLossStats.loading ? '—' : winLossStats.wins ?? 0,
-      },
-      {
-        key: 'losses',
-        label: 'Losses',
-        value: winLossStats.loading ? '—' : winLossStats.losses ?? 0,
-      },
-    ];
-
-    return (
-      <View style={styles.headerContainer}>
-        <View style={styles.headerTopRow}>
-          <View style={styles.profileSummary}>
-            <Image source={avatarSource} style={styles.profileAvatar} resizeMode="cover" />
-            <View style={styles.profileInfo}>
-              <Text
-                numberOfLines={1}
-                style={profileLoading ? styles.profileLoadingText : styles.profileNameText}
-              >
-                {profileLoading ? 'Loading profile…' : displayName}
-              </Text>
-              <View style={styles.profileMetaRow}>
-                <View style={styles.metaPill}>
-                  <MaterialCommunityIcons
-                    name="flash"
-                    size={16}
-                    color={Colors.primaryColor}
-                  />
-                  <Text style={styles.metaPillText}>
-                    {profileLoading ? '—' : xpValue !== undefined ? `${xpValue} XP` : 'XP pending'}
-                  </Text>
-                </View>
-                <View style={styles.metaPill}>
-                  <MaterialCommunityIcons
-                    name="shield-star-outline"
-                    size={16}
-                    color={Colors.primaryColor}
-                  />
-                  <Text style={styles.metaPillText}>
-                    {profileLoading
-                      ? '—'
-                      : badgeCount !== undefined
-                      ? `${badgeCount} Badge${badgeCount === 1 ? '' : 's'}`
-                      : 'No badges yet'}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => searchFieldRef.current?.focus()}
-              style={styles.iconWrapStyle}
-            >
-              <MaterialIcons name="search" size={22} color={Colors.primaryColor} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                if (nextCursor && !loading) loadCandidates();
-                else loadCandidates({ reset: true });
-              }}
-              style={[styles.iconWrapStyle, styles.refreshButton]}
-            >
-              <MaterialCommunityIcons name="refresh" size={22} color={Colors.primaryColor} />
-            </TouchableOpacity>
-          </View>
-        </View>
-        <View style={styles.statsRow}>
-          {statItems.map((item) => (
-            <View key={item.key} style={styles.statItem}>
-              <Text style={styles.statValue}>{item.value}</Text>
-              <Text style={styles.statLabel}>{item.label}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-    );
-  };
-
-  const footerActions = () => (
-    <View style={styles.footerButtonRow}>
-      <View style={styles.footerButtonWrapper}>
-        <GradientButton
-          text="Find Matches"
-          onPress={() => router.push('/(tabs)/swipe')}
-          width="100%"
-          marginVertical={0}
-        />
-      </View>
-      <TouchableOpacity
-        activeOpacity={0.85}
-        style={styles.secondaryButton}
-        onPress={() => router.push('/games')}
-        accessibilityRole="button"
-        accessibilityLabel="Play Games"
-      >
-        <Text style={styles.secondaryButtonText}>Play Games</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  const quickPlayOptions = [
+    { key: 'invite', title: 'Invite Match', emoji: '👥', path: '/invite' },
+    { key: 'ai', title: 'Play AI', emoji: '🤖', path: '/games/ai' },
+    { key: 'stranger', title: 'Play Stranger', emoji: '🎲', path: '/matchmaking' },
+    { key: 'browse', title: 'Browse Games', emoji: '🕹️', path: '/(tabs)/games' },
+  ];
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
-      <View style={{ flex: 1 }}>
-        {header()}
-        {searchInfo()}
-        <View style={{ flex: 1 }}>{deckArea()}</View>
-      </View>
-      <View
-        style={[
-          styles.footerContainer,
-          { paddingBottom: Math.max(insets.bottom, Sizes.fixPadding * 2.5) },
-        ]}
+      <ScrollView
+        contentContainerStyle={{
+          paddingBottom: Math.max(insets.bottom, Sizes.fixPadding * 8),
+        }}
+        showsVerticalScrollIndicator={false}
       >
-        {footerActions()}
-      </View>
+        {/* Header */}
+        <View style={styles.headerContainer}>
+          <View style={styles.headerTopRow}>
+            <View style={styles.profileSummary}>
+              <Image
+                source={avatarSource}
+                style={styles.profileAvatar}
+                resizeMode="cover"
+              />
+              <View style={styles.profileInfo}>
+                <Text
+                  numberOfLines={1}
+                  style={{ ...Fonts.blackColor18Bold, marginBottom: 4 }}
+                >
+                  {user?.displayName ? `Welcome, ${user.displayName}` : 'Welcome!'}
+                </Text>
+                <View style={styles.profileMetaRow}>
+                  <View style={styles.metaPill}>
+                    <MaterialCommunityIcons
+                      name="flash"
+                      size={16}
+                      color={Colors.primaryColor}
+                    />
+                    <Text style={styles.metaPillText}>{user?.xp ?? 0} XP</Text>
+                  </View>
+                  <View style={styles.metaPill}>
+                    <MaterialCommunityIcons
+                      name="fire"
+                      size={16}
+                      color={Colors.primaryColor}
+                    />
+                    <Text style={styles.metaPillText}>
+                      {user?.streak ?? 0}-day streak
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => router.push('/(tabs)/profile/profileScreen')}
+              style={styles.iconWrapStyle}
+            >
+              <MaterialIcons
+                name="settings"
+                size={22}
+                color={Colors.primaryColor}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Level / XP Card */}
+        <View style={styles.group}>
+          <View style={styles.progressCard}>
+            <Text style={styles.levelText}>Level {level}</Text>
+            <ProgressBar value={xpProgress} max={100} color={Colors.primaryColor} />
+            <Text style={styles.streakLabel}>
+              {streakProgress}/7 Day Progress
+            </Text>
+            <ProgressBar value={streakProgress} max={7} color="#2ecc71" />
+          </View>
+        </View>
+
+        {/* Daily Bonus */}
+        {showBonus && (
+          <Text style={styles.bonus}>🔥 Daily Bonus +5 XP</Text>
+        )}
+
+        {/* Stats Row */}
+        <View style={styles.statsRow}>
+          <Stat label="Matches" value={matches?.length ?? 0} />
+          <Stat label="Wins" value={winLossStats.wins ?? 0} />
+          <Stat label="Losses" value={winLossStats.losses ?? 0} />
+        </View>
+
+        {/* Quick Play */}
+        <View style={styles.group}>
+          <Text style={styles.sectionTitle}>Quick Play</Text>
+          {quickPlayOptions.map((item) => (
+            <TouchableOpacity
+              key={item.key}
+              style={styles.fullTile}
+              activeOpacity={0.8}
+              onPress={() => router.push(item.path)}
+            >
+              <Text style={styles.tileEmoji}>{item.emoji}</Text>
+              <Text style={styles.fullTileText}>{item.title}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Active Games */}
+        <View style={styles.group}>
+          <Text style={styles.sectionTitle}>Active Games</Text>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.fullTile}
+            onPress={() => router.push('/(tabs)/games')}
+          >
+            <Text style={styles.tileEmoji}>🎮</Text>
+            <Text style={styles.fullTileText}>Continue or Start New Games</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Matches */}
+        <View style={styles.group}>
+          <Text style={styles.sectionTitle}>Your Matches</Text>
+          {matches?.length ? (
+            matches.slice(0, 3).map((m) => (
+              <TouchableOpacity
+                key={m.id}
+                style={styles.matchCard}
+                activeOpacity={0.8}
+                onPress={() =>
+                  router.push({
+                    pathname: '/(tabs)/chat/chatScreen',
+                    params: { matchId: m.id },
+                  })
+                }
+              >
+                <Image
+                  source={
+                    m.image ? { uri: m.image } : defaultUserImage
+                  }
+                  style={styles.matchAvatar}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.matchName}>{m.displayName || 'Player'}</Text>
+                  <Text style={styles.matchSub}>Tap to chat</Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <Text style={styles.emptyText}>No matches yet. Start swiping!</Text>
+          )}
+        </View>
+
+        {/* Games CTA */}
+        <View style={styles.group}>
+          <TouchableOpacity
+            style={styles.fullTile}
+            activeOpacity={0.8}
+            onPress={() => router.push('/(tabs)/games')}
+          >
+            <Text style={styles.tileEmoji}>🕹️</Text>
+            <Text style={styles.fullTileText}>Browse All Games</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Bottom Buttons */}
+        <View style={{ paddingHorizontal: Sizes.fixPadding * 2 }}>
+          <GradientButton
+            text="Swipe Now"
+            onPress={() => router.push('/(tabs)/swipe')}
+          />
+        </View>
+      </ScrollView>
+
+      {/* Example modal placeholder */}
+      <Modal visible={showGamePicker} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 12 }}>
+              Choose a Game
+            </Text>
+            <TouchableOpacity onPress={() => setShowGamePicker(false)}>
+              <Text style={{ color: Colors.primaryColor }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
 
-export default HomeScreen;
+// Subcomponent for stats
+const Stat = ({ label, value }) => (
+  <View style={styles.statItem}>
+    <Text style={styles.statValue}>{value}</Text>
+    <Text style={styles.statLabel}>{label}</Text>
+  </View>
+);
 
 const styles = StyleSheet.create({
   headerContainer: {
-    margin: Sizes.fixPadding * 2.0,
-    marginBottom: Sizes.fixPadding,
+    marginTop: Sizes.fixPadding * 2,
+    paddingHorizontal: Sizes.fixPadding * 2,
   },
   headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   profileSummary: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   profileAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: Colors.bgColor,
     marginRight: Sizes.fixPadding,
   },
-  profileInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-  profileNameText: {
-    ...Fonts.blackColor18Bold,
-  },
-  profileLoadingText: {
-    ...Fonts.grayColor15Regular,
-  },
+  profileInfo: { flex: 1 },
   profileMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: Sizes.fixPadding / 2,
   },
   metaPill: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.bgColor,
-    paddingHorizontal: Sizes.fixPadding,
-    paddingVertical: Sizes.fixPadding / 2,
-    borderRadius: Sizes.fixPadding,
-    marginRight: Sizes.fixPadding,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginRight: 6,
   },
   metaPillText: {
-    ...Fonts.blackColor14Regular,
-    marginLeft: Sizes.fixPadding / 2,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: Sizes.fixPadding,
-  },
-  refreshButton: {
-    marginLeft: Sizes.fixPadding + 5.0,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.bgColor,
-    borderRadius: Sizes.fixPadding * 1.5,
-    paddingVertical: Sizes.fixPadding,
-    paddingHorizontal: Sizes.fixPadding * 1.5,
-    marginTop: Sizes.fixPadding * 1.5,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    ...Fonts.blackColor16Bold,
-  },
-  statLabel: {
-    ...Fonts.grayColor13Regular,
-    marginTop: 4,
+    ...Fonts.blackColor13Regular,
+    marginLeft: 4,
   },
   iconWrapStyle: {
-    width: 40.0,
-    height: 40.0,
-    borderRadius: 20.0,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: Colors.bgColor,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  searchInfoWrapStyle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: Sizes.fixPadding * 2.0,
-    marginTop: Sizes.fixPadding,
-    marginBottom: Sizes.fixPadding * 3.0,
+  bonus: {
+    fontSize: 14,
+    color: '#2ecc71',
+    marginBottom: 8,
+    alignSelf: 'center',
   },
-  searchFieldWrapStyle: {
-    flex: 1,
-    flexDirection: 'row',
+  group: {
+    marginBottom: Sizes.fixPadding * 3,
+    paddingHorizontal: Sizes.fixPadding * 2,
+  },
+  progressCard: {
+    borderRadius: Sizes.fixPadding * 2,
     backgroundColor: Colors.bgColor,
-    paddingVertical: Sizes.fixPadding + 5.0,
-    paddingHorizontal: Sizes.fixPadding + 2.0,
-    borderRadius: Sizes.fixPadding,
+    padding: Sizes.fixPadding * 2,
   },
-  filterButtonStyle: {
-    width: 50.0,
-    height: 50.0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: Sizes.fixPadding,
-    backgroundColor: Colors.primaryColor,
-    marginLeft: Sizes.fixPadding + 5.0,
-  },
-  closeAndShortlistIconWrapStyle: {
-    width: 43.0,
-    height: 43.0,
-    borderRadius: 21.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  imageBottomContainre1: {
-    borderRadius: Sizes.fixPadding * 3.0,
-    backgroundColor: Colors.lightPinkColor,
-    marginHorizontal: Sizes.fixPadding * 4.5,
-    flex: 1,
-    width: screenWidth - 100,
-    paddingBottom: Sizes.fixPadding * 2.0,
-    marginBottom: Sizes.fixPadding * 2.0,
-    alignSelf: 'center',
-  },
-  imageBottomContainre2: {
-    borderRadius: Sizes.fixPadding * 3.0,
-    flex: 1,
-    width: screenWidth - 70,
-    paddingBottom: Sizes.fixPadding * 2.0,
-    alignSelf: 'center',
-    backgroundColor: Colors.pinkColor,
-  },
-  cardShell: {
-    height: '100%',
-    alignSelf: 'center',
-    width: screenWidth - 40,
-    borderRadius: Sizes.fixPadding * 3.0,
-    overflow: 'hidden',
-  },
-  cardGradient: {
-    flex: 1,
+  levelText: { ...Fonts.blackColor16Bold, marginBottom: 8 },
+  streakLabel: { ...Fonts.grayColor13Regular, marginTop: 8 },
+  statsRow: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    borderRadius: Sizes.fixPadding * 3.0,
+    backgroundColor: Colors.bgColor,
+    borderRadius: Sizes.fixPadding * 1.5,
+    padding: Sizes.fixPadding * 1.5,
+    marginHorizontal: Sizes.fixPadding * 2,
+    marginBottom: Sizes.fixPadding * 2,
   },
-  centerNameWrap: {
-    maxWidth: screenWidth - 190,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: Sizes.fixPadding,
+  statItem: { flex: 1, alignItems: 'center' },
+  statValue: { ...Fonts.blackColor16Bold },
+  statLabel: { ...Fonts.grayColor13Regular },
+  sectionTitle: {
+    ...Fonts.blackColor16Bold,
+    marginBottom: Sizes.fixPadding,
   },
-  userInfoWithOptionWrapper: {
+  fullTile: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    margin: Sizes.fixPadding + 8.0,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.bgColor,
+    marginBottom: 12,
   },
-  locationRow: {
+  tileEmoji: { fontSize: 26, marginRight: 10 },
+  fullTileText: { ...Fonts.blackColor15Regular },
+  matchCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    margin: Sizes.fixPadding,
+    backgroundColor: Colors.bgColor,
+    borderRadius: 12,
+    padding: Sizes.fixPadding * 1.5,
+    marginBottom: Sizes.fixPadding,
   },
-  centerWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  cardPlaceholder: {
-    height: '100%',
-    width: screenWidth - 40,
-    alignSelf: 'center',
-    borderRadius: Sizes.fixPadding * 3.0,
-    backgroundColor: '#ddd',
-  },
-  footerContainer: {
-    paddingHorizontal: Sizes.fixPadding * 2.0,
-    paddingTop: Sizes.fixPadding,
-    backgroundColor: Colors.whiteColor,
-  },
-  footerButtonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  footerButtonWrapper: {
-    flex: 1,
+  matchAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     marginRight: Sizes.fixPadding,
   },
-  secondaryButton: {
-    flex: 1,
-    borderRadius: Sizes.fixPadding * 1.5,
-    borderWidth: 1,
-    borderColor: Colors.primaryColor,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Sizes.fixPadding * 1.5,
+  matchName: { ...Fonts.blackColor15Bold },
+  matchSub: { ...Fonts.grayColor13Regular },
+  emptyText: {
+    ...Fonts.grayColor14Regular,
+    textAlign: 'center',
+    marginTop: Sizes.fixPadding,
   },
-  secondaryButtonText: {
-    ...Fonts.primaryColor16Bold,
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCard: {
+    backgroundColor: Colors.whiteColor,
+    borderRadius: 12,
+    padding: 20,
+    width: '80%',
+    alignItems: 'center',
   },
 });
+
+export default HomeScreen;

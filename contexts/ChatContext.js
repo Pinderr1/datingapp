@@ -1,6 +1,15 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { collection, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import {
+  collection,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  where,
+  doc,
+  getDoc,
+} from 'firebase/firestore';
+import { db, auth } from '../firebaseConfig';
 import { useUser } from './UserContext';
 
 const ChatContext = createContext({
@@ -9,70 +18,113 @@ const ChatContext = createContext({
 });
 
 const deriveOtherUser = (data, currentUid) => {
-  if (!data) return { otherUserId: undefined, displayName: undefined };
-  if (data.otherUserId) {
-    return { otherUserId: data.otherUserId, displayName: data.displayName || data.otherDisplayName };
-  }
+  if (!data) return { otherUserId: undefined };
+  if (data.otherUserId) return { otherUserId: data.otherUserId };
+
   if (Array.isArray(data.users)) {
     const otherUserId = data.users.find((id) => id && id !== currentUid);
-    let displayName;
-    if (otherUserId) {
-      if (Array.isArray(data.userNames)) {
-        displayName = data.userNames[data.users.indexOf(otherUserId)];
-      } else if (data.names && typeof data.names === 'object') {
-        displayName = data.names[otherUserId];
-      } else if (data.displayNames && typeof data.displayNames === 'object') {
-        displayName = data.displayNames[otherUserId];
-      }
-    }
-    return { otherUserId, displayName };
+    return { otherUserId };
   }
-  return { otherUserId: undefined, displayName: undefined };
+  return { otherUserId: undefined };
 };
 
 export const ChatProvider = ({ children }) => {
   const { user } = useUser();
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userCache, setUserCache] = useState({});
 
   useEffect(() => {
-    if (!user?.uid) {
-      setMatches([]);
-      setLoading(false);
-      return undefined;
-    }
-    setLoading(true);
-    const q = query(
-      collection(db, 'matches'),
-      where('users', 'array-contains', user.uid),
-      orderBy('updatedAt', 'desc'),
-      limit(50)
-    );
-    const unsubscribe = onSnapshot(
-      q,
-      (snap) => {
-        const rows = snap.docs.map((docSnap) => {
-          const data = { id: docSnap.id, ...docSnap.data() };
-          const derived = deriveOtherUser(data, user.uid);
-          return { ...data, ...derived };
-        });
-        setMatches(rows);
-        setLoading(false);
-      },
-      (error) => {
-        console.error('Failed to listen for matches', error);
+    let unsubscribe;
+    let mounted = true;
+
+    const initListener = async () => {
+      const currentUser = auth.currentUser || user;
+      if (!currentUser?.uid) {
         setMatches([]);
         setLoading(false);
+        return;
       }
-    );
-    return () => unsubscribe();
-  }, [user?.uid]);
+
+      setLoading(true);
+      try {
+        const q = query(
+          collection(db, 'matches'),
+          where('users', 'array-contains', currentUser.uid),
+          orderBy('updatedAt', 'desc'),
+          limit(50)
+        );
+
+        unsubscribe = onSnapshot(
+          q,
+          async (snap) => {
+            if (!mounted) return;
+            const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+            // resolve opponent data
+            const hydrated = await Promise.all(
+              docs.map(async (m) => {
+                const { otherUserId } = deriveOtherUser(m, currentUser.uid);
+                if (!otherUserId) return m;
+
+                let cached = userCache[otherUserId];
+                if (!cached) {
+                  try {
+                    const ref = doc(db, 'users', otherUserId);
+                    const userSnap = await getDoc(ref);
+                    if (userSnap.exists()) {
+                      cached = userSnap.data();
+                      setUserCache((prev) => ({ ...prev, [otherUserId]: cached }));
+                    }
+                  } catch (err) {
+                    console.warn('Failed to hydrate opponent profile', otherUserId, err);
+                  }
+                }
+
+                if (cached) {
+                  return {
+                    ...m,
+                    otherUserId,
+                    displayName:
+                      cached.displayName ||
+                      cached.name ||
+                      cached.fullName ||
+                      'Player',
+                    photoURL: cached.photoURL || cached.image || null,
+                  };
+                }
+                return { ...m, otherUserId };
+              })
+            );
+
+            if (mounted) {
+              setMatches(hydrated);
+              setLoading(false);
+            }
+          },
+          (error) => {
+            console.error('Failed to listen for matches:', error?.message);
+            setMatches([]);
+            setLoading(false);
+          }
+        );
+      } catch (err) {
+        console.error('Chat listener setup failed:', err);
+        setLoading(false);
+      }
+    };
+
+    initListener();
+
+    return () => {
+      mounted = false;
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user?.uid, userCache]);
 
   const value = useMemo(() => ({ matches, loading }), [matches, loading]);
-
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 };
 
 export const useChats = () => useContext(ChatContext);
-
 export default ChatContext;

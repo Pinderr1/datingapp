@@ -19,8 +19,8 @@ export default function useRemoteConfig() {
 
   useEffect(() => {
     const ref = doc(db, 'config', 'app');
-
     let unsubscribeConfig = null;
+    let authReady = false;
 
     const stopConfigListener = () => {
       if (typeof unsubscribeConfig === 'function') {
@@ -30,10 +30,7 @@ export default function useRemoteConfig() {
     };
 
     const startConfigListener = () => {
-      if (unsubscribeConfig) {
-        return;
-      }
-
+      if (unsubscribeConfig) return;
       setConfig((prev) => ({ ...prev, loading: true }));
 
       unsubscribeConfig = onSnapshot(
@@ -52,11 +49,7 @@ export default function useRemoteConfig() {
           console.warn('Failed to load remote config', err);
 
           if (err?.code === 'permission-denied') {
-            setConfig({
-              ...DEFAULT_CONFIG,
-              loading: false,
-              error: null,
-            });
+            setConfig({ ...DEFAULT_CONFIG, loading: false, error: null });
             stopConfigListener();
             return;
           }
@@ -67,25 +60,24 @@ export default function useRemoteConfig() {
     };
 
     const handleAuthChange = (user) => {
+      authReady = true;
       if (user) {
         startConfigListener();
       } else {
         stopConfigListener();
-        setConfig({
-          ...DEFAULT_CONFIG,
-          loading: false,
-          error: null,
-        });
+        setConfig({ ...DEFAULT_CONFIG, loading: false, error: null });
       }
     };
 
-    if (auth.currentUser) {
-      startConfigListener();
-    }
-
     const unsubscribeAuth = onAuthStateChanged(auth, handleAuthChange);
 
+    // Wait until we’ve heard at least one auth event before subscribing
+    const authTimeout = setTimeout(() => {
+      if (!authReady && auth.currentUser) startConfigListener();
+    }, 1000);
+
     return () => {
+      clearTimeout(authTimeout);
       stopConfigListener();
       unsubscribeAuth();
     };

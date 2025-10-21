@@ -10,7 +10,7 @@ service cloud.firestore {
     }
 
     function ownerMatches(data) {
-      return !hasUidField(data) || (isSignedIn() && data.uid == request.auth.uid);
+      return hasUidField(data) && data.uid == request.auth.uid;
     }
 
     function isMatchParticipant(data) {
@@ -29,80 +29,49 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if isSignedIn();
-
       allow create: if isSignedIn() &&
                      request.auth.uid == uid &&
                      hasUidField(request.resource.data) &&
                      request.resource.data.uid == uid;
-
       allow update: if isSignedIn() &&
                      request.auth.uid == uid &&
                      hasUidField(request.resource.data) &&
                      request.resource.data.uid == uid &&
                      hasUidField(resource.data) &&
                      resource.data.uid == uid;
-
       allow delete: if isSignedIn() &&
                      request.auth.uid == uid &&
                      ownerMatches(resource.data);
     }
 
     match /matches/{matchId} {
-      allow get: if isSignedIn() &&
-                  (ownerMatches(resource.data) || isMatchParticipant(resource.data));
+      allow get: if isSignedIn() && isMatchParticipant(resource.data);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isMatchParticipant(request.resource.data);
+      allow update: if isSignedIn() && isMatchParticipant(resource.data) && isMatchParticipant(request.resource.data);
+      allow delete: if isSignedIn() && isMatchParticipant(resource.data);
+    }
 
-      allow list: if isSignedIn() &&
-                   request.query != null &&
-                   request.query.where('users', 'array-contains', request.auth.uid) == request.query;
-
-      allow create: if isSignedIn() &&
-                     ownerMatches(request.resource.data) &&
-                     isMatchParticipant(request.resource.data);
-
-      allow update: if isSignedIn() &&
-                     ownerMatches(resource.data) &&
-                     ownerMatches(request.resource.data) &&
-                     isMatchParticipant(resource.data) &&
-                     isMatchParticipant(request.resource.data);
-
-      allow delete: if isSignedIn() &&
-                     ownerMatches(resource.data) &&
-                     isMatchParticipant(resource.data);
+    match /matches/{matchId}/messages/{messageId} {
+      allow read, create: if isSignedIn() &&
+        isMatchParticipant(get(/databases/$(database)/documents/matches/$(matchId)).data);
     }
 
     match /sessions/{sessionId} {
-      allow read: if isSignedIn() && ownerMatches(resource.data);
-
-      allow create: if isSignedIn() && ownerMatches(request.resource.data);
-
-      allow update: if isSignedIn() &&
-                     ownerMatches(resource.data) &&
-                     ownerMatches(request.resource.data);
-
-      allow delete: if isSignedIn() && ownerMatches(resource.data);
+      allow read, create, update, delete: if isSignedIn() && ownerMatches(request.resource.data);
     }
 
     match /games/{gameId} {
-      allow get: if isSignedIn() &&
-                  (ownerMatches(resource.data) || isGameParticipant(resource.data));
+      allow get: if isSignedIn() && isGameParticipant(resource.data);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isGameParticipant(request.resource.data);
+      allow update: if isSignedIn() && isGameParticipant(resource.data) && isGameParticipant(request.resource.data);
+      allow delete: if isSignedIn() && isGameParticipant(resource.data);
+    }
 
-      allow list: if isSignedIn() &&
-                   request.query != null &&
-                   request.query.where('players', 'array-contains', request.auth.uid) == request.query;
-
-      allow create: if isSignedIn() &&
-                     ownerMatches(request.resource.data) &&
-                     isGameParticipant(request.resource.data);
-
-      allow update: if isSignedIn() &&
-                     ownerMatches(resource.data) &&
-                     ownerMatches(request.resource.data) &&
-                     isGameParticipant(resource.data) &&
-                     isGameParticipant(request.resource.data);
-
-      allow delete: if isSignedIn() &&
-                     ownerMatches(resource.data) &&
-                     isGameParticipant(resource.data);
+    match /games/{gameId}/moves/{moveId} {
+      allow read, create: if isSignedIn() &&
+        isGameParticipant(get(/databases/$(database)/documents/games/$(gameId)).data);
     }
 
     match /config/app {
