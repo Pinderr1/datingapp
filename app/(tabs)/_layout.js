@@ -71,9 +71,9 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name='games/index'
+          name='shortlist/shortlistScreen'
           options={{
-            tabBarIcon: ({ focused }) => tabShort({ icon: require('../../assets/Icons/games.png'), focused: focused })
+            tabBarIcon: ({ focused }) => tabShort({ icon: require('../../assets/images/icons/shortlist.png'), focused: focused })
           }}
         />
         <Tabs.Screen
