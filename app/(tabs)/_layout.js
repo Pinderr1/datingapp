@@ -4,14 +4,7 @@ import { BackHandler, Text, View, StyleSheet, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import MyStatusBar from '../../components/myStatusBar';
-
-// Unified color scheme
-const Colors = {
-  primary: '#ff5a5f', // coral
-  gray: '#9b9b9b',
-  white: '#fff',
-  background: '#ffffff',
-};
+import { Colors as ThemeColors } from '../../constants/styles';
 
 export default function TabLayout() {
   const [backClickCount, setBackClickCount] = useState(0);
@@ -38,13 +31,16 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: Colors.primary,
-          tabBarInactiveTintColor: Colors.gray,
+          tabBarActiveTintColor: ThemeColors.primaryColor,
+          tabBarInactiveTintColor: ThemeColors.grayColor,
           tabBarHideOnKeyboard: true,
           tabBarShowLabel: false,
           tabBarStyle: styles.tabBar,
           tabBarButton: (props) => (
-            <Pressable {...props} android_ripple={{ color: '#f2f2f2' }} />
+            <Pressable
+              {...props}
+              android_ripple={{ color: ThemeColors.bgColor }}
+            />
           ),
         }}
       >
@@ -105,13 +101,13 @@ export default function TabLayout() {
       <View
         style={[
           styles.iconWrap,
-          focused && { borderColor: Colors.primary, borderWidth: 1.5 },
+          focused && { borderColor: ThemeColors.primaryColor, borderWidth: 1.5 },
         ]}
       >
         <Feather
           name={name}
           size={24}
-          color={focused ? Colors.primary : Colors.gray}
+          color={focused ? ThemeColors.primaryColor : ThemeColors.grayColor}
         />
       </View>
     );
@@ -121,7 +117,7 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   tabBar: {
     height: 70,
-    backgroundColor: Colors.background,
+    backgroundColor: ThemeColors.bgColor,
     borderTopWidth: 0,
     elevation: 4,
     shadowColor: '#000',
@@ -136,7 +132,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: ThemeColors.whiteColor,
   },
   exitNotice: {
     backgroundColor: '#333',
@@ -148,7 +144,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   exitText: {
-    color: Colors.white,
+    color: ThemeColors.whiteColor,
     fontSize: 14,
   },
 });
