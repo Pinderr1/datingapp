@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import React, { useState, useCallback } from "react";
-import { BackHandler, Text, View, StyleSheet, Image, Pressable } from 'react-native'
+import { BackHandler, Text, View, StyleSheet, Pressable } from 'react-native'
+import { Feather } from '@expo/vector-icons';
 import { Colors, Sizes, Fonts } from "../../constants/styles";
 import { useFocusEffect } from 'expo-router';
 import MyStatusBar from "../../components/myStatusBar";
@@ -54,32 +55,32 @@ export default function TabLayout() {
         <Tabs.Screen
           name='home/homeScreen'
           options={{
-            tabBarIcon: ({ focused }) => tabShort({ icon: require('../../assets/images/icons/home.png'), focused: focused })
+            tabBarIcon: ({ focused }) => tabShort({ iconName: 'home', focused })
           }}
         />
         <Tabs.Screen
           name='swipe'
           options={{
             title: 'Swipe',
-            tabBarIcon: ({ focused }) => tabShort({ icon: require('../../assets/images/icons/shortlist.png'), focused: focused })
+            tabBarIcon: ({ focused }) => tabShort({ iconName: 'heart', focused })
           }}
         />
         <Tabs.Screen
           name='chat/chatScreen'
           options={{
-            tabBarIcon: ({ focused }) => tabShort({ icon: require('../../assets/images/icons/chat.png'), focused: focused })
+            tabBarIcon: ({ focused }) => tabShort({ iconName: 'message-circle', focused })
           }}
         />
         <Tabs.Screen
           name='shortlist/shortlistScreen'
           options={{
-            tabBarIcon: ({ focused }) => tabShort({ icon: require('../../assets/images/icons/shortlist.png'), focused: focused })
+            tabBarIcon: ({ focused }) => tabShort({ iconName: 'star', focused })
           }}
         />
         <Tabs.Screen
           name='profile/profileScreen'
           options={{
-            tabBarIcon: ({ focused }) => tabShort({ icon: require('../../assets/images/icons/user.png'), focused: focused })
+            tabBarIcon: ({ focused }) => tabShort({ iconName: 'user', focused })
           }}
         />
       </Tabs>
@@ -101,12 +102,13 @@ export default function TabLayout() {
     )
   }
 
-  function tabShort({ icon, focused }) {
+  function tabShort({ iconName, focused }) {
     return (
-      <View style={{ backgroundColor: focused ? Colors.primaryColor : Colors.whiteColor, ...styles.tabIconWrapStyle, }}>
-        <Image
-          source={icon}
-          style={{ width: 25.0, height: 25.0, resizeMode: 'contain', tintColor: focused ? Colors.whiteColor : Colors.grayColor }}
+      <View style={[styles.tabIconWrapStyle, focused && styles.activeTabIconWrapStyle]}>
+        <Feather
+          name={iconName}
+          size={24}
+          color={focused ? Colors.primaryColor : Colors.grayColor}
         />
       </View>
     )
@@ -137,6 +139,11 @@ const styles = StyleSheet.create({
     height: 44.0,
     borderRadius: 22.0,
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    backgroundColor: Colors.whiteColor,
+  },
+  activeTabIconWrapStyle: {
+    borderColor: Colors.primaryColor,
+    borderWidth: 1.5,
   },
 })
