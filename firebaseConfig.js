@@ -33,7 +33,21 @@ const auth =
       });
 
 const db = getFirestore(app);
-const storage = getStorage(app);
+
+const storage = (() => {
+  if (!app?.options?.storageBucket) {
+    console.warn(
+      "Firebase storage bucket not configured; storage features are disabled."
+    );
+    return null;
+  }
+  try {
+    return getStorage(app);
+  } catch (error) {
+    console.warn("Failed to initialize Firebase storage:", error);
+    return null;
+  }
+})();
 
 export { auth, db, storage };
 export default app;

@@ -137,15 +137,37 @@ export default function OnboardingScreen() {
   };
 
   const onPickAvatar = async () => {
+    let fallbackUri = '';
     try {
       await Haptics.selectionAsync();
       const asset = await pickImageFromLibrary();
       if (!asset) return;
-      setAnswers((p) => ({ ...p, avatar: asset.uri }));
+      fallbackUri = asset.base64
+        ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`
+        : asset.uri;
+
+      setAnswers((p) => ({ ...p, avatar: fallbackUri }));
       setAvatarUrl('');
 
+      if (!asset.uri) {
+        console.warn('Selected avatar is missing a file URI; using fallback data URI.');
+        setAvatarUrl(fallbackUri);
+        return;
+      }
+
       const user = ensureSignedIn();
-      if (!user) return;
+      if (!user) {
+        setAvatarUrl(fallbackUri);
+        setAnswers((p) => ({ ...p, avatar: fallbackUri }));
+        return;
+      }
+
+      if (!storage) {
+        console.warn('Firebase storage unavailable; using local avatar data URI.');
+        setAvatarUrl(fallbackUri);
+        setAnswers((p) => ({ ...p, avatar: fallbackUri }));
+        return;
+      }
 
       setUploadingAvatar(true);
       let blob;
@@ -158,10 +180,12 @@ export default function OnboardingScreen() {
         });
         const url = await getDownloadURL(avatarRef);
         setAvatarUrl(url);
+        setAnswers((p) => ({ ...p, avatar: url }));
       } catch (uploadError) {
         console.error('avatar upload error', uploadError);
         Alert.alert('Upload failed', uploadError?.code || uploadError?.message || String(uploadError));
-        setAvatarUrl('');
+        setAvatarUrl(fallbackUri);
+        setAnswers((p) => ({ ...p, avatar: fallbackUri }));
       } finally {
         if (blob && typeof blob.close === 'function') {
           blob.close();
@@ -171,7 +195,12 @@ export default function OnboardingScreen() {
     } catch (e) {
       console.error('avatar upload error', e);
       Alert.alert('Upload failed', e?.code || e?.message || String(e));
-      setAvatarUrl('');
+      if (fallbackUri) {
+        setAvatarUrl(fallbackUri);
+        setAnswers((p) => ({ ...p, avatar: fallbackUri }));
+      } else {
+        setAvatarUrl('');
+      }
     }
   };
 
