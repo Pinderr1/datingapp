@@ -74,6 +74,10 @@ service cloud.firestore {
         isGameParticipant(get(/databases/$(database)/documents/games/$(gameId)).data);
     }
 
+    match /likes/{uid}/{direction}/{targetId} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+
     match /config/app {
       allow get, list: if true;
       allow create, update, delete: if false;
