@@ -31,7 +31,8 @@ import EmptyState from '../../components/EmptyState';
 import getGlobalStyles from '../../styles';
 import { allGames } from '../../data/games';
 import { getRandomBot } from '../../ai/bots';
-import { SPACING, HEADER_SPACING } from '../../layout';
+import { Colors, Fonts, Sizes } from '../../constants/styles';
+import { HEADER_SPACING } from '../../layout';
 import { games } from '../../games/registry';
 
 const toStr = (v) => (Array.isArray(v) ? v[0] : typeof v === 'string' ? v : undefined);
@@ -48,6 +49,15 @@ const deriveRegistryId = (game) => {
 
   const fallback = Object.keys(games).find((key) => games[key]?.meta?.id === game.route);
   return fallback || 'ticTacToe';
+};
+
+const spacing = {
+  xs: Sizes.fixPadding * 0.4,
+  sm: Sizes.fixPadding * 0.8,
+  md: Sizes.fixPadding * 1.2,
+  lg: Sizes.fixPadding * 1.6,
+  xl: Sizes.fixPadding * 2,
+  xxl: Sizes.fixPadding * 3.2,
 };
 
 export default function GamesRoute() {
@@ -84,9 +94,9 @@ export default function GamesRoute() {
     return { id: opponentId, displayName: match?.displayName || 'Opponent' };
   }, [matches, paramOpponentId, session?.players, user?.uid]);
 
-  const backgroundColor = darkMode ? '#0F172A' : '#F3F4F6';
-  const topOffset = insets.top + SPACING.LG;
-  const bottomOffset = insets.bottom + SPACING.XL;
+  const backgroundColor = darkMode ? Colors.slate900 : Colors.slate100;
+  const topOffset = insets.top + spacing.lg;
+  const bottomOffset = insets.bottom + spacing.xl;
 
   const [filter, setFilter] = useState('All');
   const [category, setCategory] = useState('All');
@@ -428,7 +438,7 @@ export default function GamesRoute() {
                 )}
               </ScrollView>
               {inviteError ? <Text style={styles.modalError}>{inviteError}</Text> : null}
-              {inviteLoading ? <ActivityIndicator color={theme.accent} style={{ marginVertical: SPACING.SM }} /> : null}
+              {inviteLoading ? <ActivityIndicator color={theme.accent} style={{ marginVertical: spacing.sm }} /> : null}
               <TouchableOpacity onPress={closeInviteModal} style={styles.modalCancel} disabled={inviteLoading}>
                 <Text style={[styles.modalCancelText, { color: theme.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
@@ -442,24 +452,24 @@ export default function GamesRoute() {
 
 const styles = StyleSheet.create({
   catalogContent: {
-    paddingHorizontal: SPACING.MD,
-    paddingBottom: SPACING.XXL,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xxl,
   },
   listHeader: {
     width: '100%',
-    paddingHorizontal: SPACING.LG,
-    marginBottom: SPACING.XL,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
   },
-  filtersBlock: { marginTop: SPACING.LG },
-  heading: { fontSize: 28, fontWeight: '700', marginBottom: SPACING.SM },
-  subtitle: { fontSize: 16, lineHeight: 22 },
-  section: { marginTop: SPACING.LG, marginBottom: SPACING.LG },
-  sectionHeading: { fontSize: 18, fontWeight: '600', marginBottom: SPACING.MD },
+  filtersBlock: { marginTop: spacing.lg },
+  heading: { ...Fonts.blackColor28Bold, marginBottom: spacing.sm },
+  subtitle: { ...Fonts.grayColor16Regular, lineHeight: 22 },
+  section: { marginTop: spacing.lg, marginBottom: spacing.lg },
+  sectionHeading: { ...Fonts.blackColor18Bold, marginBottom: spacing.md },
   sessionCard: {
     borderRadius: 18,
-    padding: SPACING.LG,
-    marginBottom: SPACING.MD,
-    shadowColor: '#000',
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    shadowColor: Colors.blackColor,
     shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 6,
@@ -470,60 +480,65 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  sessionTitle: { fontSize: 16, fontWeight: '600' },
-  sessionOpponent: { marginTop: SPACING.SM, fontSize: 14 },
-  sessionStatus: { fontSize: 13, fontWeight: '600' },
-  emptyText: { fontSize: 14, fontStyle: 'italic' },
+  sessionTitle: { ...Fonts.blackColor16Bold },
+  sessionOpponent: { ...Fonts.grayColor14Regular, marginTop: spacing.sm },
+  sessionStatus: { ...Fonts.grayColor13Medium },
+  emptyText: { ...Fonts.grayColor14Regular, fontStyle: 'italic' },
   columnWrapper: { justifyContent: 'center' },
-  gameScreen: { flex: 1, backgroundColor: '#000' },
+  gameScreen: { flex: 1, backgroundColor: Colors.blackColor },
   gameOverlayTop: {
     position: 'absolute',
-    left: SPACING.LG,
-    right: SPACING.LG,
+    left: spacing.lg,
+    right: spacing.lg,
     borderRadius: 20,
-    paddingHorizontal: SPACING.LG,
-    paddingVertical: SPACING.MD,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   backPill: {
-    paddingHorizontal: SPACING.MD,
-    paddingVertical: SPACING.SM,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: 999,
-    backgroundColor: '#00000020',
+    backgroundColor: Colors.overlaySoft,
   },
-  backText: { fontSize: 14, fontWeight: '600' },
-  overlayTitles: { flex: 1, marginLeft: SPACING.MD },
-  overlayTitle: { fontSize: 18, fontWeight: '700' },
-  overlaySubtitle: { fontSize: 14, marginTop: 2 },
-  gameOverlayBottom: { position: 'absolute', left: SPACING.LG, right: SPACING.LG },
-  fallbackScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACING.XL },
-  fallbackTitle: { fontSize: 22, fontWeight: '700', marginBottom: SPACING.MD },
-  fallbackMessage: { fontSize: 15, lineHeight: 20, textAlign: 'center', marginBottom: SPACING.XL },
+  backText: { ...Fonts.blackColor14Medium },
+  overlayTitles: { flex: 1, marginLeft: spacing.md },
+  overlayTitle: { ...Fonts.blackColor18Bold },
+  overlaySubtitle: { ...Fonts.grayColor14Regular, marginTop: 2 },
+  gameOverlayBottom: { position: 'absolute', left: spacing.lg, right: spacing.lg },
+  fallbackScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl },
+  fallbackTitle: { ...Fonts.blackColor22Bold, marginBottom: spacing.md },
+  fallbackMessage: { ...Fonts.grayColor15Regular, lineHeight: 20, textAlign: 'center', marginBottom: spacing.xl },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: '#0009',
+    backgroundColor: Colors.overlayBackdrop,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SPACING.XL,
+    padding: spacing.xl,
   },
   modalCard: {
     width: '100%',
     borderRadius: 20,
-    padding: SPACING.LG,
+    padding: spacing.lg,
   },
-  modalTitle: { fontSize: 20, fontWeight: '700', marginBottom: SPACING.XS },
-  modalSubtitle: { fontSize: 14, marginBottom: SPACING.MD },
-  modalList: { maxHeight: 240, marginBottom: SPACING.MD },
+  modalTitle: { ...Fonts.blackColor20Bold, marginBottom: spacing.xs },
+  modalSubtitle: { ...Fonts.grayColor14Regular, marginBottom: spacing.md },
+  modalList: { maxHeight: 240, marginBottom: spacing.md },
   modalRow: {
-    paddingVertical: SPACING.SM,
+    paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#0002',
+    borderBottomColor: Colors.dividerColor,
   },
-  modalRowText: { fontSize: 16 },
-  modalEmpty: { fontSize: 14, textAlign: 'center', paddingVertical: SPACING.SM },
-  modalCancel: { alignSelf: 'center', padding: SPACING.SM },
-  modalCancelText: { fontSize: 15, fontWeight: '500' },
-  modalError: { color: '#EF4444', fontSize: 13, textAlign: 'center', marginBottom: SPACING.SM },
+  modalRowText: { ...Fonts.blackColor16Regular },
+  modalEmpty: { ...Fonts.grayColor14Regular, textAlign: 'center', paddingVertical: spacing.sm },
+  modalCancel: { alignSelf: 'center', padding: spacing.sm },
+  modalCancelText: { ...Fonts.grayColor15Medium },
+  modalError: {
+    ...Fonts.grayColor13Regular,
+    color: Colors.dangerColor,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
 });

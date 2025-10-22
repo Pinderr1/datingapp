@@ -12,6 +12,12 @@ export const Colors = {
     blueColor: '#42A5F5',
     purpleColor: '#AB47BC',
     cyanColor: '#26A69A',
+    slate900: '#0F172A',
+    slate100: '#F3F4F6',
+    overlaySoft: 'rgba(15, 23, 42, 0.12)',
+    overlayBackdrop: 'rgba(15, 23, 42, 0.6)',
+    dividerColor: 'rgba(15, 23, 42, 0.12)',
+    dangerColor: '#EF4444',
 }
 
 export const Fonts = {
@@ -82,6 +88,24 @@ export const Fonts = {
         fontFamily: 'Roboto_Bold'
     },
 
+    blackColor22Bold: {
+        color: Colors.blackColor,
+        fontSize: 22.0,
+        fontFamily: 'Roboto_Bold'
+    },
+
+    blackColor28Bold: {
+        color: Colors.blackColor,
+        fontSize: 28.0,
+        fontFamily: 'Roboto_Bold'
+    },
+
+    blackColor14Medium: {
+        color: Colors.blackColor,
+        fontSize: 14.0,
+        fontFamily: 'Roboto_Medium'
+    },
+
     blackColor24Bold: {
         color: Colors.blackColor,
         fontSize: 24.0,
@@ -136,6 +160,12 @@ export const Fonts = {
         fontFamily: 'Roboto_Regular'
     },
 
+    grayColor13Medium: {
+        color: Colors.grayColor,
+        fontSize: 13.0,
+        fontFamily: 'Roboto_Medium'
+    },
+
     grayColor14Regular: {
         color: Colors.grayColor,
         fontSize: 14.0,
@@ -146,6 +176,12 @@ export const Fonts = {
         color: Colors.grayColor,
         fontSize: 15.0,
         fontFamily: 'Roboto_Regular'
+    },
+
+    grayColor15Medium: {
+        color: Colors.grayColor,
+        fontSize: 15.0,
+        fontFamily: 'Roboto_Medium'
     },
 
     grayColor16Regular: {
