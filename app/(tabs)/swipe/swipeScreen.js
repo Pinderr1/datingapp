@@ -144,7 +144,7 @@ const SwipeScreen = () => {
         handleFetchCandidates({ startAfter: nextCursor });
     }, [handleFetchCandidates, loading, loadingMore, nextCursor])
 
-    const handleDecision = useCallback(async (candidate, liked) => {
+    const handleDecision = useCallback(async (candidate, liked, { snapshot, index: providedIndex } = {}) => {
         const candidateId = candidate?.id;
         if (!candidateId) {
             return;
@@ -156,17 +156,26 @@ const SwipeScreen = () => {
 
         setCardProcessing(candidateId, true);
 
-        let previousUsers = usersRef.current;
-        let updatedUsers = usersRef.current;
+        const fallbackSnapshot = Array.isArray(snapshot) ? snapshot : [...(usersRef.current ?? [])];
+        let removalIndex = typeof providedIndex === 'number' ? providedIndex : fallbackSnapshot.findIndex((item) => item?.id === candidateId);
+        let updatedUsers = fallbackSnapshot;
         let removed = false;
 
         setUsers((prev) => {
-            previousUsers = prev;
-            if (!Array.isArray(prev) || !prev.some((item) => item?.id === candidateId)) {
-                return prev;
+            const currentList = Array.isArray(prev) ? prev : [];
+            const currentIndex = currentList.findIndex((item) => item?.id === candidateId);
+
+            if (currentIndex === -1) {
+                updatedUsers = currentList;
+                return currentList;
             }
+
             removed = true;
-            updatedUsers = prev.filter((item) => item?.id !== candidateId);
+            removalIndex = currentIndex;
+            updatedUsers = [
+                ...currentList.slice(0, currentIndex),
+                ...currentList.slice(currentIndex + 1),
+            ];
             usersRef.current = updatedUsers;
             return updatedUsers;
         });
@@ -200,11 +209,19 @@ const SwipeScreen = () => {
             }
         } catch (err) {
             setUsers((prev) => {
-                if (prev.some((item) => item?.id === candidateId)) {
-                    return prev;
+                const currentList = Array.isArray(prev) ? prev : [];
+                if (currentList.some((item) => item?.id === candidateId)) {
+                    return currentList;
                 }
-                usersRef.current = previousUsers;
-                return previousUsers;
+
+                const insertionIndex = Math.min(Math.max(removalIndex, 0), currentList.length);
+                const restored = [
+                    ...currentList.slice(0, insertionIndex),
+                    candidate,
+                    ...currentList.slice(insertionIndex),
+                ];
+                usersRef.current = restored;
+                return restored;
             });
             const message = err?.message || 'Unable to submit your decision right now.';
             showErrorToast(message);
@@ -214,7 +231,8 @@ const SwipeScreen = () => {
     }, [handleLoadMore, router, setCardProcessing, showErrorToast])
 
     const handleButtonDecision = useCallback((liked) => {
-        const topCandidate = usersRef.current?.[0];
+        const snapshot = Array.isArray(usersRef.current) ? [...usersRef.current] : [];
+        const topCandidate = snapshot?.[0];
         if (!topCandidate) {
             return;
         }
@@ -225,7 +243,7 @@ const SwipeScreen = () => {
         if (swiperRef.current?.[swipeMethod]) {
             swiperRef.current[swipeMethod]();
         } else {
-            handleDecision(topCandidate, liked);
+            handleDecision(topCandidate, liked, { snapshot, index: 0 });
         }
     }, [handleDecision])
 
@@ -287,15 +305,17 @@ const SwipeScreen = () => {
                                 renderCard={(item) => renderCandidateCard(item)}
                                 cardStyle={styles.tinderCardWrapper}
                                 onSwipedLeft={(cardIndex) => {
-                                    const candidate = usersRef.current?.[cardIndex];
+                                    const snapshot = Array.isArray(usersRef.current) ? [...usersRef.current] : [];
+                                    const candidate = snapshot?.[cardIndex];
                                     if (candidate) {
-                                        handleDecision(candidate, false);
+                                        handleDecision(candidate, false, { snapshot, index: cardIndex });
                                     }
                                 }}
                                 onSwipedRight={(cardIndex) => {
-                                    const candidate = usersRef.current?.[cardIndex];
+                                    const snapshot = Array.isArray(usersRef.current) ? [...usersRef.current] : [];
+                                    const candidate = snapshot?.[cardIndex];
                                     if (candidate) {
-                                        handleDecision(candidate, true);
+                                        handleDecision(candidate, true, { snapshot, index: cardIndex });
                                     }
                                 }}
                                 onSwipedAll={() => {
