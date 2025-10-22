@@ -13,6 +13,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useColorScheme,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
@@ -23,16 +24,7 @@ import { useRouter } from 'expo-router';
 import { auth, db, storage } from '../../firebaseConfig';
 import { arrayUnion, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-
-const COLORS = {
-  bg: '#0b0b0f',
-  card: '#16161d',
-  text: '#f2f2f7',
-  subtext: '#a1a1a8',
-  accent: '#7c5cff',
-  danger: '#ff5c5c',
-  line: '#242433',
-};
+import { Colors, Fonts } from '../../constants/styles';
 
 const REQUIRED_KEYS = ['avatar', 'displayName', 'ageGender'];
 
@@ -69,6 +61,23 @@ async function pickImageFromLibrary() {
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === 'dark';
+
+  const theme = useMemo(
+    () => ({
+      background: isDarkMode ? Colors.slate900 : Colors.bgColor,
+      card: isDarkMode ? Colors.overlayBackdrop : Colors.whiteColor,
+      text: isDarkMode ? Colors.whiteColor : Colors.blackColor,
+      subtext: Colors.grayColor,
+      accent: Colors.primaryColor,
+      line: isDarkMode ? Colors.overlaySoft : Colors.dividerColor,
+      placeholder: Colors.grayColor,
+    }),
+    [isDarkMode]
+  );
+
+  const styles = useMemo(() => createStyles(theme, isDarkMode), [theme, isDarkMode]);
 
   const steps = useMemo(
     () => [
@@ -334,16 +343,16 @@ export default function OnboardingScreen() {
     if (currentKey === 'avatar') {
       return (
         <>
-          <TouchableOpacity style={S.imagePicker} onPress={onPickAvatar}>
+          <TouchableOpacity style={styles.imagePicker} onPress={onPickAvatar}>
             {answers.avatar ? (
-              <Image source={{ uri: answers.avatar }} style={S.avatar} />
+              <Image source={{ uri: answers.avatar }} style={styles.avatar} />
             ) : (
-              <View style={S.placeholder}>
-                <Text style={S.placeholderText}>Tap to select image</Text>
+              <View style={styles.placeholder}>
+                <Text style={styles.placeholderText}>Tap to select image</Text>
               </View>
             )}
           </TouchableOpacity>
-          <Text style={S.hint}>Add a clear photo of your face.</Text>
+          <Text style={styles.hint}>Add a clear photo of your face.</Text>
         </>
       );
     }
@@ -351,11 +360,11 @@ export default function OnboardingScreen() {
     if (currentKey === 'displayName') {
       return (
         <TextInput
-          style={S.input}
+          style={styles.input}
           value={answers.displayName}
           onChangeText={(t) => setAnswers((p) => ({ ...p, displayName: t }))}
           placeholder="Your name"
-          placeholderTextColor={COLORS.subtext}
+          placeholderTextColor={theme.placeholder}
           autoCapitalize="words"
         />
       );
@@ -365,22 +374,22 @@ export default function OnboardingScreen() {
       return (
         <View>
           <TextInput
-            style={S.input}
+            style={styles.input}
             value={String(answers.age || '')}
             onChangeText={(t) => setAnswers((p) => ({ ...p, age: t.replace(/[^\d]/g, '') }))}
             placeholder="Age (18+)"
-            placeholderTextColor={COLORS.subtext}
+            placeholderTextColor={theme.placeholder}
             keyboardType="number-pad"
           />
           <View style={{ height: 12 }} />
-          <View style={S.genderRow}>
+          <View style={styles.genderRow}>
             {['Male', 'Female', 'Other'].map((g) => (
               <TouchableOpacity
                 key={g}
                 onPress={() => setAnswers((p) => ({ ...p, gender: g }))}
-                style={[S.genderPill, answers.gender === g && S.genderPillActive]}
+                style={[styles.genderPill, answers.gender === g && styles.genderPillActive]}
               >
-                <Text style={[S.genderPillText, answers.gender === g && S.genderPillTextActive]}>
+                <Text style={[styles.genderPillText, answers.gender === g && styles.genderPillTextActive]}>
                   {g}
                 </Text>
               </TouchableOpacity>
@@ -393,11 +402,11 @@ export default function OnboardingScreen() {
     if (currentKey === 'bio') {
       return (
         <TextInput
-          style={[S.input, { height: 100, textAlignVertical: 'top' }]}
+          style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
           value={answers.bio}
           onChangeText={(t) => setAnswers((p) => ({ ...p, bio: t }))}
           placeholder="Short bio (optional)"
-          placeholderTextColor={COLORS.subtext}
+          placeholderTextColor={theme.placeholder}
           multiline
         />
       );
@@ -406,18 +415,18 @@ export default function OnboardingScreen() {
     if (currentKey === 'location') {
       return (
         <View>
-          <TouchableOpacity style={S.locationBtn} onPress={autofillLocation}>
-            <Text style={S.locationBtnText}>
+          <TouchableOpacity style={styles.locationBtn} onPress={autofillLocation}>
+            <Text style={styles.locationBtnText}>
               {answers.location ? `📍 ${answers.location}` : 'Use my location'}
             </Text>
           </TouchableOpacity>
           <View style={{ height: 12 }} />
           <TextInput
-            style={S.input}
+            style={styles.input}
             value={answers.location}
             onChangeText={(t) => setAnswers((p) => ({ ...p, location: t }))}
             placeholder="City, Region (optional)"
-            placeholderTextColor={COLORS.subtext}
+            placeholderTextColor={theme.placeholder}
           />
         </View>
       );
@@ -427,26 +436,26 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <View style={S.container}>
-      <View style={S.header}>
+    <View style={styles.container}>
+      <View style={styles.header}>
         {step === 0 ? (
-          <TouchableOpacity onPress={handleBack} style={S.headerBack}>
-            <Text style={S.headerBackIcon}>‹</Text>
+          <TouchableOpacity onPress={handleBack} style={styles.headerBack}>
+            <Text style={styles.headerBackIcon}>‹</Text>
           </TouchableOpacity>
         ) : (
-          <View style={S.headerPlaceholder} />
+          <View style={styles.headerPlaceholder} />
         )}
 
-        <Text style={S.title}>Let’s get you set up</Text>
+        <Text style={styles.title}>Let’s get you set up</Text>
 
-        <View style={S.headerPlaceholder} />
+        <View style={styles.headerPlaceholder} />
       </View>
-      <Text style={S.stepText}>{`Step ${step + 1} of ${steps.length}`}</Text>
+      <Text style={styles.stepText}>{`Step ${step + 1} of ${steps.length}`}</Text>
 
-      <View style={S.progressContainer}>
+      <View style={styles.progressContainer}>
         <Animated.View
           style={[
-            S.progressBar,
+            styles.progressBar,
             {
               width: progressAnim.interpolate({
                 inputRange: [0, 1],
@@ -457,26 +466,26 @@ export default function OnboardingScreen() {
         />
       </View>
 
-      <View style={S.card}>
-        <Text style={S.question}>{steps[step].label}</Text>
+      <View style={styles.card}>
+        <Text style={styles.question}>{steps[step].label}</Text>
         {renderStepInput()}
       </View>
 
-      <View style={S.row}>
+      <View style={styles.row}>
         {step > 0 ? (
-          <TouchableOpacity style={[S.button, S.ghost]} onPress={handleBack} disabled={saving}>
-            <Text style={[S.buttonText, { color: COLORS.accent }]}>Back</Text>
+          <TouchableOpacity style={[styles.button, styles.ghost]} onPress={handleBack} disabled={saving}>
+            <Text style={[styles.buttonText, styles.buttonGhostText]}>Back</Text>
           </TouchableOpacity>
         ) : (
-          <View style={S.rowPlaceholder} />
+          <View style={styles.rowPlaceholder} />
         )}
 
         <TouchableOpacity
-          style={[S.button, !isValid && S.buttonDisabled]}
+          style={[styles.button, !isValid && styles.buttonDisabled]}
           onPress={handleNext}
           disabled={!isValid || saving || uploadingAvatar}
         >
-          <Text style={S.buttonText}>
+          <Text style={styles.buttonText}>
             {step < steps.length - 1
               ? uploadingAvatar && currentKey === 'avatar'
                 ? 'Uploading…'
@@ -489,135 +498,168 @@ export default function OnboardingScreen() {
       </View>
 
       {step >= 2 && (
-        <TouchableOpacity onPress={handleSkip} disabled={saving} style={S.skip}>
-          <Text style={S.skipText}>Complete profile later</Text>
+        <TouchableOpacity onPress={handleSkip} disabled={saving} style={styles.skip}>
+          <Text style={styles.skipText}>Complete profile later</Text>
         </TouchableOpacity>
       )}
 
-      <Text style={S.footerText}>
+      <Text style={styles.footerText}>
         By continuing you agree to our basic guidelines. Keep it kind, keep it real.
       </Text>
     </View>
   );
 }
 
-const S = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-    paddingTop: Platform.select({ ios: 64, android: 24 }),
-    paddingHorizontal: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  headerBack: {
-    paddingHorizontal: 4,
-    paddingVertical: 8,
-    minWidth: 48,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
-  headerBackIcon: {
-    color: COLORS.text,
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  headerPlaceholder: { width: 48 },
-  title: {
-    flex: 1,
-    color: COLORS.text,
-    fontSize: 22,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 0,
-  },
-  stepText: { color: COLORS.subtext, textAlign: 'center', marginBottom: 16 },
-  progressContainer: {
-    height: 6,
-    width: '100%',
-    backgroundColor: COLORS.line,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 16,
-  },
-  progressBar: { height: '100%', backgroundColor: COLORS.accent },
-  card: {
-    backgroundColor: COLORS.card,
-    borderRadius: 14,
-    padding: 18,
-  },
-  question: {
-    color: COLORS.text,
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  imagePicker: { alignSelf: 'center', marginVertical: 16 },
-  avatar: { width: 160, height: 160, borderRadius: 80 },
-  placeholder: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: COLORS.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placeholderText: { color: COLORS.subtext },
-  hint: { color: COLORS.subtext, textAlign: 'center', marginTop: 8 },
-  input: {
-    borderBottomWidth: 2,
-    borderColor: COLORS.accent,
-    color: COLORS.text,
-    fontSize: 16,
-    paddingVertical: 10,
-  },
-  genderRow: { flexDirection: 'row', gap: 8 },
-  genderPill: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: COLORS.line,
-    backgroundColor: 'transparent',
-  },
-  genderPillActive: { borderColor: COLORS.accent, backgroundColor: '#1f1a33' },
-  genderPillText: { color: COLORS.subtext },
-  genderPillTextActive: { color: COLORS.text },
-  row: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 },
-  button: {
-    backgroundColor: COLORS.accent,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    minWidth: 112,
-    alignItems: 'center',
-  },
-  buttonDisabled: { opacity: 0.5 },
-  ghost: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: COLORS.accent,
-  },
-  rowPlaceholder: { width: 112 },
-  buttonText: { color: '#fff', fontWeight: '600' },
-  skip: { alignSelf: 'center', marginTop: 16 },
-  skipText: { color: COLORS.accent, textDecorationLine: 'underline' },
-  locationBtn: {
-    backgroundColor: COLORS.accent,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    borderRadius: 10,
-  },
-  locationBtnText: { color: '#fff', fontWeight: '600' },
-  footerText: {
-    color: COLORS.subtext,
-    textAlign: 'center',
-    marginTop: 16,
-    fontSize: 12,
-  },
-});
+function createStyles(theme, isDarkMode) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+      paddingTop: Platform.select({ ios: 64, android: 24 }),
+      paddingHorizontal: 20,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    headerBack: {
+      paddingHorizontal: 4,
+      paddingVertical: 8,
+      minWidth: 48,
+      alignItems: 'flex-start',
+      justifyContent: 'center',
+    },
+    headerBackIcon: {
+      ...(isDarkMode ? Fonts.whiteColor20Bold : Fonts.blackColor20Bold),
+      fontSize: 24,
+    },
+    headerPlaceholder: { width: 48 },
+    title: {
+      ...(isDarkMode ? Fonts.whiteColor20Bold : Fonts.blackColor22Bold),
+      fontSize: 22,
+      flex: 1,
+      textAlign: 'center',
+      marginBottom: 0,
+    },
+    stepText: {
+      ...Fonts.grayColor13Regular,
+      color: theme.subtext,
+      textAlign: 'center',
+      marginBottom: 16,
+    },
+    progressContainer: {
+      height: 6,
+      width: '100%',
+      backgroundColor: theme.line,
+      borderRadius: 3,
+      overflow: 'hidden',
+      marginBottom: 16,
+    },
+    progressBar: { height: '100%', backgroundColor: theme.accent },
+    card: {
+      backgroundColor: theme.card,
+      borderRadius: 14,
+      padding: 18,
+      borderWidth: 1,
+      borderColor: theme.line,
+    },
+    question: {
+      ...(isDarkMode ? Fonts.whiteColor18Bold : Fonts.blackColor18Bold),
+      marginBottom: 12,
+    },
+    imagePicker: { alignSelf: 'center', marginVertical: 16 },
+    avatar: { width: 160, height: 160, borderRadius: 80 },
+    placeholder: {
+      width: 160,
+      height: 160,
+      borderRadius: 80,
+      backgroundColor: theme.line,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    placeholderText: {
+      ...Fonts.grayColor14Regular,
+      color: theme.subtext,
+      textAlign: 'center',
+    },
+    hint: {
+      ...Fonts.grayColor13Regular,
+      color: theme.subtext,
+      textAlign: 'center',
+      marginTop: 8,
+    },
+    input: {
+      ...Fonts.blackColor16Regular,
+      color: theme.text,
+      borderBottomWidth: 2,
+      borderColor: theme.accent,
+      paddingVertical: 10,
+    },
+    genderRow: { flexDirection: 'row', gap: 8 },
+    genderPill: {
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: isDarkMode ? Colors.grayColor : Colors.dividerColor,
+      backgroundColor: isDarkMode ? Colors.overlaySoft : Colors.whiteColor,
+    },
+    genderPillActive: {
+      borderColor: theme.accent,
+      backgroundColor: theme.accent,
+    },
+    genderPillText: {
+      ...Fonts.grayColor14Regular,
+      color: theme.subtext,
+    },
+    genderPillTextActive: {
+      ...Fonts.whiteColor15Medium,
+    },
+    row: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 },
+    button: {
+      backgroundColor: theme.accent,
+      paddingVertical: 12,
+      paddingHorizontal: 24,
+      borderRadius: 12,
+      minWidth: 112,
+      alignItems: 'center',
+    },
+    buttonDisabled: { opacity: 0.5 },
+    ghost: {
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: theme.accent,
+    },
+    rowPlaceholder: { width: 112 },
+    buttonText: {
+      ...Fonts.whiteColor16Bold,
+    },
+    buttonGhostText: {
+      ...Fonts.primaryColor16Bold,
+    },
+    skip: { alignSelf: 'center', marginTop: 16 },
+    skipText: {
+      ...Fonts.primaryColor14Bold,
+      textDecorationLine: 'underline',
+    },
+    locationBtn: {
+      backgroundColor: theme.accent,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      alignItems: 'center',
+      borderRadius: 10,
+    },
+    locationBtnText: {
+      ...Fonts.whiteColor16Bold,
+      textAlign: 'center',
+    },
+    footerText: {
+      ...Fonts.grayColor13Regular,
+      color: theme.subtext,
+      textAlign: 'center',
+      marginTop: 16,
+    },
+  });
+}
