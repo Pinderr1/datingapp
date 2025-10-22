@@ -24,6 +24,8 @@ import { HEADER_SPACING } from '../../layout';
 import { useUser } from '../../contexts/UserContext';
 import { db } from '../../firebaseConfig';
 import {
+  arrayRemove,
+  arrayUnion,
   doc,
   getDoc,
   onSnapshot,
@@ -193,31 +195,58 @@ const LiveSessionScreen = ({ params, router }) => {
   }, [inviteId, user?.uid]);
 
   useEffect(() => {
+    if (!inviteId || !user?.uid) return undefined;
+    const ref = doc(db, 'games', inviteId);
+
+    updateDoc(ref, { joinedPlayers: arrayUnion(user.uid) }).catch((error) => {
+      console.warn('Failed to register session presence', error);
+    });
+
+    return () => {
+      updateDoc(ref, { joinedPlayers: arrayRemove(user.uid) }).catch((error) => {
+        console.warn('Failed to clear session presence', error);
+      });
+    };
+  }, [inviteId, user?.uid]);
+
+  useEffect(() => {
     if (!inviteId || !user?.uid || readyUpdateSent) return;
     if (!inviteData || inviteData.status !== 'waiting') return;
 
-    const playersList = Array.isArray(inviteData.players)
-      ? [...inviteData.players]
-      : Array.isArray(inviteData.users)
-      ? [...inviteData.users]
-      : [inviteData.host, inviteData.opponent].filter(Boolean);
-
-    const sanitizedPlayers = playersList.filter(Boolean);
-    const uniquePlayers = sanitizedPlayers.filter(
+    const joinedPlayers = Array.isArray(inviteData.joinedPlayers)
+      ? inviteData.joinedPlayers.filter(Boolean)
+      : [];
+    const uniquePlayers = joinedPlayers.filter(
       (player, index, arr) => arr.indexOf(player) === index
     );
-    if (!uniquePlayers.includes(user.uid) || uniquePlayers.length < 2) return;
+    const opponentId = opponent?.id;
+
+    if (!opponentId) return;
+    if (
+      !uniquePlayers.includes(user.uid) ||
+      !uniquePlayers.includes(opponentId) ||
+      uniquePlayers.length < 2
+    ) {
+      return;
+    }
+
+    const readyPlayers = [user.uid, opponentId];
+    const uniqueReadyPlayers = readyPlayers.filter(
+      (player, index, arr) => arr.indexOf(player) === index
+    );
 
     const now = serverTimestamp();
     const payload = {
       status: 'ready',
       readyAt: now,
       updatedAt: now,
-      players: uniquePlayers,
+      players: uniqueReadyPlayers,
     };
 
     if (Array.isArray(inviteData.users) && inviteData.users.length) {
       payload.users = inviteData.users.filter(Boolean);
+    } else {
+      payload.users = uniqueReadyPlayers;
     }
 
     setReadyUpdateSent(true);
@@ -225,7 +254,7 @@ const LiveSessionScreen = ({ params, router }) => {
       console.warn('Failed to mark game invite ready', error);
       setReadyUpdateSent(false);
     });
-  }, [inviteId, inviteData, readyUpdateSent, user?.uid]);
+  }, [inviteId, inviteData, opponent?.id, readyUpdateSent, user?.uid]);
 
   // Trigger countdown if ready
   useEffect(() => {

@@ -36,6 +36,7 @@ export const MatchmakingProvider = ({ children }) => {
         opponent: opponentId,
         players: [user.uid, opponentId],
         users: [user.uid, opponentId],
+        joinedPlayers: [],
         createdAt: now,
         updatedAt: now,
       });
