@@ -4,7 +4,7 @@ import { BackHandler, Text, View, StyleSheet, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import MyStatusBar from '../../components/myStatusBar';
-import { Colors as ThemeColors } from '../../constants/styles';
+import { Colors, Sizes } from '../../constants/styles';
 
 export default function TabLayout() {
   const [backClickCount, setBackClickCount] = useState(0);
@@ -31,15 +31,15 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: ThemeColors.primaryColor,
-          tabBarInactiveTintColor: ThemeColors.grayColor,
+          tabBarActiveTintColor: Colors.primaryColor,
+          tabBarInactiveTintColor: Colors.grayColor,
           tabBarHideOnKeyboard: true,
           tabBarShowLabel: false,
           tabBarStyle: styles.tabBar,
           tabBarButton: (props) => (
             <Pressable
               {...props}
-              android_ripple={{ color: ThemeColors.bgColor }}
+              android_ripple={{ color: `${Colors.primaryColor}1A` }}
             />
           ),
         }}
@@ -101,13 +101,13 @@ export default function TabLayout() {
       <View
         style={[
           styles.iconWrap,
-          focused && { borderColor: ThemeColors.primaryColor, borderWidth: 1.5 },
+          focused && { borderColor: Colors.primaryColor, borderWidth: 1.5 },
         ]}
       >
         <Feather
           name={name}
           size={24}
-          color={focused ? ThemeColors.primaryColor : ThemeColors.grayColor}
+          color={focused ? Colors.primaryColor : Colors.grayColor}
         />
       </View>
     );
@@ -116,35 +116,35 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    height: 70,
-    backgroundColor: ThemeColors.bgColor,
+    height: Sizes.fixPadding * 7,
+    backgroundColor: Colors.bgColor,
     borderTopWidth: 0,
     elevation: 4,
-    shadowColor: '#000',
+    shadowColor: Colors.blackColor,
     shadowOpacity: 0.05,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: -2 },
-    paddingTop: 10,
+    paddingTop: Sizes.fixPadding,
   },
   iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: Sizes.fixPadding * 4.4,
+    height: Sizes.fixPadding * 4.4,
+    borderRadius: Sizes.fixPadding * 2.2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ThemeColors.whiteColor,
+    backgroundColor: Colors.whiteColor,
   },
   exitNotice: {
-    backgroundColor: '#333',
+    backgroundColor: `${Colors.blackColor}CC`,
     position: 'absolute',
-    bottom: 20,
+    bottom: Sizes.fixPadding * 2,
     alignSelf: 'center',
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
+    borderRadius: Sizes.fixPadding * 2,
+    paddingHorizontal: Sizes.fixPadding * 2,
+    paddingVertical: Sizes.fixPadding * 0.8,
   },
   exitText: {
-    color: ThemeColors.whiteColor,
+    color: Colors.whiteColor,
     fontSize: 14,
   },
 });
