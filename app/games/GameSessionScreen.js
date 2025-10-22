@@ -590,7 +590,7 @@ function BotSessionScreen({ params }) {
       board: info.Board,
       state: useBotGame(
         info.Game,
-        (G, player, gameObj) => getBotMove(aiKey, G, player, gameObj),
+        (G, ctx, gameObj) => getBotMove(aiKey, G, ctx.currentPlayer, gameObj),
         (res) => handleGameEnd(res, aiKey)
       ),
     };
