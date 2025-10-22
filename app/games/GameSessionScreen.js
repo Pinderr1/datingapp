@@ -129,6 +129,8 @@ const LiveSessionScreen = ({ params, router }) => {
   const inviteId = params?.inviteId;
 
   const [inviteStatus, setInviteStatus] = useState(status);
+  const [inviteData, setInviteData] = useState(null);
+  const [readyUpdateSent, setReadyUpdateSent] = useState(false);
   const [showGame, setShowGame] = useState(false);
   const [countdown, setCountdown] = useState(null);
   const [devPlayer, setDevPlayer] = useState('0');
@@ -144,6 +146,8 @@ const LiveSessionScreen = ({ params, router }) => {
 
   useEffect(() => {
     setInviteStatus(status);
+    setInviteData(null);
+    setReadyUpdateSent(false);
     setShowGame(false);
     setCountdown(null);
     setGameResult(null);
@@ -168,7 +172,10 @@ const LiveSessionScreen = ({ params, router }) => {
     if (!inviteId || !user?.uid) return undefined;
     const ref = doc(db, 'games', inviteId);
     const unsub = onSnapshot(ref, (snap) => {
-      if (!snapshotExists(snap)) return;
+      if (!snapshotExists(snap)) {
+        setInviteData(null);
+        return;
+      }
       const data = snap.data();
       const participants = Array.isArray(data?.users)
         ? data.users
@@ -177,10 +184,48 @@ const LiveSessionScreen = ({ params, router }) => {
         : [];
       if (participants.includes(user.uid)) {
         setInviteStatus(data?.status || 'waiting');
+        setInviteData({ id: snap.id, ...data });
+      } else {
+        setInviteData(null);
       }
     });
     return unsub;
   }, [inviteId, user?.uid]);
+
+  useEffect(() => {
+    if (!inviteId || !user?.uid || readyUpdateSent) return;
+    if (!inviteData || inviteData.status !== 'waiting') return;
+
+    const playersList = Array.isArray(inviteData.players)
+      ? [...inviteData.players]
+      : Array.isArray(inviteData.users)
+      ? [...inviteData.users]
+      : [inviteData.host, inviteData.opponent].filter(Boolean);
+
+    const sanitizedPlayers = playersList.filter(Boolean);
+    const uniquePlayers = sanitizedPlayers.filter(
+      (player, index, arr) => arr.indexOf(player) === index
+    );
+    if (!uniquePlayers.includes(user.uid) || uniquePlayers.length < 2) return;
+
+    const now = serverTimestamp();
+    const payload = {
+      status: 'ready',
+      readyAt: now,
+      updatedAt: now,
+      players: uniquePlayers,
+    };
+
+    if (Array.isArray(inviteData.users) && inviteData.users.length) {
+      payload.users = inviteData.users.filter(Boolean);
+    }
+
+    setReadyUpdateSent(true);
+    updateDoc(doc(db, 'games', inviteId), payload).catch((error) => {
+      console.warn('Failed to mark game invite ready', error);
+      setReadyUpdateSent(false);
+    });
+  }, [inviteId, inviteData, readyUpdateSent, user?.uid]);
 
   // Trigger countdown if ready
   useEffect(() => {
