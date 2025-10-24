@@ -46,7 +46,7 @@ service cloud.firestore {
 
     match /matches/{matchId} {
       allow get: if isSignedIn() && isMatchParticipant(resource.data);
-      allow list: if isSignedIn();
+      allow list: if isSignedIn() && isMatchParticipant(resource.data);
       allow create: if isSignedIn() && isMatchParticipant(request.resource.data);
       allow update: if isSignedIn() && isMatchParticipant(resource.data) && isMatchParticipant(request.resource.data);
       allow delete: if isSignedIn() && isMatchParticipant(resource.data);
@@ -63,7 +63,7 @@ service cloud.firestore {
 
     match /games/{gameId} {
       allow get: if isSignedIn() && isGameParticipant(resource.data);
-      allow list: if isSignedIn();
+      allow list: if isSignedIn() && isGameParticipant(resource.data);
       allow create: if isSignedIn() && isGameParticipant(request.resource.data);
       allow update: if isSignedIn() && isGameParticipant(resource.data) && isGameParticipant(request.resource.data);
       allow delete: if isSignedIn() && isGameParticipant(resource.data);
