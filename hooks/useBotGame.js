@@ -50,11 +50,12 @@ export default function useBotGame(game, getBotMove, onGameEnd) {
     // bot is player "1"
     if (String(currentPlayer) === '1') {
       const move = getBotMoveRef.current(s.G, s.ctx, game);
-      if (move && client.moves[move.name]) {
+      const moveName = move?.name ?? move?.move;
+      if (moveName && client.moves[moveName]) {
         // small delay to make AI feel human
         await new Promise((r) => setTimeout(r, 400));
         client.updatePlayerID('1');
-        client.moves[move.name](...(move.args || []));
+        client.moves[moveName](...(move?.args || []));
         play('game_move');
       }
     }
