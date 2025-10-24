@@ -4,7 +4,11 @@ import { randomItem, fallbackBot, safeBot, indicesOf } from './botUtils';
 
 
 export const bots = {
-  ticTacToe: (G, player) => ({ move: 'clickCell', args: [tttBot(G.cells, player)] }),
+  ticTacToe: (G, player) => {
+    const index = tttBot(G.cells, player);
+    if (index === null || index === undefined) return null;
+    return { move: 'clickCell', args: [index] };
+  },
   rps: () => ({ move: 'choose', args: [rpsBot()] }),
   connectFour: (G) => {
     const ROWS = 6;
