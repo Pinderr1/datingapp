@@ -230,6 +230,13 @@ const SwipeScreen = () => {
         }
     }, [handleLoadMore, router, setCardProcessing, showErrorToast])
 
+    const handleOpenProfile = useCallback((item) => {
+        if (!item?.id) {
+            return;
+        }
+        router.push({ pathname: '/profileDetail/profileDetailScreen', params: { userId: item.id } });
+    }, [router]);
+
     const handleButtonDecision = useCallback((liked) => {
         const snapshot = Array.isArray(usersRef.current) ? [...usersRef.current] : [];
         const topCandidate = snapshot?.[0];
@@ -391,7 +398,7 @@ const SwipeScreen = () => {
                     </TouchableOpacity>
                     <TouchableOpacity
                         activeOpacity={0.8}
-                        onPress={() => { router.push('/profileDetail/profileDetailScreen') }}
+                        onPress={() => handleOpenProfile(item)}
                         style={{ maxWidth: screenWidth - 190, alignItems: 'center', justifyContent: 'center', marginHorizontal: Sizes.fixPadding }}
                     >
                         <Text numberOfLines={1} style={{ ...Fonts.whiteColor20Bold }}>
