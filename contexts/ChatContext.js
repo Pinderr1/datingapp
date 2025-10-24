@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   collection,
   limit,
@@ -32,7 +32,11 @@ export const ChatProvider = ({ children }) => {
   const { user } = useUser();
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [userCache, setUserCache] = useState({});
+  const userCacheRef = useRef({});
+
+  useEffect(() => {
+    userCacheRef.current = {};
+  }, [user?.uid]);
 
   useEffect(() => {
     let unsubscribe;
@@ -67,17 +71,22 @@ export const ChatProvider = ({ children }) => {
                 const { otherUserId } = deriveOtherUser(m, currentUser.uid);
                 if (!otherUserId) return m;
 
-                let cached = userCache[otherUserId];
-                if (!cached) {
+                let cached = userCacheRef.current[otherUserId];
+                if (cached === undefined) {
                   try {
                     const ref = doc(db, 'users', otherUserId);
                     const userSnap = await getDoc(ref);
                     if (userSnap.exists()) {
                       cached = userSnap.data();
-                      setUserCache((prev) => ({ ...prev, [otherUserId]: cached }));
+                      userCacheRef.current[otherUserId] = cached;
+                    } else {
+                      cached = null;
+                      userCacheRef.current[otherUserId] = null;
                     }
                   } catch (err) {
                     console.warn('Failed to hydrate opponent profile', otherUserId, err);
+                    cached = null;
+                    userCacheRef.current[otherUserId] = null;
                   }
                 }
 
@@ -120,7 +129,7 @@ export const ChatProvider = ({ children }) => {
       mounted = false;
       if (unsubscribe) unsubscribe();
     };
-  }, [user?.uid, userCache]);
+  }, [user?.uid]);
 
   const value = useMemo(() => ({ matches, loading }), [matches, loading]);
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
