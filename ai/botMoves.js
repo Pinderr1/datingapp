@@ -9,6 +9,7 @@ export const bots = {
     if (index === null || index === undefined) return null;
     return { move: 'clickCell', args: [index] };
   },
+  rockPaperScissors: () => ({ move: 'choose', args: [rpsBot()] }),
   rps: () => ({ move: 'choose', args: [rpsBot()] }),
   connectFour: (G) => {
     const ROWS = 6;
