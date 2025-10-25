@@ -572,8 +572,7 @@ const LiveSessionScreen = ({ params, router }) => {
 function BotSessionScreen({ params }) {
   const botId = params?.botId;
   const initialGame = params?.game || 'ticTacToe';
-  const aiKeyMap = { rockPaperScissors: 'rps' };
-  const normalizedInitialGame = aiKeyMap[initialGame] || initialGame;
+  const normalizedInitialGame = initialGame;
   const [bot, setBot] = useState(
     bots.find((b) => b.id === botId) || getRandomBot()
   );
@@ -584,21 +583,19 @@ function BotSessionScreen({ params }) {
   const [game, setGame] = useState(normalizedInitialGame);
   const gameMap = Object.keys(games).reduce((acc, key) => {
     const info = games[key];
-    const aiKey = aiKeyMap[key] || key;
-    acc[aiKey] = {
+    acc[key] = {
       title: info.meta?.title || info.name,
       board: info.Board,
       state: useBotGame(
         info.Game,
-        (G, ctx, gameObj) => getBotMove(aiKey, G, ctx.currentPlayer, gameObj),
-        (res) => handleGameEnd(res, aiKey)
+        (G, ctx, gameObj) => getBotMove(key, G, ctx.currentPlayer, gameObj),
+        (res) => handleGameEnd(res, key)
       ),
     };
     return acc;
   }, {});
 
-  const fallbackKey =
-    gameMap[normalizedInitialGame] ? normalizedInitialGame : aiKeyMap['ticTacToe'] || 'ticTacToe';
+  const fallbackKey = gameMap[normalizedInitialGame] ? normalizedInitialGame : 'ticTacToe';
   const activeKey = gameMap[game] ? game : fallbackKey;
   if (!gameMap[game]) console.warn('Unknown game key', game);
   const { G, ctx, moves, reset } = gameMap[activeKey].state;
