@@ -31,18 +31,28 @@ const RPSGame = {
   },
 };
 
-const RPSBoard = ({ G, ctx, moves, onGameEnd }) => {
+const RPSBoard = ({ G, ctx, moves, onGameEnd, playerID = '0' }) => {
   useOnGameOver(ctx.gameover, onGameEnd);
 
-  const disabled = !!ctx.gameover;
-  const yourChoice = G.moves[0];
-  const oppChoice = G.moves[1];
+  const viewerID = playerID ?? '0';
+  const viewerIndex = Number.parseInt(viewerID, 10);
+  const isValidIndex = viewerIndex === 0 || viewerIndex === 1;
+  const safeViewerIndex = isValidIndex ? viewerIndex : 0;
+  const opponentIndex = safeViewerIndex === 0 ? 1 : 0;
+
+  const yourChoice = G.moves[safeViewerIndex];
+  const oppChoice = G.moves[opponentIndex];
+  const allMovesSubmitted = G.moves.every((move) => move !== null);
+  const isViewerTurn = ctx.currentPlayer === viewerID;
+  const canAct = playerID != null && isViewerTurn;
+  const disableButtons = !!ctx.gameover || !canAct || yourChoice !== null;
+  const showOpponentChoice = allMovesSubmitted || ctx.gameover;
 
   return (
     <View style={{ alignItems: 'center' }}>
       {!ctx.gameover && (
         <Text style={{ marginBottom: 10, fontWeight: 'bold' }}>
-          {ctx.currentPlayer === '0' ? 'Your turn' : 'Waiting for opponent'}
+          {isViewerTurn ? 'Your turn' : 'Waiting for opponent'}
         </Text>
       )}
       <View style={{ flexDirection: 'row', marginBottom: 20 }}>
@@ -50,7 +60,7 @@ const RPSBoard = ({ G, ctx, moves, onGameEnd }) => {
           <TouchableOpacity
             key={idx}
             onPress={() => moves.choose(idx)}
-            disabled={disabled || yourChoice !== null}
+            disabled={disableButtons}
             style={{
               padding: 10,
               margin: 5,
@@ -64,7 +74,10 @@ const RPSBoard = ({ G, ctx, moves, onGameEnd }) => {
         ))}
       </View>
       <Text>Your choice: {yourChoice !== null ? choices[yourChoice] : '-'}</Text>
-      <Text>Opponent: {oppChoice !== null ? choices[oppChoice] : '-'}</Text>
+      <Text>
+        Opponent:{' '}
+        {showOpponentChoice && oppChoice !== null ? choices[oppChoice] : '-'}
+      </Text>
       {ctx.gameover && (
         <Text style={{ marginTop: 10, fontWeight: 'bold' }}>
           {ctx.gameover.draw
