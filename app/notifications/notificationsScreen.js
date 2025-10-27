@@ -175,13 +175,13 @@ const NotificationsScreen = () => {
                                 ?
                                 <View style={{ marginVertical: Sizes.fixPadding }} />
                                 :
-                                <View style={{ backgroundColor: '#8A9CBF20', height: 1.0, marginVertical: Sizes.fixPadding + 8.0 }} />
+                                <View style={styles.notificationDivider} />
                             :
                             data.index == listData.length - 1
                                 ?
                                 <View style={{ marginVertical: Sizes.fixPadding }} />
                                 :
-                                <View style={{ backgroundColor: '#8A9CBF20', height: 1.0, marginVertical: Sizes.fixPadding + 8.0 }} />
+                                <View style={styles.notificationDivider} />
                     }
                 </View>
             </View>
@@ -379,6 +379,11 @@ const styles = StyleSheet.create({
         shadowColor: Colors.primaryColor,
         alignItems: 'center',
         justifyContent: 'center'
+    },
+    notificationDivider: {
+        backgroundColor: Colors.grayDividerColor,
+        height: 1.0,
+        marginVertical: Sizes.fixPadding * 1.8,
     }
 });
 
