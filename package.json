@@ -69,6 +69,7 @@
     "rn-range-slider": "^2.2.2"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.1",
     "@babel/core": "^7.25.2",
     "@types/jest": "^29.5.12",
     "@types/react": "~19.1.10",
