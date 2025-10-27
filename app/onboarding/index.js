@@ -315,30 +315,6 @@ export default function OnboardingScreen() {
     }
   };
 
-  const handleSkip = async () => {
-    const u = ensureSignedIn();
-    if (!u) return;
-    setSaving(true);
-    try {
-      const userRef = doc(db, 'users', u.uid);
-      await setDoc(
-        userRef,
-        {
-          uid: u.uid,
-          email: u.email || '',
-          onboardingComplete: true,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-      router.replace('/(tabs)/home');
-    } catch (e) {
-      Alert.alert('Skip failed', e.message || 'Could not skip now.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const renderStepInput = () => {
     if (currentKey === 'avatar') {
       return (
@@ -497,12 +473,6 @@ export default function OnboardingScreen() {
         </TouchableOpacity>
       </View>
 
-      {step >= 2 && (
-        <TouchableOpacity onPress={handleSkip} disabled={saving} style={styles.skip}>
-          <Text style={styles.skipText}>Complete profile later</Text>
-        </TouchableOpacity>
-      )}
-
       <Text style={styles.footerText}>
         By continuing you agree to our basic guidelines. Keep it kind, keep it real.
       </Text>
@@ -638,11 +608,6 @@ function createStyles(theme, isDarkMode) {
     },
     buttonGhostText: {
       ...Fonts.primaryColor16Bold,
-    },
-    skip: { alignSelf: 'center', marginTop: 16 },
-    skipText: {
-      ...Fonts.primaryColor14Bold,
-      textDecorationLine: 'underline',
     },
     locationBtn: {
       backgroundColor: theme.accent,
