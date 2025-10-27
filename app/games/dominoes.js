@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import createGameClient from './createGameClient';
 import { INVALID_MOVE } from 'boardgame.io/core';
 import { View, Text, TouchableOpacity } from 'react-native';
@@ -98,27 +98,76 @@ const DominoTile = ({ values, selected, onPress }) => (
   </TouchableOpacity>
 );
 
-const DominoesBoard = ({ G, ctx, moves, onGameEnd }) => {
+const DominoesBoard = ({ G, ctx, moves, onGameEnd, playerID = '0' }) => {
+  const resolvedPlayerID = playerID ?? '0';
+  const isSpectator = playerID === null || playerID === undefined;
   const [selected, setSelected] = useState(null);
   useOnGameOver(ctx.gameover, onGameEnd);
   const { theme } = useTheme();
 
-  const myHand = G.hands[ctx.currentPlayer];
-  const disabled = !!ctx.gameover;
+  const myHand = isSpectator ? [] : G.hands?.[resolvedPlayerID] ?? [];
+  const isActivePlayer = !isSpectator && resolvedPlayerID === ctx.currentPlayer;
+  const disabled = !!ctx.gameover || !isActivePlayer;
+
+  useEffect(() => {
+    if (!isActivePlayer) {
+      setSelected(null);
+    }
+  }, [isActivePlayer]);
 
   let resultText = '';
   if (ctx.gameover) {
-    if (ctx.gameover.winner === '0') resultText = 'You win!';
-    else resultText = 'You lose!';
+    const { winner } = ctx.gameover;
+    if (winner !== undefined && winner !== null) {
+      if (!isSpectator && winner === resolvedPlayerID) resultText = 'You win!';
+      else if (!isSpectator && winner !== resolvedPlayerID) resultText = 'You lose!';
+      else resultText = `Player ${winner} wins!`;
+    }
   }
 
   return (
     <View style={{ alignItems: 'center' }}>
       {!ctx.gameover && (
         <Text style={{ marginBottom: 8, fontWeight: 'bold' }}>
-          {ctx.currentPlayer === '0' ? 'Your turn' : 'Waiting for opponent'}
+          {isActivePlayer
+            ? 'Your turn'
+            : isSpectator
+            ? ctx.currentPlayer
+              ? `Player ${ctx.currentPlayer}'s turn`
+              : 'Waiting for players'
+            : ctx.currentPlayer
+            ? `Waiting for Player ${ctx.currentPlayer}`
+            : 'Waiting for players'}
         </Text>
       )}
+      <View style={{ marginBottom: 12 }}>
+        {Object.entries(G.hands || {})
+          .filter(([id]) => isSpectator || id !== resolvedPlayerID)
+          .map(([id, hand]) => (
+            <View key={id} style={{ alignItems: 'center', marginBottom: 6 }}>
+              <Text style={{ marginBottom: 4 }}>{`Player ${id}`}</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                {hand.map((_, idx) => (
+                  <View
+                    key={idx}
+                    style={{
+                      width: 18,
+                      height: 28,
+                      borderWidth: 1,
+                      borderColor: '#333',
+                      backgroundColor: '#999',
+                      margin: 2,
+                      borderRadius: 2,
+                    }}
+                  />
+                ))}
+              </View>
+              <Text style={{ marginTop: 4 }}>{`${hand.length} tile${
+                hand.length === 1 ? '' : 's'
+              }`}</Text>
+            </View>
+          ))}
+      </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
         {G.chain.map((t, idx) => (
           <View
@@ -135,14 +184,18 @@ const DominoesBoard = ({ G, ctx, moves, onGameEnd }) => {
             key={idx}
             values={t}
             selected={selected === idx}
-            onPress={() => setSelected(idx)}
+            onPress={() => {
+              if (isActivePlayer) {
+                setSelected(idx);
+              }
+            }}
           />
         ))}
       </View>
       <View style={{ flexDirection: 'row', marginBottom: 10 }}>
         <TouchableOpacity
           onPress={() => {
-            if (selected !== null) {
+            if (selected !== null && isActivePlayer) {
               moves.playTile(selected, 'left');
               setSelected(null);
             }
@@ -154,7 +207,7 @@ const DominoesBoard = ({ G, ctx, moves, onGameEnd }) => {
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => {
-            if (selected !== null) {
+            if (selected !== null && isActivePlayer) {
               moves.playTile(selected, 'right');
               setSelected(null);
             }
@@ -165,7 +218,11 @@ const DominoesBoard = ({ G, ctx, moves, onGameEnd }) => {
           <Text style={{ color: '#fff' }}>Play Right</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => moves.drawTile()}
+          onPress={() => {
+            if (!disabled) {
+              moves.drawTile();
+            }
+          }}
           disabled={disabled || G.drawPile.length === 0}
           style={{ marginHorizontal: 6, padding: 6, backgroundColor: theme.accent, borderRadius: 4 }}
         >
