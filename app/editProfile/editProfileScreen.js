@@ -1,13 +1,15 @@
-import { StyleSheet, Text, View, TextInput, ScrollView, TouchableOpacity, Image, ImageBackground, ActivityIndicator, Alert } from 'react-native'
-import React, { useState } from 'react'
+import { StyleSheet, Text, View, TextInput, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native'
+import React, { useEffect, useState } from 'react'
+import * as ImagePicker from 'expo-image-picker'
 import { Colors, Fonts, screenHeight, screenWidth, Sizes, CommonStyles } from '../../constants/styles'
 import { MaterialIcons } from '@expo/vector-icons'
 import { Dropdown } from 'react-native-element-dropdown';
 import MyStatusBar from '../../components/myStatusBar';
 import { useRouter } from 'expo-router';
 import { useUser } from '../../contexts/UserContext';
-import { auth, db } from '../../firebaseConfig';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db, storage } from '../../firebaseConfig';
+import { arrayUnion, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const agesList = [
     { label: '25 Years' },
@@ -46,6 +48,13 @@ const EditProfileScreen = () => {
     const [gender, setgender] = useState(profile?.gender ?? '');
     const [about, setabout] = useState(profile?.bio ?? '');
     const [updating, setUpdating] = useState(false);
+    const [photoUri, setPhotoUri] = useState(profile?.photoURL ?? '');
+    const [selectedAsset, setSelectedAsset] = useState(null);
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+    useEffect(() => {
+        setPhotoUri(profile?.photoURL ?? '');
+    }, [profile?.photoURL]);
 
     return (
         <View style={{ flex: 1, backgroundColor: Colors.whiteColor }}>
@@ -67,7 +76,7 @@ const EditProfileScreen = () => {
         return (
             <TouchableOpacity
                 activeOpacity={0.8}
-                disabled={updating}
+                disabled={updating || uploadingPhoto}
                 onPress={async () => {
                     const uid = auth.currentUser?.uid;
                     if (!uid) return;
@@ -77,11 +86,17 @@ const EditProfileScreen = () => {
                         Alert.alert('Invalid age', 'Enter a valid age (18–120)');
                         return;
                     }
+                    if (uploadingPhoto) {
+                        Alert.alert('Please wait', 'Your photo is still uploading.');
+                        return;
+                    }
                     setUpdating(true);
                     try {
                         const trimmedName = name.trim();
                         const trimmedGender = gender.trim();
                         const trimmedBio = about.trim();
+                        const fallbackPhoto = selectedAsset?.downloadUrl || selectedAsset?.fallbackUri || '';
+                        const photoUrl = (photoUri || fallbackPhoto)?.trim();
                         await setDoc(
                             userRef,
                             {
@@ -91,13 +106,15 @@ const EditProfileScreen = () => {
                                 gender: trimmedGender,
                                 bio: trimmedBio,
                                 age: parsedAge,
+                                ...(photoUrl ? { photoURL: photoUrl, photoURLs: arrayUnion(photoUrl) } : {}),
                                 updatedAt: serverTimestamp(),
                             },
                             { merge: true }
                         );
                         const userDoc = await getDoc(userRef);
                         if (userDoc.exists()) {
-                            setProfile(userDoc.data());
+                            const userData = userDoc.data();
+                            setProfile(prev => ({ ...prev, ...userData, ...(photoUrl ? { photoURL: photoUrl } : {}) }));
                         }
                         router.back();
                     } catch (error) {
@@ -107,7 +124,7 @@ const EditProfileScreen = () => {
                         setUpdating(false);
                     }
                 }}
-                style={[styles.buttonStyle, updating && { opacity: 0.5 }]}
+                style={[styles.buttonStyle, (updating || uploadingPhoto) && { opacity: 0.5 }]}
             >
                 <Text style={{ ...Fonts.whiteColor20Medium }}>
                     Update
@@ -214,31 +231,105 @@ const EditProfileScreen = () => {
         )
     }
 
+    async function handlePickProfilePhoto() {
+        try {
+            const { status, granted, ios } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            const hasAccess = granted || ios?.accessPrivileges === 'limited';
+            if (!hasAccess) {
+                if (status === 'denied') {
+                    Alert.alert(
+                        'Photo access needed',
+                        'Please enable photo library access in your settings to upload an image.'
+                    );
+                }
+                return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                quality: 0.8,
+                base64: true,
+            });
+            if (result.canceled) {
+                return;
+            }
+            const asset = result.assets?.[0];
+            if (!asset) {
+                return;
+            }
+            const fallbackUri = asset.base64
+                ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`
+                : asset.uri;
+            setSelectedAsset({ ...asset, fallbackUri });
+            if (fallbackUri) {
+                setPhotoUri(fallbackUri);
+            }
+            if (!asset.uri) {
+                Alert.alert('Upload failed', 'Selected image is missing a file URI; using a local copy instead.');
+                return;
+            }
+            const user = auth.currentUser;
+            if (!user) {
+                Alert.alert('Not signed in', 'Please sign in again.');
+                return;
+            }
+            if (!storage) {
+                console.warn('Firebase storage unavailable; using local avatar data URI.');
+                return;
+            }
+            setUploadingPhoto(true);
+            let blob;
+            try {
+                const response = await fetch(asset.uri);
+                blob = await response.blob();
+                const fileExtension = asset.fileName?.split('.').pop() || 'jpg';
+                const photoRef = ref(storage, `avatars/${user.uid}/${Date.now()}.${fileExtension}`);
+                await uploadBytes(photoRef, blob, {
+                    contentType: asset.mimeType || blob.type || 'image/jpeg',
+                });
+                const downloadUrl = await getDownloadURL(photoRef);
+                setPhotoUri(downloadUrl);
+                setSelectedAsset({ ...asset, fallbackUri, downloadUrl });
+            } catch (error) {
+                console.error('profile photo upload error', error);
+                Alert.alert('Upload failed', error?.code || error?.message || String(error));
+                setPhotoUri(fallbackUri);
+                setSelectedAsset({ ...asset, fallbackUri });
+            } finally {
+                if (blob && typeof blob.close === 'function') {
+                    blob.close();
+                }
+                setUploadingPhoto(false);
+            }
+        } catch (error) {
+            console.error('profile photo upload error', error);
+            Alert.alert('Upload failed', error?.code || error?.message || String(error));
+            setUploadingPhoto(false);
+        }
+    }
+
     function profilePics() {
+        const fallbackImage = require('../../assets/images/users/user17.png');
+        const source = photoUri ? { uri: photoUri } : fallbackImage;
         return (
-            <View style={{ flexDirection: 'row', marginHorizontal: Sizes.fixPadding * 2.0, marginVertical: Sizes.fixPadding }}>
-                <View style={{ flex: 0.65 }}>
+            <View style={{ marginHorizontal: Sizes.fixPadding * 2.0, marginVertical: Sizes.fixPadding }}>
+                <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={handlePickProfilePhoto}
+                    style={styles.profileImageWrapper}
+                >
                     <Image
-                        source={require('../../assets/images/users/user17.png')}
-                        style={{ height: screenWidth / 1.7, width: '100%', borderRadius: Sizes.fixPadding }}
+                        source={source}
+                        style={styles.profileImage}
                     />
-                </View>
-                <View style={{ flex: 0.35, marginLeft: Sizes.fixPadding * 2.0, }}>
-                    <ImageBackground
-                        source={require('../../assets/images/users/user18.png')}
-                        style={{ flex: 1, marginBottom: Sizes.fixPadding * 2.0, }}
-                        borderRadius={Sizes.fixPadding}
-                    />
-                    <ImageBackground
-                        source={require('../../assets/images/users/user19.png')}
-                        style={{ flex: 1, }}
-                        borderRadius={Sizes.fixPadding}
-                    >
-                        <View style={styles.addPhotoIconWrapStyle}>
-                            <MaterialIcons name="add" size={screenWidth / 9.0} color={Colors.whiteColor} />
-                        </View>
-                    </ImageBackground>
-                </View>
+                    <View style={styles.photoOverlay}>
+                        {uploadingPhoto ? (
+                            <ActivityIndicator color={Colors.whiteColor} />
+                        ) : (
+                            <MaterialIcons name="photo-camera" size={28} color={Colors.whiteColor} />
+                        )}
+                    </View>
+                </TouchableOpacity>
             </View>
         )
     }
@@ -273,12 +364,20 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center'
     },
-    addPhotoIconWrapStyle: {
-        width: '100%',
-        height: '100%',
-        position: 'absolute',
-        backgroundColor: 'rgba(0,0,0,0.4)',
+    profileImageWrapper: {
         borderRadius: Sizes.fixPadding,
+        overflow: 'hidden',
+        position: 'relative',
+        width: '100%',
+    },
+    profileImage: {
+        height: screenWidth / 1.7,
+        width: '100%',
+        borderRadius: Sizes.fixPadding,
+    },
+    photoOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.35)',
         alignItems: 'center',
         justifyContent: 'center',
     },
