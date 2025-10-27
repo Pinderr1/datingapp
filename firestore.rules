@@ -27,6 +27,45 @@ service cloud.firestore {
              data.players.hasAny([request.auth.uid]);
     }
 
+    function playersListIsValid(players) {
+      return players is list &&
+             players.size() == 2 &&
+             players[0] is string &&
+             players[1] is string &&
+             players[0] != players[1];
+    }
+
+    function sortedPlayerIds(players) {
+      let first = players[0];
+      let second = players[1];
+      return first <= second ? [first, second] : [second, first];
+    }
+
+    function matchExistsForPlayers(players) {
+      return playersListIsValid(players) &&
+             matchDocumentHasParticipants(sortedPlayerIds(players));
+    }
+
+    function matchDocumentHasParticipants(sortedPlayers) {
+      let first = sortedPlayers[0];
+      let second = sortedPlayers[1];
+      let matchId = first + '_' + second;
+      let matchDoc = get(/databases/$(database)/documents/matches/$(matchId));
+
+      return matchDoc.data != null &&
+             matchDoc.data.keys().hasAny(['users']) &&
+             matchDoc.data.users is list &&
+             matchDoc.data.users.size() == 2 &&
+             matchDoc.data.users.hasOnly([first, second]) &&
+             matchDoc.data.users.hasAll([first, second]);
+    }
+
+    function gamePlayersHaveExistingMatch(data) {
+      return data != null &&
+             data.keys().hasAny(['players']) &&
+             matchExistsForPlayers(data.players);
+    }
+
     match /users/{uid} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() &&
@@ -64,8 +103,13 @@ service cloud.firestore {
     match /games/{gameId} {
       allow get: if isSignedIn() && isGameParticipant(resource.data);
       allow list: if isSignedIn() && isGameParticipant(resource.data);
-      allow create: if isSignedIn() && isGameParticipant(request.resource.data);
-      allow update: if isSignedIn() && isGameParticipant(resource.data) && isGameParticipant(request.resource.data);
+      allow create: if isSignedIn() &&
+                    isGameParticipant(request.resource.data) &&
+                    gamePlayersHaveExistingMatch(request.resource.data);
+      allow update: if isSignedIn() &&
+                    isGameParticipant(resource.data) &&
+                    isGameParticipant(request.resource.data) &&
+                    gamePlayersHaveExistingMatch(request.resource.data);
       allow delete: if isSignedIn() && isGameParticipant(resource.data);
     }
 
