@@ -90,7 +90,7 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && request.auth.uid == uid;
       allow create: if isSignedIn() &&
                      request.auth.uid == uid &&
                      hasUidField(request.resource.data) &&
@@ -147,7 +147,9 @@ service cloud.firestore {
     }
 
     match /likes/{uid}/{direction}/{targetId} {
-      allow read, write: if isSignedIn() && request.auth.uid == uid;
+      allow read, write: if isSignedIn() &&
+                         request.auth.uid == uid &&
+                         direction == 'outgoing';
     }
 
     match /config/app {
