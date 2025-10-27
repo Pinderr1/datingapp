@@ -58,6 +58,7 @@ import PlayerInfoBar from '../../components/PlayerInfoBar';
 import useUserProfile from '../../hooks/useUserProfile';
 import PropTypes from 'prop-types';
 import { computeBadges } from '../../utils/badges';
+import { Colors, Fonts, Sizes } from '../../constants/styles';
 const toSingleValue = (value) =>
   Array.isArray(value) ? value[0] : value;
 
@@ -430,9 +431,7 @@ const LiveSessionScreen = ({ params, router }) => {
     return (
       <GradientBackground style={globalStyles.swipeScreen}>
         <Header showLogoOnly />
-        <Text style={{ marginTop: 80, color: theme.text }}>
-          Invalid game data.
-        </Text>
+        <Text style={local.invalidText}>Invalid game data.</Text>
       </GradientBackground>
     );
   }
@@ -441,7 +440,7 @@ const LiveSessionScreen = ({ params, router }) => {
     <GradientBackground style={globalStyles.swipeScreen}>
       <Header showLogoOnly />
 
-      <View style={{ flexDirection: 'row', paddingHorizontal: 16, marginTop: 10 }}>
+      <View style={local.playerRow}>
         <PlayerInfoBar
           name="You"
           xp={user?.xp || 0}
@@ -456,34 +455,30 @@ const LiveSessionScreen = ({ params, router }) => {
         />
       </View>
 
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={local.gameContainer}>
         {GameComponent && gameActive && (
-          <View style={{ alignItems: 'center' }}>
+          <View style={local.gameWrapper}>
             {devMode ? (
               <>
-                <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+                <View style={local.devToggleRow}>
                   <TouchableOpacity
                     onPress={() => setDevPlayer('0')}
-                    style={{
-                      backgroundColor: devPlayer === '0' ? theme.accent : '#ccc',
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      borderRadius: 10,
-                      marginRight: 8,
-                    }}
+                    style={[
+                      local.devToggle,
+                      local.devToggleFirst,
+                      devPlayer === '0' ? local.devToggleActive : null,
+                    ]}
                   >
-                    <Text style={{ color: '#fff' }}>Player 1</Text>
+                    <Text style={local.devToggleText}>Player 1</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => setDevPlayer('1')}
-                    style={{
-                      backgroundColor: devPlayer === '1' ? theme.accent : '#ccc',
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      borderRadius: 10,
-                    }}
+                    style={[
+                      local.devToggle,
+                      devPlayer === '1' ? local.devToggleActive : null,
+                    ]}
                   >
-                    <Text style={{ color: '#fff' }}>Player 2</Text>
+                    <Text style={local.devToggleText}>Player 2</Text>
                   </TouchableOpacity>
                 </View>
                 <GameContainer
@@ -508,29 +503,29 @@ const LiveSessionScreen = ({ params, router }) => {
             {countdown === null ? (
               showFallback ? (
                 <>
-                  <Text style={[local.waitText, { color: theme.text }]}>Game didn't start.</Text>
+                  <Text style={local.waitText}>Game didn't start.</Text>
                   <TouchableOpacity onPress={() => router.push('/games/GameWithBotScreen')}>
-                    <Text style={{ color: theme.accent, marginTop: 10 }}>
-                      Play with an AI bot instead
-                    </Text>
+                    <Text style={local.linkText}>Play with an AI bot instead</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={handleCancel}>
-                    <Text style={{ color: theme.accent, marginTop: 10 }}>Cancel</Text>
+                    <Text style={local.linkText}>Cancel</Text>
                   </TouchableOpacity>
                 </>
               ) : (
                 <>
-                  <Text style={[local.waitText, { color: theme.text }]}>Waiting for opponent...</Text>
-                  <Loader size="small" style={{ marginTop: 20 }} />
+                  <Text style={local.waitText}>Waiting for opponent...</Text>
+                  <Loader size="small" style={local.loader} />
                   <TouchableOpacity onPress={() => router.push('/games/GameWithBotScreen')}>
-                    <Text style={{ color: theme.accent, marginTop: 10 }}>
-                      Play with an AI bot instead
-                    </Text>
+                    <Text style={local.linkText}>Play with an AI bot instead</Text>
                   </TouchableOpacity>
                 </>
               )
             ) : (
-              <Animated.Text style={[local.countText, { transform: [{ scale: scaleAnim }] }]}>{countdown}</Animated.Text>
+              <Animated.Text
+                style={[local.countText, { transform: [{ scale: scaleAnim }] }]}
+              >
+                {countdown}
+              </Animated.Text>
             )}
           </Animated.View>
         )}
@@ -715,125 +710,123 @@ function BotSessionScreen({ params }) {
   };
 
   return (
-      <GradientBackground style={{ flex: 1 }}>
-        <Header />
-        <View style={{ flexDirection: 'row', paddingHorizontal: 16, marginTop: 10 }}>
-          <PlayerInfoBar
-            name="You"
-            xp={user?.xp || 0}
-            badges={computeBadges({
-              xp: user?.xp,
-              streak: user?.streak,
-              badges: user?.badges || [],
-              isPremium: user?.isPremium,
-            })}
-            isPremium={user?.isPremium}
-          />
-          <PlayerInfoBar name={bot.name} xp={0} badges={[]} />
-        </View>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={80}
-        >
-        <ScreenContainer style={{ paddingTop: HEADER_SPACING, paddingBottom: 20 }}>
-        <View style={botStyles.gameTabs}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {Object.entries(gameMap).map(([key, val]) => (
-              <TouchableOpacity
-                key={key}
-                style={[botStyles.tab, game === key ? botStyles.tabActive : null]}
-                onPress={() => switchGame(key)}
-              >
-                <Text style={botStyles.tabText}>{val.title}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-        <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 20, color: theme.text }}>
-          Playing {title} with {bot.name}
-        </Text>
-        <View style={{ flex: 1 }}>
-          <View style={{ flex: 1 }}>
-            {showBoard && !gameOver ? (
-              <GameContainer
-                onToggleChat={() => setShowBoard(false)}
-                player={{ name: 'You', xp: user?.xp }}
-                opponent={{ name: bot.name }}
-              >
-                <View style={botStyles.boardWrapper}>
-                  <BoardComponent
-                    G={G}
-                    ctx={ctx}
-                    moves={moves}
-                    playerID="0"
-                    onGameEnd={(res) => handleGameEnd(res, game)}
-                  />
-                </View>
-                <TouchableOpacity style={botStyles.resetBtn} onPress={reset}>
-                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>Reset</Text>
-                </TouchableOpacity>
-              </GameContainer>
-            ) : !gameOver ? (
-              <TouchableOpacity
-                style={botStyles.showBtn}
-                onPress={() => setShowBoard(true)}
-              >
-                <Text style={botStyles.showBtnText}>Show Game</Text>
-              </TouchableOpacity>
-            ) : null}
-            {gameOver && (
-              <View style={botStyles.overButtons}>
-                <TouchableOpacity style={botStyles.againBtn} onPress={playAgain}>
-                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>Play Again</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={botStyles.newBotBtn} onPress={switchBot}>
-                  <Text style={{ color: '#000', fontWeight: 'bold' }}>New Bot</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-          <View style={{ flex: 1, marginTop: 10 }}>
-            <FlatList
-              style={{ flex: 1 }}
-              data={messages}
-              keyExtractor={(item) => item.id}
-              renderItem={renderMessage}
-              inverted
-              contentContainerStyle={{ paddingBottom: 40 }}
-              ListEmptyComponent={
-                <EmptyState
-                  text="No messages yet."
-                  image={require('../../assets/logo.png')}
-                />
-              }
-            />
-            <SafeKeyboardView>
-              <View style={botStyles.inputBar}>
-                <TextInput
-                  style={botStyles.input}
-                  placeholder="Type a message..."
-                  value={text}
-                  onChangeText={setText}
-                />
+    <GradientBackground style={botStyles.gradient}>
+      <Header />
+      <View style={botStyles.playerRow}>
+        <PlayerInfoBar
+          name="You"
+          xp={user?.xp || 0}
+          badges={computeBadges({
+            xp: user?.xp,
+            streak: user?.streak,
+            badges: user?.badges || [],
+            isPremium: user?.isPremium,
+          })}
+          isPremium={user?.isPremium}
+        />
+        <PlayerInfoBar name={bot.name} xp={0} badges={[]} />
+      </View>
+      <KeyboardAvoidingView
+        style={botStyles.keyboardAvoider}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={80}
+      >
+        <ScreenContainer style={botStyles.screenContainer}>
+          <View style={botStyles.gameTabs}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {Object.entries(gameMap).map(([key, val]) => (
                 <TouchableOpacity
-                  style={[botStyles.sendBtn, sending && { opacity: 0.6 }]}
-                  onPress={debouncedSend}
-                  disabled={sending}
+                  key={key}
+                  style={[botStyles.tab, game === key ? botStyles.tabActive : null]}
+                  onPress={() => switchGame(key)}
                 >
-                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>Send</Text>
+                  <Text style={botStyles.tabText}>{val.title}</Text>
                 </TouchableOpacity>
-              </View>
-            </SafeKeyboardView>
+              ))}
+            </ScrollView>
           </View>
-        </View>
+          <Text style={botStyles.gameTitle}>Playing {title} with {bot.name}</Text>
+          <View style={botStyles.content}>
+            <View style={botStyles.boardSection}>
+              {showBoard && !gameOver ? (
+                <GameContainer
+                  onToggleChat={() => setShowBoard(false)}
+                  player={{ name: 'You', xp: user?.xp }}
+                  opponent={{ name: bot.name }}
+                >
+                  <View style={botStyles.boardWrapper}>
+                    <BoardComponent
+                      G={G}
+                      ctx={ctx}
+                      moves={moves}
+                      playerID="0"
+                      onGameEnd={(res) => handleGameEnd(res, game)}
+                    />
+                  </View>
+                  <TouchableOpacity style={botStyles.resetBtn} onPress={reset}>
+                    <Text style={botStyles.resetBtnText}>Reset</Text>
+                  </TouchableOpacity>
+                </GameContainer>
+              ) : !gameOver ? (
+                <TouchableOpacity
+                  style={botStyles.showBtn}
+                  onPress={() => setShowBoard(true)}
+                >
+                  <Text style={botStyles.showBtnText}>Show Game</Text>
+                </TouchableOpacity>
+              ) : null}
+              {gameOver && (
+                <View style={botStyles.overButtons}>
+                  <TouchableOpacity style={botStyles.againBtn} onPress={playAgain}>
+                    <Text style={botStyles.againBtnText}>Play Again</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={botStyles.newBotBtn} onPress={switchBot}>
+                    <Text style={botStyles.newBotBtnText}>New Bot</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+            <View style={botStyles.chatSection}>
+              <FlatList
+                style={botStyles.messageList}
+                data={messages}
+                keyExtractor={(item) => item.id}
+                renderItem={renderMessage}
+                inverted
+                contentContainerStyle={botStyles.listContent}
+                ListEmptyComponent={
+                  <EmptyState
+                    text="No messages yet."
+                    image={require('../../assets/logo.png')}
+                  />
+                }
+              />
+              <SafeKeyboardView>
+                <View style={botStyles.inputBar}>
+                  <TextInput
+                    style={botStyles.input}
+                    placeholder="Type a message..."
+                    value={text}
+                    onChangeText={setText}
+                  />
+                  <TouchableOpacity
+                    style={[botStyles.sendBtn, sending && botStyles.sendBtnDisabled]}
+                    onPress={debouncedSend}
+                    disabled={sending}
+                  >
+                    <Text style={botStyles.sendBtnText}>Send</Text>
+                  </TouchableOpacity>
+                </View>
+              </SafeKeyboardView>
+            </View>
+          </View>
         </ScreenContainer>
-        </KeyboardAvoidingView>
-      </GradientBackground>
+      </KeyboardAvoidingView>
+    </GradientBackground>
   );
 }
 
@@ -861,9 +854,9 @@ function SpectatorSessionScreen({ params }) {
   }, [moveHistory]);
 
   return (
-    <GradientBackground style={{ flex: 1 }}>
+    <GradientBackground style={styles.gradient}>
       <Header showLogoOnly />
-      <ScreenContainer style={{ paddingTop: HEADER_SPACING }}>
+      <ScreenContainer style={styles.container}>
         {loading && (
           <Animated.Text style={[styles.waiting, { opacity: anim }]}>Waiting for Players...</Animated.Text>
         )}
@@ -894,187 +887,271 @@ function SpectatorSessionScreen({ params }) {
 
 const getSpectatorStyles = (theme) =>
   StyleSheet.create({
+    gradient: { flex: 1 },
+    container: { paddingTop: HEADER_SPACING },
     waiting: {
+      ...Fonts.whiteColor18Bold,
       textAlign: 'center',
-      color: '#fff',
-      fontWeight: 'bold',
-      fontSize: 18,
-      marginBottom: 12,
+      marginBottom: Sizes.medium,
     },
     playerRow: {
       flexDirection: 'row',
       justifyContent: 'center',
-      marginBottom: 12,
+      marginBottom: Sizes.medium,
     },
-    player: { alignItems: 'center', marginHorizontal: 8 },
+    player: { alignItems: 'center', marginHorizontal: Sizes.small },
     avatar: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      marginBottom: 4,
+      width: Sizes.avatarMedium,
+      height: Sizes.avatarMedium,
+      borderRadius: Sizes.radiusFull,
+      marginBottom: Sizes.xSmall,
       borderWidth: 2,
-      borderColor: '#9146FF',
+      borderColor: Colors.brandHighlight,
     },
-    playerName: { color: theme.text, fontSize: 12 },
+    playerName: {
+      ...Fonts.blackColor12Medium,
+      color: theme.text,
+    },
     logBox: {
       flex: 1,
       borderWidth: 1,
-      borderColor: '#9146FF',
-      borderRadius: 8,
-      padding: 8,
-      backgroundColor: '#0007',
+      borderColor: Colors.brandHighlight,
+      borderRadius: Sizes.radiusSmall,
+      padding: Sizes.medium,
+      backgroundColor: Colors.overlayStrong,
     },
-    logText: { color: '#fff', fontSize: 14, marginBottom: 2 },
+    logText: {
+      ...Fonts.whiteColor15Regular,
+      marginBottom: Sizes.xxSmall,
+    },
   });
 
 const getBotStyles = (theme) =>
   StyleSheet.create({
-  messageRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    marginVertical: 4,
-  },
-  rowLeft: { justifyContent: 'flex-start' },
-  rowRight: { justifyContent: 'flex-end' },
-  rowCenter: { justifyContent: 'center' },
-  message: {
-    padding: 8,
-    borderRadius: 10,
-    maxWidth: '80%',
-  },
-  left: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#f9f9f9',
-  },
-  right: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#ffb6c1',
-  },
-  system: {
-    alignSelf: 'center',
-    backgroundColor: '#eee',
-  },
-  sender: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    marginBottom: 2,
-  },
-  text: { fontSize: 15 },
-  inputBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: '#fff',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-  },
-  sendBtn: {
-    backgroundColor: theme.accent,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-  },
-  resetBtn: {
-    backgroundColor: '#607d8b',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    alignSelf: 'center',
-    marginTop: 10,
-  },
-  overButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 10,
-  },
-  againBtn: {
-    backgroundColor: '#28c76f',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-  },
-  newBotBtn: {
-    backgroundColor: '#facc15',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-  },
-  boardWrapper: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 20,
-  },
-  closeBtn: {
-    alignSelf: 'flex-end',
-    backgroundColor: theme.accent,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  closeBtnText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  showBtn: {
-    backgroundColor: '#607d8b',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    alignSelf: 'center',
-    marginBottom: 10,
-  },
-  showBtnText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginHorizontal: 6,
-  },
-  gameTabs: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  tab: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    marginHorizontal: 4,
-    borderRadius: 12,
-    backgroundColor: '#eee',
-  },
-  tabActive: {
-    backgroundColor: '#d1c4e9',
-  },
-  tabText: { fontWeight: 'bold' },
-});
+    gradient: { flex: 1 },
+    playerRow: {
+      flexDirection: 'row',
+      paddingHorizontal: Sizes.large,
+      marginTop: Sizes.fixPadding,
+    },
+    keyboardAvoider: { flex: 1 },
+    screenContainer: {
+      paddingTop: HEADER_SPACING,
+      paddingBottom: Sizes.xLarge,
+    },
+    gameTabs: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginBottom: Sizes.fixPadding,
+    },
+    tab: {
+      paddingVertical: Sizes.small,
+      paddingHorizontal: Sizes.medium,
+      marginHorizontal: Sizes.xSmall,
+      borderRadius: Sizes.radiusLarge,
+      backgroundColor: Colors.slate100,
+    },
+    tabActive: {
+      backgroundColor: Colors.lavenderTint,
+    },
+    tabText: {
+      ...Fonts.blackColor15Medium,
+      fontFamily: 'Roboto_Bold',
+      color: theme.text,
+    },
+    gameTitle: {
+      ...Fonts.blackColor18Bold,
+      color: theme.text,
+      marginBottom: Sizes.xLarge,
+    },
+    content: { flex: 1 },
+    boardSection: { flex: 1 },
+    chatSection: { flex: 1, marginTop: Sizes.fixPadding },
+    messageList: { flex: 1 },
+    listContent: { paddingBottom: Sizes.listContentPadding },
+    messageRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      marginVertical: Sizes.xSmall,
+    },
+    rowLeft: { justifyContent: 'flex-start' },
+    rowRight: { justifyContent: 'flex-end' },
+    rowCenter: { justifyContent: 'center' },
+    message: {
+      padding: Sizes.smallPlus,
+      borderRadius: Sizes.radiusMedium,
+      maxWidth: '80%',
+    },
+    left: {
+      alignSelf: 'flex-start',
+      backgroundColor: Colors.neutralSurface,
+    },
+    right: {
+      alignSelf: 'flex-end',
+      backgroundColor: Colors.lightPinkColor,
+    },
+    system: {
+      alignSelf: 'center',
+      backgroundColor: Colors.slate100,
+    },
+    sender: {
+      ...Fonts.grayColor12Bold,
+      marginBottom: Sizes.xxSmall,
+    },
+    text: {
+      ...Fonts.blackColor15Regular,
+    },
+    inputBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: Sizes.smallPlus,
+    },
+    input: {
+      flex: 1,
+      backgroundColor: Colors.whiteColor,
+      paddingHorizontal: Sizes.medium,
+      paddingVertical: Sizes.smallPlus,
+      borderRadius: Sizes.radiusXXLarge,
+      marginRight: Sizes.smallPlus,
+    },
+    sendBtn: {
+      backgroundColor: theme.accent,
+      paddingVertical: Sizes.fixPadding,
+      paddingHorizontal: Sizes.large,
+      borderRadius: Sizes.radiusXXLarge,
+    },
+    sendBtnDisabled: { opacity: 0.6 },
+    sendBtnText: {
+      ...Fonts.whiteColor14Bold,
+    },
+    resetBtn: {
+      backgroundColor: Colors.blueGray,
+      paddingHorizontal: Sizes.medium,
+      paddingVertical: Sizes.small,
+      borderRadius: Sizes.radiusLarge,
+      alignSelf: 'center',
+      marginTop: Sizes.fixPadding,
+    },
+    resetBtnText: {
+      ...Fonts.whiteColor14Bold,
+    },
+    overButtons: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      marginTop: Sizes.fixPadding,
+    },
+    againBtn: {
+      backgroundColor: Colors.success,
+      paddingVertical: Sizes.fixPadding,
+      paddingHorizontal: Sizes.xLarge,
+      borderRadius: Sizes.radiusLarge,
+    },
+    againBtnText: {
+      ...Fonts.whiteColor14Bold,
+    },
+    newBotBtn: {
+      backgroundColor: Colors.warning,
+      paddingVertical: Sizes.fixPadding,
+      paddingHorizontal: Sizes.xLarge,
+      borderRadius: Sizes.radiusLarge,
+    },
+    newBotBtnText: {
+      ...Fonts.blackColor14Bold,
+    },
+    boardWrapper: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginVertical: Sizes.xLarge,
+    },
+    closeBtn: {
+      alignSelf: 'flex-end',
+      backgroundColor: theme.accent,
+      paddingHorizontal: Sizes.smallPlus,
+      paddingVertical: Sizes.xSmall,
+      borderRadius: Sizes.radiusLarge,
+    },
+    closeBtnText: {
+      ...Fonts.whiteColor14Bold,
+    },
+    showBtn: {
+      backgroundColor: Colors.blueGray,
+      paddingHorizontal: Sizes.medium,
+      paddingVertical: Sizes.small,
+      borderRadius: Sizes.radiusLarge,
+      alignSelf: 'center',
+      marginBottom: Sizes.fixPadding,
+    },
+    showBtnText: {
+      ...Fonts.whiteColor14Bold,
+    },
+    avatar: {
+      width: Sizes.avatarSmall,
+      height: Sizes.avatarSmall,
+      borderRadius: Sizes.radiusXLarge,
+      marginHorizontal: Sizes.small,
+    },
+  });
 
 const createStyles = (theme) =>
   StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0007',
-  },
-  countText: {
-    fontSize: 80,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  waitText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-});
+    playerRow: {
+      flexDirection: 'row',
+      paddingHorizontal: Sizes.large,
+      marginTop: Sizes.fixPadding,
+    },
+    gameContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    gameWrapper: { alignItems: 'center' },
+    devToggleRow: {
+      flexDirection: 'row',
+      marginBottom: Sizes.smallPlus,
+    },
+    devToggle: {
+      backgroundColor: Colors.neutralMuted,
+      paddingHorizontal: Sizes.medium,
+      paddingVertical: Sizes.small,
+      borderRadius: Sizes.radiusMedium,
+      alignItems: 'center',
+    },
+    devToggleFirst: { marginRight: Sizes.smallPlus },
+    devToggleActive: { backgroundColor: theme.accent },
+    devToggleText: {
+      ...Fonts.whiteColor14Bold,
+    },
+    overlay: {
+      ...StyleSheet.absoluteFillObject,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: Colors.overlayStrong,
+      paddingHorizontal: Sizes.large,
+    },
+    countText: {
+      ...Fonts.whiteColor80Bold,
+      textAlign: 'center',
+    },
+    waitText: {
+      ...Fonts.blackColor18Bold,
+      color: theme.text,
+      textAlign: 'center',
+      marginBottom: Sizes.smallPlus,
+    },
+    loader: { marginTop: Sizes.xLarge },
+    linkText: {
+      ...Fonts.blackColor15Medium,
+      marginTop: Sizes.fixPadding,
+      color: theme.accent,
+    },
+    invalidText: {
+      ...Fonts.blackColor16Medium,
+      color: theme.text,
+      marginTop: Sizes.hero,
+      textAlign: 'center',
+    },
+  });
 
 GameSessionScreen.propTypes = {
   sessionType: PropTypes.string,
