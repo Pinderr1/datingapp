@@ -76,11 +76,53 @@ const DominoesGame = {
       const tile = G.drawPile.pop();
       G.hands[ctx.currentPlayer].push(tile);
     },
+    passTurn: ({ G, ctx }) => {
+      if (G.drawPile.length > 0) return INVALID_MOVE;
+      const hand = G.hands[ctx.currentPlayer];
+      if (canPlayTile(hand, G.chain)) return INVALID_MOVE;
+    },
   },
   endIf: ({ G, ctx }) => {
-    if (G.hands[ctx.currentPlayer].length === 0) return { winner: ctx.currentPlayer };
+    const playerIds = Object.keys(G.hands);
+    for (const player of playerIds) {
+      if (G.hands[player].length === 0) {
+        return { winner: player, reason: 'Played all tiles' };
+      }
+    }
+
+    if (G.drawPile.length === 0) {
+      const playersBlocked = playerIds.every((player) => !canPlayTile(G.hands[player], G.chain));
+      if (playersBlocked) {
+        const pipTotals = playerIds.map((player) => ({
+          player,
+          pips: pipTotal(G.hands[player]),
+        }));
+        const sorted = [...pipTotals].sort((a, b) => a.pips - b.pips);
+        if (sorted[0].pips < sorted[1].pips) {
+          return {
+            winner: sorted[0].player,
+            reason: 'Lowest pip total after stalemate',
+          };
+        }
+        return {
+          draw: true,
+          reason: 'Stalemate — equal pip totals',
+        };
+      }
+    }
   },
 };
+
+function canPlayTile(hand, chain) {
+  if (chain.length === 0) return hand.length > 0;
+  const leftVal = chain[0][0];
+  const rightVal = chain[chain.length - 1][1];
+  return hand.some(([a, b]) => a === leftVal || b === leftVal || a === rightVal || b === rightVal);
+}
+
+function pipTotal(hand) {
+  return hand.reduce((sum, [a, b]) => sum + a + b, 0);
+}
 
 const DominoTile = ({ values, selected, onPress }) => (
   <TouchableOpacity
@@ -105,11 +147,18 @@ const DominoesBoard = ({ G, ctx, moves, onGameEnd }) => {
 
   const myHand = G.hands[ctx.currentPlayer];
   const disabled = !!ctx.gameover;
+  const canPlay = canPlayTile(myHand, G.chain);
+  const canPass = !disabled && G.drawPile.length === 0 && !canPlay;
 
   let resultText = '';
   if (ctx.gameover) {
-    if (ctx.gameover.winner === '0') resultText = 'You win!';
-    else resultText = 'You lose!';
+    if (ctx.gameover.draw) {
+      resultText = ctx.gameover.reason || "It's a draw!";
+    } else if (ctx.gameover.winner === '0') {
+      resultText = ctx.gameover.reason ? `You win! ${ctx.gameover.reason}` : 'You win!';
+    } else if (ctx.gameover.winner === '1') {
+      resultText = ctx.gameover.reason ? `You lose! ${ctx.gameover.reason}` : 'You lose!';
+    }
   }
 
   return (
@@ -171,8 +220,28 @@ const DominoesBoard = ({ G, ctx, moves, onGameEnd }) => {
         >
           <Text style={{ color: '#fff' }}>Draw</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => {
+            setSelected(null);
+            moves.passTurn();
+          }}
+          disabled={!canPass}
+          style={{
+            marginHorizontal: 6,
+            padding: 6,
+            backgroundColor: canPass ? theme.accent : '#ccc',
+            borderRadius: 4,
+          }}
+        >
+          <Text style={{ color: canPass ? '#fff' : '#666' }}>Pass</Text>
+        </TouchableOpacity>
       </View>
       <Text style={{ marginBottom: 8 }}>Draw pile: {G.drawPile.length}</Text>
+      {!disabled && G.drawPile.length === 0 && !canPlay && (
+        <Text style={{ marginBottom: 8, fontStyle: 'italic' }}>
+          No playable tiles — you may pass.
+        </Text>
+      )}
       {ctx.gameover && (
         <Text style={{ marginTop: 8, fontWeight: 'bold' }}>{resultText}</Text>
       )}
