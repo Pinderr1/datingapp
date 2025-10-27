@@ -14,13 +14,33 @@ export const Colors = {
     cyanColor: '#26A69A',
     slate900: '#0F172A',
     slate100: '#F3F4F6',
+    neutralMuted: '#E5E7EB',
+    neutralBorder: '#D1D5DB',
+    overlayDark: 'rgba(0, 0, 0, 0.45)',
     overlaySoft: 'rgba(15, 23, 42, 0.12)',
     overlayBackdrop: 'rgba(15, 23, 42, 0.6)',
     dividerColor: 'rgba(15, 23, 42, 0.12)',
     dangerColor: '#EF4444',
+    accentSecondary: '#9146FF',
+    accentLavender: '#D1C4E9',
+    infoSurface: '#607D8B',
+    successSurface: '#28C76F',
+    warningSurface: '#FACC15',
 }
 
 export const Fonts = {
+
+    blackColor12Regular: {
+        color: Colors.blackColor,
+        fontSize: 12.0,
+        fontFamily: 'Roboto_Regular'
+    },
+
+    blackColor12Bold: {
+        color: Colors.blackColor,
+        fontSize: 12.0,
+        fontFamily: 'Roboto_Bold'
+    },
 
     blackColor13Regular: {
         color: Colors.blackColor,
@@ -79,6 +99,12 @@ export const Fonts = {
     blackColor18Bold: {
         color: Colors.blackColor,
         fontSize: 18.0,
+        fontFamily: 'Roboto_Bold'
+    },
+
+    blackColor14Bold: {
+        color: Colors.blackColor,
+        fontSize: 14.0,
         fontFamily: 'Roboto_Bold'
     },
 
@@ -142,6 +168,12 @@ export const Fonts = {
         fontFamily: 'Roboto_Bold'
     },
 
+    whiteColor14Bold: {
+        color: Colors.whiteColor,
+        fontSize: 14.0,
+        fontFamily: 'Roboto_Bold'
+    },
+
     whiteColor18Bold: {
         color: Colors.whiteColor,
         fontSize: 18.0,
@@ -151,6 +183,18 @@ export const Fonts = {
     whiteColor20Bold: {
         color: Colors.whiteColor,
         fontSize: 20.0,
+        fontFamily: 'Roboto_Bold'
+    },
+
+    whiteColor14Regular: {
+        color: Colors.whiteColor,
+        fontSize: 14.0,
+        fontFamily: 'Roboto_Regular'
+    },
+
+    whiteColor80Bold: {
+        color: Colors.whiteColor,
+        fontSize: 80.0,
         fontFamily: 'Roboto_Bold'
     },
 
@@ -247,6 +291,25 @@ export const Fonts = {
 
 export const Sizes = {
     fixPadding: 10.0,
+    spacing2: 2.0,
+    spacing4: 4.0,
+    spacing6: 6.0,
+    spacing8: 8.0,
+    spacing10: 10.0,
+    spacing12: 12.0,
+    spacing16: 16.0,
+    spacing20: 20.0,
+    spacing24: 24.0,
+    spacing32: 32.0,
+    spacing40: 40.0,
+    spacing48: 48.0,
+    spacing80: 80.0,
+    radiusSm: 8.0,
+    radiusMd: 10.0,
+    radiusLg: 12.0,
+    radiusXL: 16.0,
+    radius2XL: 20.0,
+    radiusPill: 24.0,
 }
 
 export const screenHeight = Dimensions.get('window').height;
