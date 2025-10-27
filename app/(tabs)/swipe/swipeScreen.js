@@ -6,6 +6,8 @@ import {
     TouchableOpacity,
     ImageBackground,
     ActivityIndicator,
+    Modal,
+    Image,
 } from 'react-native'
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Colors, Fonts, screenWidth, Sizes } from '../../../constants/styles'
@@ -35,6 +37,9 @@ const SwipeScreen = () => {
     const usersRef = useRef(users);
     const [processingCardIds, setProcessingCardIds] = useState({});
     const processingCardIdsRef = useRef(processingCardIds);
+    const [isMatchModalVisible, setIsMatchModalVisible] = useState(false);
+    const [matchedCandidate, setMatchedCandidate] = useState(null);
+    const [activeMatchId, setActiveMatchId] = useState(null);
 
     useEffect(() => {
         usersRef.current = users;
@@ -205,7 +210,9 @@ const SwipeScreen = () => {
                     console.warn('Unable to trigger haptics feedback.', hapticsError);
                 }
                 Toast.show({ type: 'success', text1: "It's a match!" });
-                router.push({ pathname: '/(tabs)/chat/chatScreen', params: { matchId } });
+                setMatchedCandidate(candidate ?? null);
+                setActiveMatchId(matchId);
+                setIsMatchModalVisible(true);
             }
         } catch (err) {
             setUsers((prev) => {
@@ -229,6 +236,21 @@ const SwipeScreen = () => {
             setCardProcessing(candidateId, false);
         }
     }, [handleLoadMore, router, setCardProcessing, showErrorToast])
+
+    const handleCloseMatchModal = useCallback(() => {
+        setIsMatchModalVisible(false);
+        setMatchedCandidate(null);
+        setActiveMatchId(null);
+    }, []);
+
+    const handleOpenChat = useCallback(() => {
+        if (!activeMatchId) {
+            handleCloseMatchModal();
+            return;
+        }
+        router.push({ pathname: '/(tabs)/chat/chatScreen', params: { matchId: activeMatchId } });
+        handleCloseMatchModal();
+    }, [activeMatchId, handleCloseMatchModal, router]);
 
     const handleOpenProfile = useCallback((item) => {
         if (!item?.id) {
@@ -263,8 +285,69 @@ const SwipeScreen = () => {
                     {usersInfo()}
                 </View>
             </View>
+            {renderMatchModal()}
         </View>
     )
+
+    function renderMatchModal() {
+        const candidate = matchedCandidate;
+        const photoSource = resolveCandidateImage(candidate);
+
+        return (
+            <Modal
+                visible={isMatchModalVisible}
+                transparent
+                animationType='fade'
+                onRequestClose={handleCloseMatchModal}
+            >
+                <View style={styles.modalBackdrop}>
+                    <View style={styles.modalContent}>
+                        <Text style={{ ...Fonts.primaryColor18Bold, marginBottom: Sizes.fixPadding }}>
+                            It's a Match!
+                        </Text>
+                        {photoSource ? (
+                            <Image
+                                source={photoSource}
+                                style={styles.modalAvatar}
+                                resizeMode='cover'
+                            />
+                        ) : null}
+                        {candidate?.name ? (
+                            <Text style={{ ...Fonts.blackColor16Bold, marginTop: Sizes.fixPadding }}>
+                                {candidate.name}
+                                {candidate?.age ? `, ${candidate.age}` : ''}
+                            </Text>
+                        ) : null}
+                        {candidate?.profession ? (
+                            <Text style={{ ...Fonts.grayColor15Regular, marginTop: Sizes.fixPadding - 4.0 }}>
+                                {candidate.profession}
+                            </Text>
+                        ) : null}
+                        <View style={styles.modalButtonRow}>
+                            <TouchableOpacity
+                                activeOpacity={0.8}
+                                onPress={handleOpenChat}
+                                style={[styles.modalButton, styles.modalPrimaryButton]}
+                            >
+                                <Text style={{ ...Fonts.whiteColor16Bold }}>
+                                    Send a Message
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                activeOpacity={0.8}
+                                onPress={handleCloseMatchModal}
+                                style={[styles.modalButton, styles.modalSecondaryButton]}
+                            >
+                                <Text style={{ ...Fonts.primaryColor16Bold }}>
+                                    Keep Swiping
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+        );
+    }
 
     function usersInfo() {
         if (loading && users.length === 0) {
@@ -645,5 +728,46 @@ const styles = StyleSheet.create({
     cardFallback: {
         borderRadius: Sizes.fixPadding * 3.0,
         backgroundColor: Colors.bgColor,
+    },
+    modalBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: Sizes.fixPadding * 2.0,
+    },
+    modalContent: {
+        width: '100%',
+        maxWidth: 360,
+        borderRadius: Sizes.fixPadding * 2.0,
+        backgroundColor: Colors.whiteColor,
+        padding: Sizes.fixPadding * 2.5,
+        alignItems: 'center',
+    },
+    modalAvatar: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        marginTop: Sizes.fixPadding,
+    },
+    modalButtonRow: {
+        flexDirection: 'row',
+        marginTop: Sizes.fixPadding * 2.0,
+        width: '100%',
+    },
+    modalButton: {
+        flex: 1,
+        paddingVertical: Sizes.fixPadding,
+        borderRadius: Sizes.fixPadding,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    modalPrimaryButton: {
+        backgroundColor: Colors.primaryColor,
+        marginRight: Sizes.fixPadding,
+    },
+    modalSecondaryButton: {
+        backgroundColor: Colors.bgColor,
+        marginLeft: Sizes.fixPadding,
     },
 })
