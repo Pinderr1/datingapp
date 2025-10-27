@@ -42,6 +42,22 @@ export async function fetchSwipeCandidates({
   void _cooldownDays;
 
   try {
+    const outgoingRef = collection(db, 'likes', currentUserId, 'outgoing');
+    const outgoingSnapshot = await getDocs(outgoingRef);
+    const excludedIds = new Set();
+    outgoingSnapshot?.docs?.forEach((docSnap) => {
+      const data = docSnap?.data?.();
+      if (
+        docSnap?.id &&
+        typeof docSnap.id === 'string' &&
+        data &&
+        typeof data === 'object' &&
+        typeof data.liked === 'boolean'
+      ) {
+        excludedIds.add(docSnap.id);
+      }
+    });
+
     const usersRef = collection(db, 'users');
     const constraints = [
       where(documentId(), '!=', currentUserId),
@@ -55,7 +71,7 @@ export async function fetchSwipeCandidates({
 
     const users = snapshot.docs
       .map((s) => ({ id: s.id, ...(s.data() ?? {}) }))
-      .filter((c) => c.id && c.id !== currentUserId);
+      .filter((c) => c.id && c.id !== currentUserId && !excludedIds.has(c.id));
 
     const lastVisible = snapshot.docs[snapshot.docs.length - 1];
     const hasMore = snapshot.docs.length === clampedLimit;

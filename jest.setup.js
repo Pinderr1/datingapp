@@ -51,11 +51,23 @@ const mockDoc = jest.fn((base, ...segments) => {
   return buildRef(pathSegments);
 });
 
+const mockWhere = jest.fn((...args) => ({ type: 'where', args }));
+const mockOrderBy = jest.fn((...args) => ({ type: 'orderBy', args }));
+const mockLimit = jest.fn((limit) => ({ type: 'limit', limit }));
+const mockStartAfter = jest.fn((...args) => ({ type: 'startAfter', args }));
+const mockDocumentId = jest.fn(() => ({ type: 'documentId' }));
+const mockQuery = jest.fn((ref, ...constraints) => ({
+  type: 'query',
+  ref,
+  constraints,
+}));
+
 const mockGetDoc = jest.fn(async () => ({
   exists: () => false,
   data: () => null,
 }));
 
+const mockGetDocs = jest.fn(async () => ({ docs: [], empty: true }));
 const mockSetDoc = jest.fn(() => Promise.resolve());
 const mockUpdateDoc = jest.fn(() => Promise.resolve());
 const mockServerTimestamp = jest.fn(() => ({ __firestoreServerTimestamp: true }));
@@ -64,7 +76,14 @@ jest.mock('firebase/firestore', () => ({
   getFirestore: jest.fn(),
   collection: mockCollection,
   doc: mockDoc,
+  query: mockQuery,
+  where: mockWhere,
+  orderBy: mockOrderBy,
+  limit: mockLimit,
+  startAfter: mockStartAfter,
+  documentId: mockDocumentId,
   getDoc: mockGetDoc,
+  getDocs: mockGetDocs,
   setDoc: mockSetDoc,
   updateDoc: mockUpdateDoc,
   serverTimestamp: mockServerTimestamp,
@@ -73,7 +92,14 @@ jest.mock('firebase/firestore', () => ({
 global.__firestoreMocks = {
   collection: mockCollection,
   doc: mockDoc,
+  query: mockQuery,
+  where: mockWhere,
+  orderBy: mockOrderBy,
+  limit: mockLimit,
+  startAfter: mockStartAfter,
+  documentId: mockDocumentId,
   getDoc: mockGetDoc,
+  getDocs: mockGetDocs,
   setDoc: mockSetDoc,
   updateDoc: mockUpdateDoc,
   serverTimestamp: mockServerTimestamp,
