@@ -20,6 +20,23 @@ service cloud.firestore {
              data.users.hasAny([request.auth.uid]);
     }
 
+    function likeDocumentShowsTrue(fromUid, toUid) {
+      let likeDoc = get(/databases/$(database)/documents/likes/$(fromUid)/outgoing/$(toUid)).data;
+      return likeDoc != null && likeDoc.liked == true;
+    }
+
+    function matchParticipantsHaveMutualLikes() {
+      return request.resource.data != null &&
+             request.resource.data.keys().hasAny(['users']) &&
+             request.resource.data.users is list &&
+             request.resource.data.users.size() == 2 &&
+             request.resource.data.users[0] is string &&
+             request.resource.data.users[1] is string &&
+             request.resource.data.users[0] != request.resource.data.users[1] &&
+             likeDocumentShowsTrue(request.resource.data.users[0], request.resource.data.users[1]) &&
+             likeDocumentShowsTrue(request.resource.data.users[1], request.resource.data.users[0]);
+    }
+
     function isGameParticipant(data) {
       return data != null &&
              data.keys().hasAny(['players']) &&
@@ -47,8 +64,13 @@ service cloud.firestore {
     match /matches/{matchId} {
       allow get: if isSignedIn() && isMatchParticipant(resource.data);
       allow list: if isSignedIn() && isMatchParticipant(resource.data);
-      allow create: if isSignedIn() && isMatchParticipant(request.resource.data);
-      allow update: if isSignedIn() && isMatchParticipant(resource.data) && isMatchParticipant(request.resource.data);
+      allow create: if isSignedIn() &&
+                    isMatchParticipant(request.resource.data) &&
+                    matchParticipantsHaveMutualLikes();
+      allow update: if isSignedIn() &&
+                    isMatchParticipant(resource.data) &&
+                    isMatchParticipant(request.resource.data) &&
+                    matchParticipantsHaveMutualLikes();
       allow delete: if isSignedIn() && isMatchParticipant(resource.data);
     }
 
