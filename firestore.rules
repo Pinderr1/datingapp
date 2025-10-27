@@ -125,7 +125,11 @@ service cloud.firestore {
     }
 
     match /sessions/{sessionId} {
-      allow read, create, update, delete: if isSignedIn() && ownerMatches(request.resource.data);
+      allow get: if isSignedIn() && ownerMatches(resource.data);
+      allow list: if isSignedIn() && ownerMatches(resource.data);
+      allow create: if isSignedIn() && ownerMatches(request.resource.data);
+      allow update: if isSignedIn() && ownerMatches(resource.data) && ownerMatches(request.resource.data);
+      allow delete: if isSignedIn() && ownerMatches(resource.data) && ownerMatches(request.resource.data);
     }
 
     match /games/{gameId} {
