@@ -203,22 +203,26 @@ export default function useGameSession(sessionId, gameId, opponentId) {
     return () => unsub();
   }, [sessionId, session?.players, user?.uid, permissionError]);
 
+  const playerIndex =
+    user?.uid && Array.isArray(session?.players)
+      ? session.players.indexOf(user.uid)
+      : -1;
+  const playerID = playerIndex >= 0 ? String(playerIndex) : null;
+
   // --- SEND MOVE ---
   const sendMove = useCallback(
     async (moveName, ...args) => {
       const storedCurrentPlayer = session?.currentPlayer ?? session?.state?.ctx?.currentPlayer;
       if (!session || !Game || !session.state || !user?.uid) return;
       if (!Array.isArray(session.players)) return;
-      const idx = session.players.indexOf(user.uid);
-      if (idx === -1) return;
-      if (String(idx) !== String(storedCurrentPlayer)) return;
+      if (playerIndex === -1 || playerID === null) return;
+      if (playerID !== String(storedCurrentPlayer)) return;
       if (session.gameover ?? session.state?.ctx?.gameover) return;
 
       const move = Game.moves[moveName];
       if (!move) return;
 
       const numPlayers = Math.max(session.players.length || 0, 1);
-      const playerID = String(idx);
 
       const client = Client({ game: Game, numPlayers });
       client.start();
@@ -256,7 +260,7 @@ export default function useGameSession(sessionId, gameId, opponentId) {
         });
         await addDoc(collection(db, 'games', sessionId, 'moves'), {
           action: moveName,
-          player: String(idx),
+          player: playerID,
           at: serverTimestamp(),
         });
         play('game_move');
@@ -268,7 +272,17 @@ export default function useGameSession(sessionId, gameId, opponentId) {
         }
       }
     },
-    [session, Game, sessionId, user?.uid, hydrateClient, serializeState, play]
+    [
+      session,
+      Game,
+      sessionId,
+      user?.uid,
+      hydrateClient,
+      serializeState,
+      play,
+      playerIndex,
+      playerID,
+    ]
   );
 
   const moves = {};
@@ -294,6 +308,7 @@ export default function useGameSession(sessionId, gameId, opponentId) {
     G: session?.state?.G ?? session?.state ?? {},
     ctx: derivedCtx,
     moves,
+    playerID,
     moveHistory,
     loading: !session && !permissionError,
     permissionDenied: permissionError,

@@ -9,8 +9,12 @@ import { useUser } from '../contexts/UserContext';
 
 export default function SyncedGame({ sessionId, gameId, opponent, onGameEnd }) {
   const { user } = useUser();
-  const { Board, meta } = games[gameId] || {};
-  const { G, ctx, moves, loading } = useGameSession(sessionId, gameId, opponent?.id);
+  const { Board } = games[gameId] || {};
+  const { G, ctx, moves, playerID, loading } = useGameSession(
+    sessionId,
+    gameId,
+    opponent?.id
+  );
 
   if (!Board) return null;
   if (loading || !G) {
@@ -31,7 +35,7 @@ export default function SyncedGame({ sessionId, gameId, opponent, onGameEnd }) {
         name: opponent?.displayName || 'Opponent',
       }}
     >
-      <Board G={G} ctx={ctx} moves={moves} onGameEnd={onGameEnd} />
+      <Board G={G} ctx={ctx} moves={moves} playerID={playerID ?? '0'} onGameEnd={onGameEnd} />
     </GameContainer>
   );
 }

@@ -770,6 +770,7 @@ function BotSessionScreen({ params }) {
                     G={G}
                     ctx={ctx}
                     moves={moves}
+                    playerID="0"
                     onGameEnd={(res) => handleGameEnd(res, game)}
                   />
                 </View>
