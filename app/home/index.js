@@ -212,7 +212,7 @@ const HomeScreen = () => {
         <View style={{ paddingHorizontal: Sizes.fixPadding * 2 }}>
           <GradientButton
             text="Swipe Now"
-            onPress={() => router.push('/swipe')}
+            onPress={() => router.push('/(tabs)/swipe')}
           />
         </View>
       </ScrollView>

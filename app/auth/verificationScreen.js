@@ -72,7 +72,7 @@ const VerificationScreen = () => {
                     setisLoading(true)
                     setTimeout(() => {
                         setisLoading(false)
-                        router.replace('/swipe')
+                        router.replace('/(tabs)/swipe')
                     }, 2000);
                 }}
                 style={styles.buttonStyle}
@@ -106,7 +106,7 @@ const VerificationScreen = () => {
                         setisLoading(true)
                         setTimeout(() => {
                             setisLoading(false)
-                            router.replace('/swipe')
+                            router.replace('/(tabs)/swipe')
                         }, 2000);
                     }
                 }}

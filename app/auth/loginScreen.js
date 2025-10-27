@@ -16,7 +16,7 @@ const LoginScreen = () => {
 
     const redirectBasedOnOnboarding = (userData) => {
         if (userData?.onboardingComplete) {
-            router.replace('/swipe');
+            router.replace('/(tabs)/swipe');
         } else {
             router.replace('/onboarding');
         }
