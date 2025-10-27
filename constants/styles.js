@@ -18,6 +18,7 @@ export const Colors = {
     overlayBackdrop: 'rgba(15, 23, 42, 0.6)',
     dividerColor: 'rgba(15, 23, 42, 0.12)',
     dangerColor: '#EF4444',
+    success: '#2ECC71',
 }
 
 export const Fonts = {
@@ -242,11 +243,35 @@ export const Fonts = {
         color: Colors.primaryColor,
         fontSize: 18.0,
         fontFamily: 'Roboto_Bold'
+    },
+
+    blackColor26Regular: {
+        color: Colors.blackColor,
+        fontSize: 26.0,
+        fontFamily: 'Roboto_Regular'
+    },
+
+    successColor14Medium: {
+        color: Colors.success,
+        fontSize: 14.0,
+        fontFamily: 'Roboto_Medium'
     }
 }
 
+const baseUnit = 10.0
+
 export const Sizes = {
-    fixPadding: 10.0,
+    fixPadding: baseUnit,
+    xSmall: baseUnit * 0.4,
+    small: baseUnit * 0.6,
+    smallPlus: baseUnit * 0.8,
+    medium: baseUnit * 1.2,
+    mediumPlus: baseUnit * 1.4,
+    large: baseUnit * 1.6,
+    xLarge: baseUnit * 2,
+    xxLarge: baseUnit * 2.6,
+    iconSmall: baseUnit * 1.6,
+    iconMedium: baseUnit * 2.2,
 }
 
 export const screenHeight = Dimensions.get('window').height;
