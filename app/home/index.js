@@ -68,17 +68,14 @@ const HomeScreen = () => {
                 resizeMode="cover"
               />
               <View style={styles.profileInfo}>
-                <Text
-                  numberOfLines={1}
-                  style={{ ...Fonts.blackColor18Bold, marginBottom: 4 }}
-                >
+                <Text numberOfLines={1} style={styles.welcomeText}>
                   {user?.displayName ? `Welcome, ${user.displayName}` : 'Welcome!'}
                 </Text>
                 <View style={styles.profileMetaRow}>
                   <View style={styles.metaPill}>
                     <MaterialCommunityIcons
                       name="flash"
-                      size={16}
+                      size={Sizes.iconSmall}
                       color={Colors.primaryColor}
                     />
                     <Text style={styles.metaPillText}>{user?.xp ?? 0} XP</Text>
@@ -86,7 +83,7 @@ const HomeScreen = () => {
                   <View style={styles.metaPill}>
                     <MaterialCommunityIcons
                       name="fire"
-                      size={16}
+                      size={Sizes.iconSmall}
                       color={Colors.primaryColor}
                     />
                     <Text style={styles.metaPillText}>
@@ -103,7 +100,7 @@ const HomeScreen = () => {
             >
               <MaterialIcons
                 name="settings"
-                size={22}
+                size={Sizes.iconMedium}
                 color={Colors.primaryColor}
               />
             </TouchableOpacity>
@@ -118,7 +115,7 @@ const HomeScreen = () => {
             <Text style={styles.streakLabel}>
               {streakProgress}/7 Day Progress
             </Text>
-            <ProgressBar value={streakProgress} max={7} color="#2ecc71" />
+            <ProgressBar value={streakProgress} max={7} color={Colors.success} />
           </View>
         </View>
 
@@ -221,11 +218,9 @@ const HomeScreen = () => {
       <Modal visible={showGamePicker} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 12 }}>
-              Choose a Game
-            </Text>
+            <Text style={styles.modalHeader}>Choose a Game</Text>
             <TouchableOpacity onPress={() => setShowGamePicker(false)}>
-              <Text style={{ color: Colors.primaryColor }}>Close</Text>
+              <Text style={styles.modalCloseText}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -273,14 +268,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.bgColor,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginRight: 6,
+    paddingHorizontal: Sizes.smallPlus,
+    paddingVertical: Sizes.xSmall,
+    borderRadius: Sizes.smallPlus,
+    marginRight: Sizes.small,
   },
   metaPillText: {
     ...Fonts.blackColor13Regular,
-    marginLeft: 4,
+    marginLeft: Sizes.xSmall,
   },
   iconWrapStyle: {
     width: 42,
@@ -291,9 +286,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   bonus: {
-    fontSize: 14,
-    color: '#2ecc71',
-    marginBottom: 8,
+    ...Fonts.successColor14Medium,
+    marginBottom: Sizes.smallPlus,
     alignSelf: 'center',
   },
   group: {
@@ -305,8 +299,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bgColor,
     padding: Sizes.fixPadding * 2,
   },
-  levelText: { ...Fonts.blackColor16Bold, marginBottom: 8 },
-  streakLabel: { ...Fonts.grayColor13Regular, marginTop: 8 },
+  levelText: { ...Fonts.blackColor16Bold, marginBottom: Sizes.smallPlus },
+  streakLabel: { ...Fonts.grayColor13Regular, marginTop: Sizes.smallPlus },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -326,19 +320,19 @@ const styles = StyleSheet.create({
   fullTile: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 14,
-    borderRadius: 12,
+    paddingVertical: Sizes.large,
+    paddingHorizontal: Sizes.mediumPlus,
+    borderRadius: Sizes.medium,
     backgroundColor: Colors.bgColor,
-    marginBottom: 12,
+    marginBottom: Sizes.medium,
   },
-  tileEmoji: { fontSize: 26, marginRight: 10 },
+  tileEmoji: { fontSize: Sizes.xxLarge, marginRight: Sizes.fixPadding },
   fullTileText: { ...Fonts.blackColor15Regular },
   matchCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.bgColor,
-    borderRadius: 12,
+    borderRadius: Sizes.medium,
     padding: Sizes.fixPadding * 1.5,
     marginBottom: Sizes.fixPadding,
   },
@@ -357,16 +351,27 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: Colors.overlayBackdrop,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalCard: {
     backgroundColor: Colors.whiteColor,
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: Sizes.medium,
+    padding: Sizes.xLarge,
     width: '80%',
     alignItems: 'center',
+  },
+  modalHeader: {
+    ...Fonts.blackColor16Bold,
+    marginBottom: Sizes.medium,
+  },
+  modalCloseText: {
+    ...Fonts.primaryColor14Bold,
+  },
+  welcomeText: {
+    ...Fonts.blackColor18Bold,
+    marginBottom: Sizes.xSmall,
   },
 });
 
