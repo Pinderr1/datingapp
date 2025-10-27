@@ -16,6 +16,7 @@ export const Colors = {
     slate100: '#F3F4F6',
     overlaySoft: 'rgba(15, 23, 42, 0.12)',
     overlayBackdrop: 'rgba(15, 23, 42, 0.6)',
+    grayDividerColor: 'rgba(138, 156, 191, 0.125)',
     dividerColor: 'rgba(15, 23, 42, 0.12)',
     dangerColor: '#EF4444',
     success: '#2ECC71',
