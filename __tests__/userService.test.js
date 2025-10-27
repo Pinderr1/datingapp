@@ -1,5 +1,5 @@
 import { getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { likeUser } from '../services/userService';
+import { fetchSwipeCandidates, likeUser } from '../services/userService';
 import { ensureAuth } from '../services/authService';
 import { success } from '../services/result';
 
@@ -47,6 +47,47 @@ describe('likeUser', () => {
     const updateKeys = Object.keys(updatePayload);
     expect(updateKeys.every((key) => ['updatedAt', 'matchedAt'].includes(key))).toBe(true);
     expect(updatePayload).not.toHaveProperty('lastMessage');
+  });
+});
+
+describe('fetchSwipeCandidates', () => {
+  const { getDocs: mockGetDocs } = global.__firestoreMocks;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetDocs.mockReset();
+  });
+
+  it('omits users that were previously liked or passed', async () => {
+    ensureAuth.mockResolvedValue(success({ user: { uid: 'userA' } }));
+
+    const likedDoc = { id: 'userB', data: () => ({ liked: true }) };
+    const passedDoc = { id: 'userC', data: () => ({ liked: false }) };
+    const candidateDocs = [
+      { id: 'userA', data: () => ({ name: 'Self' }) },
+      { id: 'userB', data: () => ({ name: 'Liked' }) },
+      { id: 'userC', data: () => ({ name: 'Passed' }) },
+      { id: 'userD', data: () => ({ name: 'Fresh' }) },
+    ];
+
+    mockGetDocs.mockImplementation(async (target) => {
+      if (target?.path === 'likes/userA/outgoing') {
+        return { docs: [likedDoc, passedDoc], empty: false };
+      }
+      if (target?.ref?.path === 'users') {
+        return { docs: candidateDocs, empty: false };
+      }
+      throw new Error(`Unexpected getDocs target: ${JSON.stringify(target)}`);
+    });
+
+    const result = await fetchSwipeCandidates();
+
+    expect(mockGetDocs).toHaveBeenCalledTimes(2);
+    expect(mockGetDocs.mock.calls[0][0].path).toBe('likes/userA/outgoing');
+
+    expect(result).toMatchObject({ ok: true });
+    expect(result.data.users.map((u) => u.id)).toEqual(['userD']);
+    expect(result.data.nextCursor).toBeNull();
   });
 });
 
