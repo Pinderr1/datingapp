@@ -31,18 +31,23 @@ const RPSGame = {
   },
 };
 
-const RPSBoard = ({ G, ctx, moves, onGameEnd }) => {
+const RPSBoard = ({ G, ctx, moves, onGameEnd, playerID = '0' }) => {
   useOnGameOver(ctx.gameover, onGameEnd);
 
   const disabled = !!ctx.gameover;
-  const yourChoice = G.moves[0];
-  const oppChoice = G.moves[1];
+  const parsedPlayerIndex = parseInt(playerID, 10);
+  const playerIndex = Number.isNaN(parsedPlayerIndex) ? 0 : parsedPlayerIndex;
+  const opponentIndex = playerIndex === 0 ? 1 : 0;
+  const yourChoice = G.moves[playerIndex];
+  const oppChoice = G.moves[opponentIndex];
+  const isPlayerTurn = ctx.currentPlayer === playerID;
+  const hasBothMoves = G.moves.every((move) => move !== null);
 
   return (
     <View style={{ alignItems: 'center' }}>
       {!ctx.gameover && (
         <Text style={{ marginBottom: 10, fontWeight: 'bold' }}>
-          {ctx.currentPlayer === '0' ? 'Your turn' : 'Waiting for opponent'}
+          {isPlayerTurn ? 'Your turn' : 'Waiting for opponent'}
         </Text>
       )}
       <View style={{ flexDirection: 'row', marginBottom: 20 }}>
@@ -50,7 +55,7 @@ const RPSBoard = ({ G, ctx, moves, onGameEnd }) => {
           <TouchableOpacity
             key={idx}
             onPress={() => moves.choose(idx)}
-            disabled={disabled || yourChoice !== null}
+            disabled={disabled || !isPlayerTurn || yourChoice !== null}
             style={{
               padding: 10,
               margin: 5,
@@ -64,12 +69,14 @@ const RPSBoard = ({ G, ctx, moves, onGameEnd }) => {
         ))}
       </View>
       <Text>Your choice: {yourChoice !== null ? choices[yourChoice] : '-'}</Text>
-      <Text>Opponent: {oppChoice !== null ? choices[oppChoice] : '-'}</Text>
+      <Text>
+        Opponent: {hasBothMoves || ctx.gameover ? choices[oppChoice] : '-'}
+      </Text>
       {ctx.gameover && (
         <Text style={{ marginTop: 10, fontWeight: 'bold' }}>
           {ctx.gameover.draw
             ? 'Draw!'
-            : ctx.gameover.winner === '0'
+            : ctx.gameover.winner === playerID
             ? 'You win!'
             : 'You lose!'}
         </Text>
