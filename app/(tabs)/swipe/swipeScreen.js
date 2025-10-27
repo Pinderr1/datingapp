@@ -231,10 +231,30 @@ const SwipeScreen = () => {
     }, [handleLoadMore, router, setCardProcessing, showErrorToast])
 
     const handleOpenProfile = useCallback((item) => {
-        if (!item?.id) {
+        if (!item) {
             return;
         }
-        router.push({ pathname: '/profileDetail/profileDetailScreen', params: { userId: item.id } });
+
+        const rawId = item?.id ?? item?.userId;
+        const resolvedId = typeof rawId === 'string' ? rawId.trim() : (rawId != null ? String(rawId).trim() : '');
+
+        if (!resolvedId) {
+            return;
+        }
+
+        let initialProfileParam = null;
+        try {
+            initialProfileParam = JSON.stringify({ ...item, id: resolvedId });
+        } catch (error) {
+            console.warn('Failed to serialize profile for navigation.', error);
+        }
+
+        const params = { userId: resolvedId };
+        if (initialProfileParam) {
+            params.initialProfile = initialProfileParam;
+        }
+
+        router.push({ pathname: '/profileDetail/profileDetailScreen', params });
     }, [router]);
 
     const handleButtonDecision = useCallback((liked) => {
