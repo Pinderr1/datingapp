@@ -1,456 +1,362 @@
 // app/onboarding/index.js
-// Onboarding for NEW Pinged (Expo 54, Firebase v9 modular, Expo Router)
+// Two-step onboarding for Pinged (Expo 54 + Firebase v9 modular + Expo Router)
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Animated,
   Easing,
   Image,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
   useColorScheme,
-} from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import * as Location from 'expo-location';
-import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+  LayoutAnimation,
+  UIManager,
+} from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
+import * as Location from 'expo-location'
+import * as Haptics from 'expo-haptics'
+import { useRouter } from 'expo-router'
+import { auth, db, storage } from '../../firebaseConfig'
+import { arrayUnion, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage'
+import { Colors, Fonts } from '../../constants/styles'
 
-// Firebase (v9 modular)
-import { auth, db, storage } from '../../firebaseConfig';
-import { arrayUnion, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { Colors, Fonts } from '../../constants/styles';
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true)
+}
 
-const REQUIRED_KEYS = ['avatar', 'displayName', 'ageGender'];
-
-const clamp = (s = '', max = 120) => (s.length > max ? s.slice(0, max) : s).trim();
-const isAdult = (n) => /^\d+$/.test(String(n)) && parseInt(String(n), 10) >= 18;
+const clamp = (s = '', max = 120) => (s.length > max ? s.slice(0, max) : s).trim()
+const isAdult = (n) => /^\d+$/.test(String(n)) && parseInt(String(n), 10) >= 18
 
 async function pickImageFromLibrary() {
-  const { status, granted, ios } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  const hasAccess = granted || ios?.accessPrivileges === 'limited';
+  const { status, granted, ios } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+  const hasAccess = granted || ios?.accessPrivileges === 'limited'
   if (!hasAccess) {
-    if (status === 'denied') {
-      Alert.alert(
-        'Photo access needed',
-        'Please enable photo library access in your settings to upload an image.'
-      );
-    }
-    throw new Error('Permission denied');
+    Alert.alert('Photo access needed', 'Enable photo library access in settings.')
+    throw new Error('Permission denied')
   }
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ImagePicker.MediaTypeOptions.Images,
     allowsEditing: true,
     quality: 0.8,
-    base64: true,
-  });
-  if (result.canceled) return null;
-  const asset = result.assets?.[0];
-  if (!asset) return null;
-  return {
-    uri: asset.uri,
-    base64: asset.base64,
-    mimeType: asset.mimeType,
-  };
+  })
+  if (result.canceled) return null
+  return result.assets?.[0] || null
 }
 
 export default function OnboardingScreen() {
-  const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDarkMode = colorScheme === 'dark';
+  const router = useRouter()
+  const colorScheme = useColorScheme()
+  const isDark = colorScheme === 'dark'
 
   const theme = useMemo(
     () => ({
-      background: isDarkMode ? Colors.slate900 : Colors.bgColor,
-      card: isDarkMode ? Colors.overlayBackdrop : Colors.whiteColor,
-      text: isDarkMode ? Colors.whiteColor : Colors.blackColor,
+      background: isDark ? Colors.slate900 : Colors.bgColor,
+      card: isDark ? Colors.overlayBackdrop : Colors.whiteColor,
+      text: isDark ? Colors.whiteColor : Colors.blackColor,
       subtext: Colors.grayColor,
       accent: Colors.primaryColor,
-      line: isDarkMode ? Colors.overlaySoft : Colors.dividerColor,
+      line: isDark ? Colors.overlaySoft : Colors.dividerColor,
       placeholder: Colors.grayColor,
     }),
-    [isDarkMode]
-  );
+    [isDark]
+  )
 
-  const styles = useMemo(() => createStyles(theme, isDarkMode), [theme, isDarkMode]);
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark])
 
-  const steps = useMemo(
-    () => [
-      { key: 'avatar', label: 'Upload your photo' },
-      { key: 'displayName', label: 'What’s your name?' },
-      { key: 'ageGender', label: 'Age & gender' },
-      { key: 'bio', label: 'Write a short bio (optional)' },
-      { key: 'location', label: 'Where are you located? (optional)' },
-    ],
-    []
-  );
+  const [step, setStep] = useState(0)
+  const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState('')
+  const [expandedTerms, setExpandedTerms] = useState(false)
+  const [agreed, setAgreed] = useState(false)
 
   const [answers, setAnswers] = useState({
-    avatar: '',
     displayName: '',
     age: '',
     gender: '',
     bio: '',
+    preferredSex: '',
+    locationPref: '',
     location: '',
-  });
+  })
 
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [step, setStep] = useState(0);
-
-  const progressAnim = useRef(new Animated.Value(1 / steps.length)).current;
-  const progress = (step + 1) / steps.length;
+  const progressAnim = useRef(new Animated.Value(0)).current
   useEffect(() => {
     Animated.timing(progressAnim, {
-      toValue: progress,
-      duration: 350,
+      toValue: (step + 1) / 2,
+      duration: 400,
       easing: Easing.inOut(Easing.ease),
       useNativeDriver: false,
-    }).start();
-  }, [progress]);
+    }).start()
+  }, [step])
 
-  // Already onboarded? Go to tabs.
   useEffect(() => {
     (async () => {
-      const u = auth.currentUser;
-      if (!u) return;
-      const snap = await getDoc(doc(db, 'users', u.uid));
-      const data = snap.exists() ? snap.data() : null;
-      if (data?.onboardingComplete) router.replace('/(tabs)/home');
-    })().catch(() => {});
-  }, [router]);
-
-  const currentKey = steps[step].key;
-  const validateField = () => {
-    if (!REQUIRED_KEYS.includes(currentKey)) return true;
-    if (currentKey === 'avatar') return Boolean(avatarUrl?.trim());
-    if (currentKey === 'displayName') return clamp(answers.displayName, 40).length >= 1;
-    if (currentKey === 'ageGender') return isAdult(answers.age) && !!answers.gender;
-    return true;
-  };
-  const isValid = validateField();
+      const u = auth.currentUser
+      if (!u) return
+      const snap = await getDoc(doc(db, 'users', u.uid))
+      if (snap.exists() && snap.data()?.onboardingComplete) router.replace('/(tabs)/home')
+    })().catch(() => {})
+  }, [router])
 
   const ensureSignedIn = () => {
-    const u = auth.currentUser;
+    const u = auth.currentUser
     if (!u) {
-      Alert.alert('Not signed in', 'Please sign in first.');
-      return null;
+      Alert.alert('Not signed in', 'Please sign in first.')
+      return null
     }
-    return u;
-  };
+    return u
+  }
 
   const onPickAvatar = async () => {
-    let fallbackUri = '';
     try {
-      await Haptics.selectionAsync();
-      const asset = await pickImageFromLibrary();
-      if (!asset) return;
-      fallbackUri = asset.base64
-        ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`
-        : asset.uri;
-
-      setAnswers((p) => ({ ...p, avatar: fallbackUri }));
-      setAvatarUrl('');
-
-      if (!asset.uri) {
-        console.warn('Selected avatar is missing a file URI; using fallback data URI.');
-        setAvatarUrl(fallbackUri);
-        return;
-      }
-
-      const user = ensureSignedIn();
-      if (!user) {
-        setAvatarUrl(fallbackUri);
-        setAnswers((p) => ({ ...p, avatar: fallbackUri }));
-        return;
-      }
-
-      if (!storage) {
-        console.warn('Firebase storage unavailable; using local avatar data URI.');
-        setAvatarUrl(fallbackUri);
-        setAnswers((p) => ({ ...p, avatar: fallbackUri }));
-        return;
-      }
-
-      setUploadingAvatar(true);
-      let blob;
-      try {
-        const response = await fetch(asset.uri);
-        blob = await response.blob();
-        const avatarRef = ref(storage, `avatars/${user.uid}/${Date.now()}.jpg`);
-        await uploadBytes(avatarRef, blob, {
-          contentType: asset.mimeType || 'image/jpeg',
-        });
-        const url = await getDownloadURL(avatarRef);
-        setAvatarUrl(url);
-        setAnswers((p) => ({ ...p, avatar: url }));
-      } catch (uploadError) {
-        console.error('avatar upload error', uploadError);
-        Alert.alert('Upload failed', uploadError?.code || uploadError?.message || String(uploadError));
-        setAvatarUrl(fallbackUri);
-        setAnswers((p) => ({ ...p, avatar: fallbackUri }));
-      } finally {
-        if (blob && typeof blob.close === 'function') {
-          blob.close();
-        }
-        setUploadingAvatar(false);
-      }
+      await Haptics.selectionAsync()
+      const asset = await pickImageFromLibrary()
+      if (!asset?.uri) return
+      const user = ensureSignedIn()
+      if (!user) return
+      setUploading(true)
+      const response = await fetch(asset.uri)
+      const blob = await response.blob()
+      const refPath = ref(storage, `avatars/${user.uid}/${Date.now()}.jpg`)
+      await uploadBytes(refPath, blob)
+      const url = await getDownloadURL(refPath)
+      setAvatarUrl(url)
     } catch (e) {
-      console.error('avatar upload error', e);
-      Alert.alert('Upload failed', e?.code || e?.message || String(e));
-      if (fallbackUri) {
-        setAvatarUrl(fallbackUri);
-        setAnswers((p) => ({ ...p, avatar: fallbackUri }));
-      } else {
-        setAvatarUrl('');
-      }
+      Alert.alert('Upload failed', e.message || String(e))
+    } finally {
+      setUploading(false)
     }
-  };
+  }
 
   const autofillLocation = async () => {
     try {
-      await Haptics.selectionAsync();
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-      const loc = await Location.getCurrentPositionAsync({});
-      const geo = await Location.reverseGeocodeAsync(loc.coords);
-      const g = geo?.[0];
-      if (g) {
-        const city = g.city || g.subregion || '';
-        const region = g.region || g.country || '';
-        const label = [city, region].filter(Boolean).join(', ');
-        setAnswers((p) => ({ ...p, location: label }));
-      }
-    } catch {
-      // silent
-    }
-  };
+      const { status } = await Location.requestForegroundPermissionsAsync()
+      if (status !== 'granted') return
+      const loc = await Location.getCurrentPositionAsync({})
+      const geo = await Location.reverseGeocodeAsync(loc.coords)
+      const g = geo?.[0]
+      const city = g.city || g.subregion || ''
+      const region = g.region || g.country || ''
+      const label = [city, region].filter(Boolean).join(', ')
+      setAnswers((p) => ({ ...p, location: label }))
+    } catch {}
+  }
+
+  const isValidStep1 = () =>
+    avatarUrl &&
+    clamp(answers.displayName, 40) &&
+    isAdult(answers.age) &&
+    answers.gender &&
+    agreed
+
+  const isValidStep2 = () =>
+    answers.preferredSex && answers.locationPref && !saving && !uploading
 
   const handleNext = async () => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (saving) return;
-    if (uploadingAvatar) {
-      Alert.alert('Please wait', 'Your photo is still uploading.');
-      return;
-    }
-
-    if (step < steps.length - 1) {
-      if (!isValid) {
-        Alert.alert('Incomplete', 'Please complete this step to continue.');
-        return;
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    if (step === 0) {
+      if (!isValidStep1()) {
+        Alert.alert('Incomplete', 'Please fill all required fields and accept terms.')
+        return
       }
-      setStep((s) => s + 1);
-      return;
+      setStep(1)
+      return
     }
-
-    // Final save
-    const photoURL = avatarUrl?.trim();
-    if (
-      !(
-        isAdult(answers.age) &&
-        answers.gender &&
-        answers.displayName.trim() &&
-        photoURL
-      )
-    ) {
-      Alert.alert('Incomplete', 'Please finish the required fields.');
-      return;
+    if (!isValidStep2()) {
+      Alert.alert('Incomplete', 'Please fill all required fields.')
+      return
     }
-    const u = ensureSignedIn();
-    if (!u) return;
-
-    setSaving(true);
+    const u = ensureSignedIn()
+    if (!u) return
+    setSaving(true)
     try {
-      const profile = {
+      const payload = {
         uid: u.uid,
         email: u.email || '',
         displayName: clamp(answers.displayName, 40),
         name: clamp(answers.displayName, 40),
-        age: parseInt(String(answers.age), 10),
-        gender: String(answers.gender),
+        age: parseInt(answers.age, 10),
+        gender: answers.gender,
         bio: clamp(answers.bio, 200),
+        photoURL: avatarUrl,
+        preferredSex: answers.preferredSex,
+        locationPref: answers.locationPref,
         location: clamp(answers.location, 80),
         onboardingComplete: true,
-      };
-      const payload = {
-        ...profile,
-        photoURL,
         updatedAt: serverTimestamp(),
-      };
-      if (photoURL) {
-        payload.photoURLs = arrayUnion(photoURL);
       }
-      await setDoc(
-        doc(db, 'users', u.uid),
-        payload,
-        { merge: true }
-      );
-
-      router.replace('/(tabs)/home');
+      if (avatarUrl) payload.photoURLs = arrayUnion(avatarUrl)
+      await setDoc(doc(db, 'users', u.uid), payload, { merge: true })
+      router.replace('/(tabs)/home')
     } catch (e) {
-      console.error('avatar upload error', e);
-      Alert.alert('Upload failed', e?.code || e?.message || String(e));
+      Alert.alert('Save failed', e.message || String(e))
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
-  };
+  }
 
-  const handleBack = async () => {
-    await Haptics.selectionAsync();
-    if (step > 0) {
-      setStep((s) => Math.max(0, s - 1));
-      return;
-    }
-
-    if (typeof router.canGoBack === 'function' && router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/auth/loginScreen');
-    }
-  };
-
-  const handleSkip = async () => {
-    const u = ensureSignedIn();
-    if (!u) return;
-    setSaving(true);
-    try {
-      const userRef = doc(db, 'users', u.uid);
-      await setDoc(
-        userRef,
-        {
-          uid: u.uid,
-          email: u.email || '',
-          onboardingComplete: true,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-      router.replace('/(tabs)/home');
-    } catch (e) {
-      Alert.alert('Skip failed', e.message || 'Could not skip now.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const renderStepInput = () => {
-    if (currentKey === 'avatar') {
-      return (
-        <>
-          <TouchableOpacity style={styles.imagePicker} onPress={onPickAvatar}>
-            {answers.avatar ? (
-              <Image source={{ uri: answers.avatar }} style={styles.avatar} />
-            ) : (
-              <View style={styles.placeholder}>
-                <Text style={styles.placeholderText}>Tap to select image</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <Text style={styles.hint}>Add a clear photo of your face.</Text>
-        </>
-      );
-    }
-
-    if (currentKey === 'displayName') {
-      return (
-        <TextInput
-          style={styles.input}
-          value={answers.displayName}
-          onChangeText={(t) => setAnswers((p) => ({ ...p, displayName: t }))}
-          placeholder="Your name"
-          placeholderTextColor={theme.placeholder}
-          autoCapitalize="words"
-        />
-      );
-    }
-
-    if (currentKey === 'ageGender') {
-      return (
-        <View>
-          <TextInput
-            style={styles.input}
-            value={String(answers.age || '')}
-            onChangeText={(t) => setAnswers((p) => ({ ...p, age: t.replace(/[^\d]/g, '') }))}
-            placeholder="Age (18+)"
-            placeholderTextColor={theme.placeholder}
-            keyboardType="number-pad"
-          />
-          <View style={{ height: 12 }} />
-          <View style={styles.genderRow}>
-            {['Male', 'Female', 'Other'].map((g) => (
-              <TouchableOpacity
-                key={g}
-                onPress={() => setAnswers((p) => ({ ...p, gender: g }))}
-                style={[styles.genderPill, answers.gender === g && styles.genderPillActive]}
-              >
-                <Text style={[styles.genderPillText, answers.gender === g && styles.genderPillTextActive]}>
-                  {g}
-                </Text>
-              </TouchableOpacity>
-            ))}
+  const renderStep1 = () => (
+    <ScrollView showsVerticalScrollIndicator={false}>
+      <TouchableOpacity style={styles.imagePicker} onPress={onPickAvatar} disabled={uploading}>
+        {avatarUrl ? (
+          <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+        ) : (
+          <View style={styles.placeholder}>
+            <Text style={styles.placeholderText}>
+              {uploading ? 'Uploading…' : 'Tap to add photo'}
+            </Text>
           </View>
-        </View>
-      );
-    }
+        )}
+      </TouchableOpacity>
 
-    if (currentKey === 'bio') {
-      return (
-        <TextInput
-          style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
-          value={answers.bio}
-          onChangeText={(t) => setAnswers((p) => ({ ...p, bio: t }))}
-          placeholder="Short bio (optional)"
-          placeholderTextColor={theme.placeholder}
-          multiline
-        />
-      );
-    }
-
-    if (currentKey === 'location') {
-      return (
-        <View>
-          <TouchableOpacity style={styles.locationBtn} onPress={autofillLocation}>
-            <Text style={styles.locationBtnText}>
-              {answers.location ? `📍 ${answers.location}` : 'Use my location'}
+      <TextInput
+        style={styles.input}
+        value={answers.displayName}
+        onChangeText={(t) => setAnswers((p) => ({ ...p, displayName: t }))}
+        placeholder="First name"
+        placeholderTextColor={theme.placeholder}
+        autoCapitalize="words"
+      />
+      <TextInput
+        style={styles.input}
+        value={answers.age}
+        onChangeText={(t) => setAnswers((p) => ({ ...p, age: t.replace(/[^\d]/g, '') }))}
+        placeholder="Age (18+)"
+        placeholderTextColor={theme.placeholder}
+        keyboardType="number-pad"
+      />
+      <View style={styles.genderRow}>
+        {['Male', 'Female', 'Both', 'Other'].map((g) => (
+          <TouchableOpacity
+            key={g}
+            onPress={() => setAnswers((p) => ({ ...p, gender: g }))}
+            style={[styles.genderPill, answers.gender === g && styles.genderPillActive]}
+          >
+            <Text
+              style={[
+                styles.genderPillText,
+                answers.gender === g && styles.genderPillTextActive,
+              ]}
+            >
+              {g}
             </Text>
           </TouchableOpacity>
-          <View style={{ height: 12 }} />
-          <TextInput
-            style={styles.input}
-            value={answers.location}
-            onChangeText={(t) => setAnswers((p) => ({ ...p, location: t }))}
-            placeholder="City, Region (optional)"
-            placeholderTextColor={theme.placeholder}
-          />
-        </View>
-      );
-    }
+        ))}
+      </View>
+      <TextInput
+        style={[styles.input, { height: 90, textAlignVertical: 'top', marginTop: 10 }]}
+        value={answers.bio}
+        onChangeText={(t) => setAnswers((p) => ({ ...p, bio: t }))}
+        placeholder="Short bio (optional)"
+        placeholderTextColor={theme.placeholder}
+        multiline
+      />
 
-    return null;
-  };
+      <TouchableOpacity
+        onPress={() => {
+          LayoutAnimation.easeInEaseOut()
+          setExpandedTerms((v) => !v)
+        }}
+        style={styles.termsHeader}
+      >
+        <Text style={styles.termsHeaderText}>
+          {expandedTerms ? '▼ Terms & Conditions' : '► Terms & Conditions'}
+        </Text>
+      </TouchableOpacity>
+
+      {expandedTerms && (
+        <View style={styles.termsBox}>
+          <Text style={styles.termsText}>
+            Welcome to Pinged! Be respectful, no hate speech, no spam, and play fair in all
+            games. Violations may result in removal. For full details visit
+            buyshrooms.net/terms or contact support.
+          </Text>
+        </View>
+      )}
+
+      <TouchableOpacity
+        style={[
+          styles.checkBoxStyle,
+          { backgroundColor: agreed ? theme.accent : 'transparent' },
+        ]}
+        onPress={() => setAgreed((v) => !v)}
+      >
+        {agreed && <Text style={styles.checkMark}>✓</Text>}
+      </TouchableOpacity>
+      <Text style={styles.agreeText}>I agree to the Terms & Conditions</Text>
+    </ScrollView>
+  )
+
+  const renderStep2 = () => (
+    <ScrollView showsVerticalScrollIndicator={false}>
+      <Text style={styles.question}>Who are you interested in?</Text>
+      <View style={styles.genderRow}>
+        {['Men', 'Women', 'Both'].map((g) => (
+          <TouchableOpacity
+            key={g}
+            onPress={() => setAnswers((p) => ({ ...p, preferredSex: g }))}
+            style={[styles.genderPill, answers.preferredSex === g && styles.genderPillActive]}
+          >
+            <Text
+              style={[
+                styles.genderPillText,
+                answers.preferredSex === g && styles.genderPillTextActive,
+              ]}
+            >
+              {g}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <View style={{ height: 20 }} />
+      <Text style={styles.question}>Location preference</Text>
+      <View style={styles.genderRow}>
+        {['Local', 'International', 'Both'].map((g) => (
+          <TouchableOpacity
+            key={g}
+            onPress={() => setAnswers((p) => ({ ...p, locationPref: g }))}
+            style={[styles.genderPill, answers.locationPref === g && styles.genderPillActive]}
+          >
+            <Text
+              style={[
+                styles.genderPillText,
+                answers.locationPref === g && styles.genderPillTextActive,
+              ]}
+            >
+              {g}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <View style={{ height: 20 }} />
+      <TouchableOpacity style={styles.locationBtn} onPress={autofillLocation}>
+        <Text style={styles.locationBtnText}>
+          {answers.location ? `📍 ${answers.location}` : 'Use my location'}
+        </Text>
+      </TouchableOpacity>
+      <TextInput
+        style={[styles.input, { marginTop: 10 }]}
+        value={answers.location}
+        onChangeText={(t) => setAnswers((p) => ({ ...p, location: t }))}
+        placeholder="City, Region (optional)"
+        placeholderTextColor={theme.placeholder}
+      />
+    </ScrollView>
+  )
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        {step === 0 ? (
-          <TouchableOpacity onPress={handleBack} style={styles.headerBack}>
-            <Text style={styles.headerBackIcon}>‹</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.headerPlaceholder} />
-        )}
-
-        <Text style={styles.title}>Let’s get you set up</Text>
-
-        <View style={styles.headerPlaceholder} />
-      </View>
-      <Text style={styles.stepText}>{`Step ${step + 1} of ${steps.length}`}</Text>
+      <Text style={styles.title}>{step === 0 ? 'About You' : 'Who You’re Looking For'}</Text>
 
       <View style={styles.progressContainer}>
         <Animated.View
@@ -466,86 +372,48 @@ export default function OnboardingScreen() {
         />
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.question}>{steps[step].label}</Text>
-        {renderStepInput()}
-      </View>
+      <View style={styles.card}>{step === 0 ? renderStep1() : renderStep2()}</View>
 
       <View style={styles.row}>
-        {step > 0 ? (
-          <TouchableOpacity style={[styles.button, styles.ghost]} onPress={handleBack} disabled={saving}>
+        {step === 1 && (
+          <TouchableOpacity
+            style={[styles.button, styles.ghost]}
+            onPress={() => setStep(0)}
+            disabled={saving}
+          >
             <Text style={[styles.buttonText, styles.buttonGhostText]}>Back</Text>
           </TouchableOpacity>
-        ) : (
-          <View style={styles.rowPlaceholder} />
         )}
-
         <TouchableOpacity
-          style={[styles.button, !isValid && styles.buttonDisabled]}
+          style={[
+            styles.button,
+            step === 0 && !isValidStep1() ? styles.buttonDisabled : null,
+            step === 1 && !isValidStep2() ? styles.buttonDisabled : null,
+          ]}
           onPress={handleNext}
-          disabled={!isValid || saving || uploadingAvatar}
+          disabled={
+            (step === 0 && !isValidStep1()) || (step === 1 && !isValidStep2()) || saving
+          }
         >
           <Text style={styles.buttonText}>
-            {step < steps.length - 1
-              ? uploadingAvatar && currentKey === 'avatar'
-                ? 'Uploading…'
-                : 'Next'
-              : saving
-              ? 'Saving…'
-              : 'Finish'}
+            {saving ? 'Saving…' : step === 0 ? 'Next' : 'Finish'}
           </Text>
         </TouchableOpacity>
       </View>
-
-      {step >= 2 && (
-        <TouchableOpacity onPress={handleSkip} disabled={saving} style={styles.skip}>
-          <Text style={styles.skipText}>Complete profile later</Text>
-        </TouchableOpacity>
-      )}
-
-      <Text style={styles.footerText}>
-        By continuing you agree to our basic guidelines. Keep it kind, keep it real.
-      </Text>
     </View>
-  );
+  )
 }
 
-function createStyles(theme, isDarkMode) {
+function createStyles(theme, isDark) {
   return StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: theme.background,
-      paddingTop: Platform.select({ ios: 64, android: 24 }),
+      paddingTop: Platform.select({ ios: 60, android: 24 }),
       paddingHorizontal: 20,
     },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 8,
-    },
-    headerBack: {
-      paddingHorizontal: 4,
-      paddingVertical: 8,
-      minWidth: 48,
-      alignItems: 'flex-start',
-      justifyContent: 'center',
-    },
-    headerBackIcon: {
-      ...(isDarkMode ? Fonts.whiteColor20Bold : Fonts.blackColor20Bold),
-      fontSize: 24,
-    },
-    headerPlaceholder: { width: 48 },
     title: {
-      ...(isDarkMode ? Fonts.whiteColor20Bold : Fonts.blackColor22Bold),
-      fontSize: 22,
-      flex: 1,
-      textAlign: 'center',
-      marginBottom: 0,
-    },
-    stepText: {
-      ...Fonts.grayColor13Regular,
-      color: theme.subtext,
+      ...(isDark ? Fonts.whiteColor22Bold : Fonts.blackColor22Bold),
       textAlign: 'center',
       marginBottom: 16,
     },
@@ -564,10 +432,7 @@ function createStyles(theme, isDarkMode) {
       padding: 18,
       borderWidth: 1,
       borderColor: theme.line,
-    },
-    question: {
-      ...(isDarkMode ? Fonts.whiteColor18Bold : Fonts.blackColor18Bold),
-      marginBottom: 12,
+      flex: 1,
     },
     imagePicker: { alignSelf: 'center', marginVertical: 16 },
     avatar: { width: 160, height: 160, borderRadius: 80 },
@@ -584,27 +449,27 @@ function createStyles(theme, isDarkMode) {
       color: theme.subtext,
       textAlign: 'center',
     },
-    hint: {
-      ...Fonts.grayColor13Regular,
-      color: theme.subtext,
-      textAlign: 'center',
-      marginTop: 8,
-    },
     input: {
       ...Fonts.blackColor16Regular,
       color: theme.text,
       borderBottomWidth: 2,
       borderColor: theme.accent,
       paddingVertical: 10,
+      marginTop: 10,
     },
-    genderRow: { flexDirection: 'row', gap: 8 },
+    genderRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginTop: 10,
+    },
     genderPill: {
       paddingVertical: 10,
       paddingHorizontal: 14,
       borderRadius: 24,
       borderWidth: 1,
-      borderColor: isDarkMode ? Colors.grayColor : Colors.dividerColor,
-      backgroundColor: isDarkMode ? Colors.overlaySoft : Colors.whiteColor,
+      borderColor: isDark ? Colors.grayColor : Colors.dividerColor,
+      backgroundColor: isDark ? Colors.overlaySoft : Colors.whiteColor,
     },
     genderPillActive: {
       borderColor: theme.accent,
@@ -617,32 +482,35 @@ function createStyles(theme, isDarkMode) {
     genderPillTextActive: {
       ...Fonts.whiteColor15Medium,
     },
-    row: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 },
-    button: {
-      backgroundColor: theme.accent,
-      paddingVertical: 12,
-      paddingHorizontal: 24,
-      borderRadius: 12,
-      minWidth: 112,
-      alignItems: 'center',
+    termsHeader: { marginTop: 16 },
+    termsHeaderText: {
+      ...Fonts.primaryColor15Medium,
     },
-    buttonDisabled: { opacity: 0.5 },
-    ghost: {
-      backgroundColor: 'transparent',
-      borderWidth: 1,
+    termsBox: {
+      backgroundColor: theme.line,
+      borderRadius: 8,
+      padding: 10,
+      marginTop: 8,
+    },
+    termsText: {
+      ...Fonts.grayColor13Regular,
+      color: theme.subtext,
+    },
+    checkBoxStyle: {
+      width: 20,
+      height: 20,
+      borderRadius: 4,
+      borderWidth: 1.5,
       borderColor: theme.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 14,
     },
-    rowPlaceholder: { width: 112 },
-    buttonText: {
-      ...Fonts.whiteColor16Bold,
-    },
-    buttonGhostText: {
-      ...Fonts.primaryColor16Bold,
-    },
-    skip: { alignSelf: 'center', marginTop: 16 },
-    skipText: {
-      ...Fonts.primaryColor14Bold,
-      textDecorationLine: 'underline',
+    checkMark: { color: Colors.whiteColor, fontSize: 14 },
+    agreeText: {
+      ...Fonts.grayColor14Regular,
+      color: theme.subtext,
+      marginTop: 6,
     },
     locationBtn: {
       backgroundColor: theme.accent,
@@ -655,11 +523,34 @@ function createStyles(theme, isDarkMode) {
       ...Fonts.whiteColor16Bold,
       textAlign: 'center',
     },
-    footerText: {
-      ...Fonts.grayColor13Regular,
-      color: theme.subtext,
-      textAlign: 'center',
+    row: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
       marginTop: 16,
     },
-  });
+    button: {
+      backgroundColor: theme.accent,
+      paddingVertical: 12,
+      paddingHorizontal: 24,
+      borderRadius: 12,
+      minWidth: 112,
+      alignItems: 'center',
+    },
+    ghost: {
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: theme.accent,
+    },
+    buttonText: {
+      ...Fonts.whiteColor16Bold,
+    },
+    buttonGhostText: {
+      ...Fonts.primaryColor16Bold,
+    },
+    buttonDisabled: { opacity: 0.5 },
+    question: {
+      ...(isDark ? Fonts.whiteColor18Bold : Fonts.blackColor18Bold),
+      marginBottom: 8,
+    },
+  })
 }

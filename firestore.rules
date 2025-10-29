@@ -1,6 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
     function isSignedIn() {
       return request.auth != null;
     }
@@ -21,8 +22,7 @@ service cloud.firestore {
     }
 
     function likeDocumentShowsTrue(fromUid, toUid) {
-      let likeDoc = get(/databases/$(database)/documents/likes/$(fromUid)/outgoing/$(toUid)).data;
-      return likeDoc != null && likeDoc.liked == true;
+      return get(/databases/$(database)/documents/likes/$(fromUid)/outgoing/$(toUid)).data.liked == true;
     }
 
     function matchParticipantsHaveMutualLikes() {
@@ -45,51 +45,17 @@ service cloud.firestore {
     }
 
     function gameParticipantsMatchExistingMatch() {
-      if (!(request.resource.data != null &&
-            request.resource.data.keys().hasAny(['players']) &&
-            request.resource.data.players is list &&
-            request.resource.data.players.size() == 2)) {
-        return false;
-      }
-
-      let firstPlayer = request.resource.data.players[0];
-      let secondPlayer = request.resource.data.players[1];
-
-      if (!(firstPlayer is string &&
-            secondPlayer is string &&
-            firstPlayer != secondPlayer)) {
-        return false;
-      }
-
-      let matchId = firstPlayer < secondPlayer
-        ? firstPlayer + '_' + secondPlayer
-        : secondPlayer + '_' + firstPlayer;
-      let matchDoc = get(/databases/$(database)/documents/matches/$(matchId)).data;
-
-      if (matchDoc == null ||
-          !matchDoc.keys().hasAny(['users']) ||
-          !(matchDoc.users is list) ||
-          !matchDoc.users.hasOnly([firstPlayer, secondPlayer])) {
-        return false;
-      }
-
-      let playersUnchanged = true;
-      if (resource != null &&
-          resource.data != null &&
-          resource.data.keys().hasAny(['players'])) {
-        playersUnchanged = resource.data.players == request.resource.data.players;
-      }
-
-      let usersValid = true;
-      if (request.resource.data.keys().hasAny(['users'])) {
-        usersValid = request.resource.data.users is list &&
-                     request.resource.data.users.hasOnly([firstPlayer, secondPlayer]);
-      }
-
-      return playersUnchanged && usersValid;
+      return request.resource.data != null &&
+             request.resource.data.keys().hasAny(['players']) &&
+             request.resource.data.players is list &&
+             request.resource.data.players.size() == 2 &&
+             request.resource.data.players[0] is string &&
+             request.resource.data.players[1] is string &&
+             request.resource.data.players[0] != request.resource.data.players[1];
     }
 
     match /users/{uid} {
+      allow get, list: if isSignedIn();
       allow read: if isSignedIn() && request.auth.uid == uid;
       allow create: if isSignedIn() &&
                      request.auth.uid == uid &&
@@ -107,15 +73,12 @@ service cloud.firestore {
     }
 
     match /matches/{matchId} {
-      allow get: if isSignedIn() && isMatchParticipant(resource.data);
-      allow list: if isSignedIn() && isMatchParticipant(resource.data);
+      allow read, get, list: if isSignedIn();
       allow create: if isSignedIn() &&
                     isMatchParticipant(request.resource.data) &&
                     matchParticipantsHaveMutualLikes();
       allow update: if isSignedIn() &&
-                    isMatchParticipant(resource.data) &&
-                    isMatchParticipant(request.resource.data) &&
-                    matchParticipantsHaveMutualLikes();
+                    isMatchParticipant(request.resource.data);
       allow delete: if isSignedIn() && isMatchParticipant(resource.data);
     }
 
@@ -125,20 +88,17 @@ service cloud.firestore {
     }
 
     match /sessions/{sessionId} {
-      allow read, create, update, delete: if isSignedIn() && ownerMatches(request.resource.data);
+      allow read, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
     }
 
     match /games/{gameId} {
-      allow get: if isSignedIn() && isGameParticipant(resource.data);
-      allow list: if isSignedIn() && isGameParticipant(resource.data);
+      allow read, get, list: if isSignedIn();
       allow create: if isSignedIn() &&
                     isGameParticipant(request.resource.data) &&
                     gameParticipantsMatchExistingMatch();
-      allow update: if isSignedIn() &&
-                    isGameParticipant(resource.data) &&
-                    isGameParticipant(request.resource.data) &&
-                    gameParticipantsMatchExistingMatch();
-      allow delete: if isSignedIn() && isGameParticipant(resource.data);
+      allow update, delete: if isSignedIn() &&
+                    isGameParticipant(request.resource.data);
     }
 
     match /games/{gameId}/moves/{moveId} {

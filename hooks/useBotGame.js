@@ -1,87 +1,95 @@
-import { useMemo, useEffect, useState, useRef } from 'react';
-import { Client } from 'boardgame.io/client';
-import { useSound } from '../contexts/SoundContext';
+import { useMemo, useEffect, useState, useRef } from 'react'
+import { Client } from 'boardgame.io/client'
+import { useSound } from '../contexts/SoundContext'
 
 export default function useBotGame(game, getBotMove, onGameEnd) {
-  const getBotMoveRef = useRef(getBotMove);
-  const onGameEndRef = useRef(onGameEnd);
-  const { play } = useSound();
+  const getBotMoveRef = useRef(getBotMove)
+  const onGameEndRef = useRef(onGameEnd)
+  const { play } = useSound()
+  const MAX_MOVES = 100 // safety draw limit
 
   useEffect(() => {
-    getBotMoveRef.current = getBotMove;
-  }, [getBotMove]);
+    getBotMoveRef.current = getBotMove
+  }, [getBotMove])
 
   useEffect(() => {
-    onGameEndRef.current = onGameEnd;
-  }, [onGameEnd]);
+    onGameEndRef.current = onGameEnd
+  }, [onGameEnd])
 
-  const client = useMemo(() => {
-    return Client({
-      game,
-      numPlayers: 2,
-    });
-  }, [game]);
+  const client = useMemo(
+    () =>
+      Client({
+        game,
+        numPlayers: 2,
+      }),
+    [game]
+  )
 
-  const [state, setState] = useState(client.getState());
+  const [state, setState] = useState(client.getState())
+  const moveCountRef = useRef(0)
 
-  // subscribe to game state changes
   useEffect(() => {
-    client.start();
+    client.start()
     const unsub = client.subscribe((s) => {
-      setState(s);
+      setState(s)
+      moveCountRef.current += 1
 
-      // when game over, call callback
-      if (s.ctx.gameover && onGameEndRef.current) {
-        onGameEndRef.current(s.ctx.gameover);
+      // draw safety
+      if (moveCountRef.current >= MAX_MOVES && !s.ctx.gameover) {
+        const drawResult = { draw: true, reason: 'MAX_MOVES' }
+        client.stop()
+        if (onGameEndRef.current) onGameEndRef.current(drawResult)
+        return
       }
-    });
+
+      if (s.ctx.gameover && onGameEndRef.current) {
+        onGameEndRef.current(s.ctx.gameover)
+      }
+    })
     return () => {
-      unsub();
-      client.stop();
-    };
-  }, [client]);
+      unsub()
+      client.stop()
+    }
+  }, [client])
 
-  // helper: run AI move when it's AI's turn
   const maybePlayBotMove = async (latestState) => {
-    const s = latestState ?? client.getState();
-    const { currentPlayer, gameover } = s.ctx;
-    if (gameover) return;
+    const s = latestState ?? client.getState()
+    const { currentPlayer, gameover } = s.ctx
+    if (gameover) return
 
-    // bot is player "1"
     if (String(currentPlayer) === '1') {
-      const move = getBotMoveRef.current(s.G, s.ctx, game);
-      const moveName = move?.name ?? move?.move;
+      const move = getBotMoveRef.current(s.G, s.ctx, game)
+      const moveName = move?.name ?? move?.move
       if (moveName && client.moves[moveName]) {
-        // small delay to make AI feel human
-        await new Promise((r) => setTimeout(r, 400));
-        client.updatePlayerID('1');
-        client.moves[moveName](...(move?.args || []));
-        play('game_move');
+        await new Promise((r) => setTimeout(r, 300 + Math.random() * 400))
+        client.updatePlayerID('1')
+        client.moves[moveName](...(move?.args || []))
+        play('game_move')
       }
     }
-  };
+  }
 
   const moves = useMemo(() => {
-    const obj = {};
+    const obj = {}
     for (const name of Object.keys(client.moves)) {
       obj[name] = async (...args) => {
-        client.updatePlayerID('0'); // human is player 0
-        client.moves[name](...args);
-        play('game_move');
-        // after player moves, let AI play
-        await maybePlayBotMove();
-      };
+        client.updatePlayerID('0')
+        client.moves[name](...args)
+        play('game_move')
+        await maybePlayBotMove()
+      }
     }
-    return obj;
-  }, [client, play]);
+    return obj
+  }, [client, play])
 
   return {
     G: state.G,
     ctx: state.ctx,
     moves,
     reset: () => {
-      client.reset();
-      setState(client.getState());
+      client.reset()
+      moveCountRef.current = 0
+      setState(client.getState())
     },
-  };
+  }
 }
