@@ -14,10 +14,19 @@ export const Colors = {
     cyanColor: '#26A69A',
     slate900: '#0F172A',
     slate100: '#F3F4F6',
+    neutralSurface: '#F9F9F9',
+    neutralBorder: '#E5E7EB',
+    neutralMuted: '#D1D5DB',
     overlaySoft: 'rgba(15, 23, 42, 0.12)',
     overlayBackdrop: 'rgba(15, 23, 42, 0.6)',
+    overlayStrong: 'rgba(0, 0, 0, 0.47)',
     dividerColor: 'rgba(15, 23, 42, 0.12)',
     dangerColor: '#EF4444',
+    success: '#2ECC71',
+    warning: '#FACC15',
+    brandHighlight: '#9146FF',
+    blueGray: '#607D8B',
+    lavenderTint: '#D1C4E9',
 }
 
 export const Fonts = {
@@ -38,6 +47,12 @@ export const Fonts = {
         color: Colors.blackColor,
         fontSize: 15.0,
         fontFamily: 'Roboto_Regular'
+    },
+
+    blackColor12Medium: {
+        color: Colors.blackColor,
+        fontSize: 12.0,
+        fontFamily: 'Roboto_Medium'
     },
 
     blackColor16Regular: {
@@ -142,6 +157,12 @@ export const Fonts = {
         fontFamily: 'Roboto_Bold'
     },
 
+    whiteColor14Bold: {
+        color: Colors.whiteColor,
+        fontSize: 14.0,
+        fontFamily: 'Roboto_Bold'
+    },
+
     whiteColor18Bold: {
         color: Colors.whiteColor,
         fontSize: 18.0,
@@ -202,6 +223,12 @@ export const Fonts = {
         fontFamily: 'Roboto_Bold'
     },
 
+    grayColor12Bold: {
+        color: Colors.grayColor,
+        fontSize: 12.0,
+        fontFamily: 'Roboto_Bold'
+    },
+
     primaryColor14Regular: {
         color: Colors.primaryColor,
         fontSize: 14.0,
@@ -242,11 +269,58 @@ export const Fonts = {
         color: Colors.primaryColor,
         fontSize: 18.0,
         fontFamily: 'Roboto_Bold'
+    },
+
+    blackColor26Regular: {
+        color: Colors.blackColor,
+        fontSize: 26.0,
+        fontFamily: 'Roboto_Regular'
+    },
+
+    successColor14Medium: {
+        color: Colors.success,
+        fontSize: 14.0,
+        fontFamily: 'Roboto_Medium'
+    },
+
+    blackColor14Bold: {
+        color: Colors.blackColor,
+        fontSize: 14.0,
+        fontFamily: 'Roboto_Bold'
+    },
+
+    whiteColor80Bold: {
+        color: Colors.whiteColor,
+        fontSize: 80.0,
+        fontFamily: 'Roboto_Bold'
     }
 }
 
+const baseUnit = 10.0
+
 export const Sizes = {
-    fixPadding: 10.0,
+    xxSmall: baseUnit * 0.2,
+    fixPadding: baseUnit,
+    xSmall: baseUnit * 0.4,
+    small: baseUnit * 0.6,
+    smallPlus: baseUnit * 0.8,
+    medium: baseUnit * 1.2,
+    mediumPlus: baseUnit * 1.4,
+    large: baseUnit * 1.6,
+    xLarge: baseUnit * 2,
+    xxLarge: baseUnit * 2.6,
+    hero: baseUnit * 8,
+    listContentPadding: baseUnit * 4,
+    iconSmall: baseUnit * 1.6,
+    iconMedium: baseUnit * 2.2,
+    radiusSmall: baseUnit * 0.8,
+    radiusMedium: baseUnit,
+    radiusLarge: baseUnit * 1.2,
+    radiusXLarge: baseUnit * 1.6,
+    radiusXXLarge: baseUnit * 2,
+    radiusFull: baseUnit * 2.4,
+    avatarSmall: baseUnit * 3.2,
+    avatarMedium: baseUnit * 4.8,
 }
 
 export const screenHeight = Dimensions.get('window').height;
