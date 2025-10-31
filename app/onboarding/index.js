@@ -115,6 +115,26 @@ export default function OnboardingScreen() {
     return u
   }
 
+  const handleBack = () => {
+    if (step > 0) {
+      setStep((prev) => Math.max(prev - 1, 0))
+      return
+    }
+
+    if (typeof router?.back === 'function') {
+      const canGoBack = router.canGoBack?.()
+      if (canGoBack === undefined || canGoBack) {
+        router.back()
+        return
+      }
+      // If back() exists but navigation stack is empty, fall through to replace.
+    }
+
+    if (typeof router?.replace === 'function') {
+      router.replace('/auth/loginScreen')
+    }
+  }
+
   const onPickAvatar = async () => {
     try {
       await Haptics.selectionAsync()
@@ -359,6 +379,13 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+          <Text style={styles.backIcon}>←</Text>
+          <Text style={styles.backLabel}>Back</Text>
+        </TouchableOpacity>
+      </View>
+
       <Text style={styles.title}>{step === 0 ? 'About You' : 'Who You’re Looking For'}</Text>
 
       <View style={styles.progressContainer}>
@@ -381,7 +408,7 @@ export default function OnboardingScreen() {
         {step === 1 && (
           <TouchableOpacity
             style={[styles.button, styles.ghost]}
-            onPress={() => setStep(0)}
+            onPress={handleBack}
             disabled={saving}
           >
             <Text style={[styles.buttonText, styles.buttonGhostText]}>Back</Text>
@@ -414,6 +441,27 @@ function createStyles(theme, isDark) {
       backgroundColor: theme.background,
       paddingTop: Platform.select({ ios: 60, android: 24 }),
       paddingHorizontal: 20,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+      marginBottom: 12,
+    },
+    backButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 8,
+      paddingHorizontal: 4,
+      alignSelf: 'flex-start',
+    },
+    backIcon: {
+      ...(isDark ? Fonts.whiteColor20Bold : Fonts.blackColor20Bold),
+      marginTop: Platform.select({ ios: -2, android: 0 }),
+    },
+    backLabel: {
+      ...(isDark ? Fonts.whiteColor15Medium : Fonts.blackColor15Medium),
     },
     title: {
       ...(isDark ? Fonts.whiteColor22Bold : Fonts.blackColor22Bold),
