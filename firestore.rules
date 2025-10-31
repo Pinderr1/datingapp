@@ -48,6 +48,20 @@ service cloud.firestore {
              data.players.hasAny([request.auth.uid]);
     }
 
+    function isPublicWaitingGame(data) {
+      return data != null &&
+             data.status == 'waiting' &&
+             data.type == 'public' &&
+             data.keys().hasAny(['host']) &&
+             data.host is string &&
+             data.keys().hasAny(['players']) &&
+             data.players is list &&
+             data.players.size() == 1 &&
+             data.players[0] is string &&
+             data.players[0] == data.host &&
+             data.host == request.auth.uid;
+    }
+
     // Minimal shape check for game doc on create
     function gamePlayersAreTwoDistinct() {
       return request.resource.data != null &&
@@ -125,7 +139,8 @@ service cloud.firestore {
 
       allow create: if isSignedIn() &&
                     isGameParticipant(request.resource.data) &&
-                    gamePlayersAreTwoDistinct();
+                    (gamePlayersAreTwoDistinct() ||
+                     isPublicWaitingGame(request.resource.data));
 
       allow update, delete: if isSignedIn() &&
                             isGameParticipant(request.resource.data);
