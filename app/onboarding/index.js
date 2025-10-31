@@ -125,8 +125,9 @@ export default function OnboardingScreen() {
       setUploading(true)
       const response = await fetch(asset.uri)
       const blob = await response.blob()
+      const contentType = asset.mimeType || blob.type || 'image/jpeg'
       const refPath = ref(storage, `avatars/${user.uid}/${Date.now()}.jpg`)
-      await uploadBytes(refPath, blob)
+      await uploadBytes(refPath, blob, { contentType })
       const url = await getDownloadURL(refPath)
       setAvatarUrl(url)
     } catch (e) {
