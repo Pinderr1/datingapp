@@ -9,7 +9,7 @@ import { useRouter } from 'expo-router';
 import { useUser } from '../../contexts/UserContext';
 import { auth, db, storage } from '../../firebaseConfig';
 import { arrayUnion, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 const agesList = [
     { label: '25 Years' },
@@ -284,10 +284,11 @@ const EditProfileScreen = () => {
                 blob = await response.blob();
                 const fileExtension = asset.fileName?.split('.').pop() || 'jpg';
                 const photoRef = ref(storage, `avatars/${user.uid}/${Date.now()}.${fileExtension}`);
-                await uploadBytes(photoRef, blob, {
+                const uploadTask = uploadBytesResumable(photoRef, blob, {
                     contentType: asset.mimeType || blob.type || 'image/jpeg',
                 });
-                const downloadUrl = await getDownloadURL(photoRef);
+                await uploadTask;
+                const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
                 setPhotoUri(downloadUrl);
                 setSelectedAsset({ ...asset, fallbackUri, downloadUrl });
             } catch (error) {
