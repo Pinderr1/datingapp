@@ -291,7 +291,7 @@ const EditProfileScreen = () => {
                 setPhotoUri(downloadUrl);
                 setSelectedAsset({ ...asset, fallbackUri, downloadUrl });
             } catch (error) {
-                console.error('profile photo upload error', error);
+                console.warn('avatar upload failed', error?.code, error?.message || String(error));
                 Alert.alert('Upload failed', error?.code || error?.message || String(error));
                 setPhotoUri(fallbackUri);
                 setSelectedAsset({ ...asset, fallbackUri });
@@ -302,7 +302,7 @@ const EditProfileScreen = () => {
                 setUploadingPhoto(false);
             }
         } catch (error) {
-            console.error('profile photo upload error', error);
+            console.warn('avatar upload failed', error?.code, error?.message || String(error));
             Alert.alert('Upload failed', error?.code || error?.message || String(error));
             setUploadingPhoto(false);
         }
