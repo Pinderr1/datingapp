@@ -107,4 +107,30 @@ describeIfAvailable('firestore security rules - matches mutual likes', () => {
       aliceDb.collection('matches').doc('existingMatch').update({ users: [aliceUid, charlieUid] })
     );
   });
+
+  test('allows participants to query matches by UID', async () => {
+    const aliceContext = testEnv.authenticatedContext(aliceUid);
+    const bobContext = testEnv.authenticatedContext(bobUid);
+    const charlieContext = testEnv.authenticatedContext(charlieUid);
+
+    const aliceDb = aliceContext.firestore();
+    const bobDb = bobContext.firestore();
+    const charlieDb = charlieContext.firestore();
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().collection('matches').doc('aliceBobMatch').set({ users: [aliceUid, bobUid] });
+    });
+
+    await assertSucceeds(
+      aliceDb.collection('matches').where('users', 'array-contains', aliceUid).get()
+    );
+
+    await assertFails(
+      charlieDb.collection('matches').doc('aliceBobMatch').get()
+    );
+
+    await assertSucceeds(
+      bobDb.collection('matches').where('users', 'array-contains', bobUid).get()
+    );
+  });
 });
