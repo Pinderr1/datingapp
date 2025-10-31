@@ -295,8 +295,15 @@ const EditProfileScreen = () => {
                 blob = await response.blob();
                 const fileExtension = asset.fileName?.split('.').pop() || 'jpg';
                 const photoRef = ref(storage, `avatars/${user.uid}/${Date.now()}.${fileExtension}`);
+                const selectContentType = () => {
+                    const candidates = [asset?.mimeType, blob?.type];
+                    return (
+                        candidates.find((value) => typeof value === 'string' && /^image\//.test(value)) ||
+                        'image/jpeg'
+                    );
+                };
                 const uploadTask = uploadBytesResumable(photoRef, blob, {
-                    contentType: asset.mimeType || blob.type || 'image/jpeg',
+                    contentType: selectContentType(),
                 });
                 await uploadTask;
                 const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);

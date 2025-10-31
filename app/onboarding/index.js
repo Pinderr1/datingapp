@@ -164,7 +164,15 @@ export default function OnboardingScreen() {
       setUploading(true)
       const response = await fetch(asset.uri)
       const blob = await response.blob()
-      const contentType = asset.mimeType || blob.type || 'image/jpeg'
+      const selectContentType = () => {
+        const candidates = [asset?.mimeType, blob?.type]
+        return (
+          candidates.find(
+            (value) => typeof value === 'string' && /^image\//.test(value)
+          ) || 'image/jpeg'
+        )
+      }
+      const contentType = selectContentType()
       const refPath = ref(storage, `avatars/${user.uid}/${Date.now()}.jpg`)
       const uploadTask = uploadBytesResumable(refPath, blob, { contentType })
       await uploadTask
