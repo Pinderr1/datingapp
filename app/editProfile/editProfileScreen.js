@@ -11,6 +11,17 @@ import { auth, db, storage } from '../../firebaseConfig';
 import { arrayUnion, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
+const getImagePickerImageMediaTypes = () => {
+    const newEnum = ImagePicker.MediaType?.Images;
+    if (newEnum !== undefined) {
+        return [newEnum];
+    }
+    const legacyEnum =
+        ImagePicker.MediaTypeOptions?.Images ??
+        (ImagePicker.MediaTypeOptions ? ImagePicker.MediaTypeOptions.Images : undefined);
+    return legacyEnum ?? 'images';
+};
+
 const agesList = [
     { label: '25 Years' },
     { label: '26 Years' },
@@ -245,7 +256,7 @@ const EditProfileScreen = () => {
                 return;
             }
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: getImagePickerImageMediaTypes(),
                 allowsEditing: true,
                 quality: 0.8,
                 base64: true,
