@@ -42,6 +42,17 @@ if (
 const clamp = (s = '', max = 120) => (s.length > max ? s.slice(0, max) : s).trim()
 const isAdult = (n) => /^\d+$/.test(String(n)) && parseInt(String(n), 10) >= 18
 
+const getImagePickerImageMediaTypes = () => {
+  const newEnum = ImagePicker.MediaType?.Images
+  if (newEnum !== undefined) {
+    return [newEnum]
+  }
+  const legacyEnum =
+    ImagePicker.MediaTypeOptions?.Images ??
+    (ImagePicker.MediaTypeOptions ? ImagePicker.MediaTypeOptions.Images : undefined)
+  return legacyEnum ?? 'images'
+}
+
 async function pickImageFromLibrary() {
   const { status, granted, ios } = await ImagePicker.requestMediaLibraryPermissionsAsync()
   const hasAccess = granted || ios?.accessPrivileges === 'limited'
@@ -50,7 +61,7 @@ async function pickImageFromLibrary() {
     throw new Error('Permission denied')
   }
   const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    mediaTypes: getImagePickerImageMediaTypes(),
     allowsEditing: true,
     quality: 0.8,
   })
