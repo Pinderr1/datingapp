@@ -48,6 +48,12 @@ service cloud.firestore {
              data.players.hasAny([request.auth.uid]);
     }
 
+    function isPublicGame(data) {
+      return data != null &&
+             data.keys().hasAny(['type']) &&
+             data.type == 'public';
+    }
+
     // Minimal shape check for game doc on create
     function gamePlayersAreTwoDistinct() {
       return request.resource.data != null &&
@@ -121,7 +127,7 @@ service cloud.firestore {
     match /games/{gameId} {
       // Only participants can see or touch a game
       allow get, read, list: if isSignedIn() &&
-        isGameParticipant(resource.data);
+        (isGameParticipant(resource.data) || isPublicGame(resource.data));
 
       allow create: if isSignedIn() &&
                     isGameParticipant(request.resource.data) &&
