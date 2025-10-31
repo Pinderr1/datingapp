@@ -2,6 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // --------- helpers ----------
     function isSignedIn() {
       return request.auth != null;
     }
@@ -14,6 +15,7 @@ service cloud.firestore {
       return hasUidField(data) && data.uid == request.auth.uid;
     }
 
+    // Match participant = request.auth.uid is in data.users (array)
     function isMatchParticipant(data) {
       return data != null &&
              data.keys().hasAny(['users']) &&
@@ -21,6 +23,7 @@ service cloud.firestore {
              data.users.hasAny([request.auth.uid]);
     }
 
+    // For mutual-like verification when creating a match
     function likeDocumentShowsTrue(fromUid, toUid) {
       return get(/databases/$(database)/documents/likes/$(fromUid)/outgoing/$(toUid)).data.liked == true;
     }
@@ -37,6 +40,7 @@ service cloud.firestore {
              likeDocumentShowsTrue(request.resource.data.users[1], request.resource.data.users[0]);
     }
 
+    // Game participant = request.auth.uid is in data.players (array)
     function isGameParticipant(data) {
       return data != null &&
              data.keys().hasAny(['players']) &&
@@ -44,7 +48,8 @@ service cloud.firestore {
              data.players.hasAny([request.auth.uid]);
     }
 
-    function gameParticipantsMatchExistingMatch() {
+    // Minimal shape check for game doc on create
+    function gamePlayersAreTwoDistinct() {
       return request.resource.data != null &&
              request.resource.data.keys().hasAny(['players']) &&
              request.resource.data.players is list &&
@@ -54,69 +59,102 @@ service cloud.firestore {
              request.resource.data.players[0] != request.resource.data.players[1];
     }
 
+    // --------- users collection ----------
     match /users/{uid} {
-      allow get, list: if isSignedIn();
-      allow read: if isSignedIn() && request.auth.uid == uid;
+      // No public listing of the users collection
+      allow list: if false;
+
+      // Only the owner can read their user doc
+      allow get, read: if isSignedIn() && request.auth.uid == uid;
+
+      // Create/update/delete limited to owner, and must keep uid consistent
       allow create: if isSignedIn() &&
-                     request.auth.uid == uid &&
-                     hasUidField(request.resource.data) &&
-                     request.resource.data.uid == uid;
+                    request.auth.uid == uid &&
+                    hasUidField(request.resource.data) &&
+                    request.resource.data.uid == uid;
+
       allow update: if isSignedIn() &&
-                     request.auth.uid == uid &&
-                     hasUidField(request.resource.data) &&
-                     request.resource.data.uid == uid &&
-                     hasUidField(resource.data) &&
-                     resource.data.uid == uid;
+                    request.auth.uid == uid &&
+                    hasUidField(request.resource.data) &&
+                    request.resource.data.uid == uid &&
+                    hasUidField(resource.data) &&
+                    resource.data.uid == uid;
+
       allow delete: if isSignedIn() &&
-                     request.auth.uid == uid &&
-                     ownerMatches(resource.data);
+                    request.auth.uid == uid &&
+                    ownerMatches(resource.data);
     }
 
+    // --------- matches ----------
     match /matches/{matchId} {
-      allow read, get, list: if isSignedIn();
+      // Only participants can see or touch a match
+      allow get, read, list: if isSignedIn() &&
+        isMatchParticipant(resource.data);
+
       allow create: if isSignedIn() &&
                     isMatchParticipant(request.resource.data) &&
                     matchParticipantsHaveMutualLikes();
+
       allow update: if isSignedIn() &&
                     isMatchParticipant(request.resource.data);
-      allow delete: if isSignedIn() && isMatchParticipant(resource.data);
+
+      allow delete: if isSignedIn() &&
+                    isMatchParticipant(resource.data);
     }
 
     match /matches/{matchId}/messages/{messageId} {
+      // Only participants in the parent match can read or write messages
       allow read, create: if isSignedIn() &&
         isMatchParticipant(get(/databases/$(database)/documents/matches/$(matchId)).data);
+      // No updates/deletes of messages after write (immutability)
+      allow update, delete: if false;
     }
 
+    // --------- sessions ----------
+    // Kept permissive (signed-in) until you add explicit participant/owner fields.
     match /sessions/{sessionId} {
-      allow read, list: if isSignedIn();
+      allow get, read, list: if isSignedIn();
       allow create, update, delete: if isSignedIn();
     }
 
+    // --------- games ----------
     match /games/{gameId} {
-      allow read, get, list: if isSignedIn();
+      // Only participants can see or touch a game
+      allow get, read, list: if isSignedIn() &&
+        isGameParticipant(resource.data);
+
       allow create: if isSignedIn() &&
                     isGameParticipant(request.resource.data) &&
-                    gameParticipantsMatchExistingMatch();
+                    gamePlayersAreTwoDistinct();
+
       allow update, delete: if isSignedIn() &&
-                    isGameParticipant(request.resource.data);
+                            isGameParticipant(request.resource.data);
     }
 
     match /games/{gameId}/moves/{moveId} {
+      // Only participants in the parent game can read or create moves
       allow read, create: if isSignedIn() &&
         isGameParticipant(get(/databases/$(database)/documents/games/$(gameId)).data);
+      // Prevent edits/deletes to past moves
+      allow update, delete: if false;
     }
 
+    // --------- likes ----------
+    // Users can write only their own outgoing likes; incoming derived server-side
     match /likes/{uid}/{direction}/{targetId} {
       allow read, write: if isSignedIn() &&
                          request.auth.uid == uid &&
                          direction == 'outgoing';
     }
 
+    // --------- public config doc ----------
     match /config/app {
-      allow get, list: if true;
+      allow get: if true;
+      allow list: if false;
       allow create, update, delete: if false;
     }
 
+    // --------- default deny ----------
     match /{document=**} {
       allow read, write: if false;
     }

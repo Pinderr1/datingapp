@@ -1,5 +1,13 @@
+// contexts/ChatContext.js
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { collection, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore'
+import {
+  collection,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  where,
+} from 'firebase/firestore'
 import { db, auth } from '../firebaseConfig'
 import { useUser } from './UserContext'
 
@@ -24,44 +32,55 @@ export const ChatProvider = ({ children }) => {
       return
     }
 
-    const q = query(
-      collection(db, 'matches'),
-      where('users', 'array-contains', currentUser.uid),
-      orderBy('updatedAt', 'desc'),
-      limit(50)
-    )
+    try {
+      const q = query(
+        collection(db, 'matches'),
+        where('users', 'array-contains', currentUser.uid),
+        orderBy('updatedAt', 'desc'),
+        limit(50)
+      )
 
-    unsubscribe = onSnapshot(
-      q,
-      (snap) => {
-        if (!mounted) return
-        const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-        const hydrated = docs.map((m) => {
-          const otherUserId = Array.isArray(m.users)
-            ? m.users.find((id) => id && id !== currentUser.uid)
-            : null
-          const meta = m.userMeta || {}
-          const otherMeta = otherUserId ? meta[otherUserId] || {} : {}
-          return {
-            ...m,
-            otherUserId,
-            displayName:
-              otherMeta.displayName ||
-              'Player',
-            photoURL: otherMeta.photoURL || null,
-          }
-        })
-        if (mounted) {
+      unsubscribe = onSnapshot(
+        q,
+        (snap) => {
+          if (!mounted) return
+
+          const docs = snap.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            // filter out malformed docs missing users array
+            .filter((m) => Array.isArray(m.users) && m.users.includes(currentUser.uid))
+
+          const hydrated = docs.map((m) => {
+            const otherUserId = m.users.find((id) => id && id !== currentUser.uid)
+            const meta = m.userMeta || {}
+            const otherMeta = (otherUserId && meta[otherUserId]) || {}
+            return {
+              ...m,
+              otherUserId,
+              displayName: otherMeta.displayName || 'Player',
+              photoURL: otherMeta.photoURL || null,
+            }
+          })
+
           setMatches(hydrated)
           setLoading(false)
+        },
+        (error) => {
+          console.error(
+            '[ChatContext] Firestore snapshot error:',
+            error.code,
+            error.message
+          )
+          // Security errors will trigger here if rules reject read.
+          setMatches([])
+          setLoading(false)
         }
-      },
-      (error) => {
-        console.error('Failed to listen for matches:', error?.message)
-        setMatches([])
-        setLoading(false)
-      }
-    )
+      )
+    } catch (err) {
+      console.error('[ChatContext] Failed to start listener:', err)
+      setMatches([])
+      setLoading(false)
+    }
 
     return () => {
       mounted = false

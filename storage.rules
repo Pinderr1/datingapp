@@ -1,12 +1,28 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    match /avatars/{userId}/{fileName} {
-      allow read: if request.auth != null; // require signed-in
-      allow write: if request.auth != null && request.auth.uid == userId;
+
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    match /{path=**} {
+    // avatars/{uid}/filename — only that uid can write/delete
+    match /avatars/{uid}/{fileName} {
+      // Read via downloadURL works regardless; allowing read is fine for CDN caching.
+      allow read: if true;
+
+      // Create/overwrite only by the owner, images only, max 8 MB
+      allow create, update: if isSignedIn()
+                            && request.auth.uid == uid
+                            && request.resource.size < 8 * 1024 * 1024
+                            && request.resource.contentType.matches('image/.*');
+
+      // Delete only by the owner
+      allow delete: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Everything else: blocked
+    match /{allPaths=**} {
       allow read, write: if false;
     }
   }
