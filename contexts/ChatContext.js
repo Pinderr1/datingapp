@@ -17,14 +17,14 @@ const ChatContext = createContext({
 })
 
 export const ChatProvider = ({ children }) => {
-  const { user } = useUser()
+  const { firebaseUser } = useUser()
   const [matches, setMatches] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let unsubscribe
     let mounted = true
-    const currentUser = auth.currentUser || user
+    const currentUser = auth.currentUser || firebaseUser
 
     if (!currentUser?.uid) {
       setMatches([])
@@ -86,7 +86,7 @@ export const ChatProvider = ({ children }) => {
       mounted = false
       if (unsubscribe) unsubscribe()
     }
-  }, [user?.uid])
+  }, [firebaseUser?.uid])
 
   const value = useMemo(() => ({ matches, loading }), [matches, loading])
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>
