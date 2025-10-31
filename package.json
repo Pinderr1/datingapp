@@ -32,7 +32,7 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-spring/native": "^9.5.5",
     "boardgame.io": "^0.50.2",
-    "expo": "54.0.20",
+    "expo": "54.0.21",
     "expo-blur": "*",
     "expo-constants": "*",
     "expo-font": "~14.0.9",
