@@ -24,7 +24,7 @@ import * as Haptics from 'expo-haptics'
 import { useRouter } from 'expo-router'
 import { auth, db, storage } from '../../firebaseConfig'
 import { arrayUnion, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage'
+import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage'
 import { Colors, Fonts } from '../../constants/styles'
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -126,8 +126,11 @@ export default function OnboardingScreen() {
       const response = await fetch(asset.uri)
       const blob = await response.blob()
       const refPath = ref(storage, `avatars/${user.uid}/${Date.now()}.jpg`)
-      await uploadBytes(refPath, blob)
-      const url = await getDownloadURL(refPath)
+      const uploadTask = uploadBytesResumable(refPath, blob, {
+        contentType: blob.type || 'image/jpeg',
+      })
+      const snapshot = await uploadTask
+      const url = await getDownloadURL(snapshot.ref)
       setAvatarUrl(url)
     } catch (e) {
       Alert.alert('Upload failed', e.message || String(e))
