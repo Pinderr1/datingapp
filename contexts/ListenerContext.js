@@ -11,7 +11,7 @@ const ListenerContext = createContext({
 });
 
 export const ListenerProvider = ({ children }) => {
-  const { user } = useUser();
+  const { firebaseUser } = useUser();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -24,7 +24,7 @@ export const ListenerProvider = ({ children }) => {
     let mounted = true;
 
     const initListener = async () => {
-      const currentUser = auth.currentUser || user;
+      const currentUser = auth.currentUser || firebaseUser;
       if (!currentUser?.uid) {
         setSessions([]);
         setLoading(false);
@@ -82,7 +82,7 @@ export const ListenerProvider = ({ children }) => {
       mounted = false;
       if (unsubscribe) unsubscribe();
     };
-  }, [user?.uid, refreshIndex]);
+  }, [firebaseUser?.uid, refreshIndex]);
 
   const value = useMemo(
     () => ({
