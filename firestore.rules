@@ -101,8 +101,11 @@ service cloud.firestore {
 
     // --------- matches ----------
     match /matches/{matchId} {
-      // Only participants can see or touch a match
-      allow get, read, list: if isSignedIn() &&
+      // Signed-in users can query matches, but individual docs remain restricted to participants
+      allow list: if isSignedIn();
+
+      // Only participants can access an individual match document
+      allow get: if isSignedIn() &&
         isMatchParticipant(resource.data);
 
       allow create: if isSignedIn() &&
