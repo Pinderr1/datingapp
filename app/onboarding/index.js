@@ -27,7 +27,15 @@ import { arrayUnion, doc, getDoc, serverTimestamp, setDoc } from 'firebase/fires
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage'
 import { Colors, Fonts } from '../../constants/styles'
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+const isFabricEnabled =
+  (typeof global !== 'undefined' && Boolean(global?.nativeFabricUIManager)) ||
+  Boolean(global?.RNNewArchitectureEnabled)
+
+if (
+  Platform.OS === 'android' &&
+  !isFabricEnabled &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
   UIManager.setLayoutAnimationEnabledExperimental(true)
 }
 
