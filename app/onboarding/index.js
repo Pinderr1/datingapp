@@ -130,6 +130,7 @@ export default function OnboardingScreen() {
       const url = await getDownloadURL(refPath)
       setAvatarUrl(url)
     } catch (e) {
+      console.warn('avatar upload failed', e?.code, e?.message || String(e))
       Alert.alert('Upload failed', e.message || String(e))
     } finally {
       setUploading(false)
