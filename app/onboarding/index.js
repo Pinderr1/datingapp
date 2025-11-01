@@ -43,14 +43,18 @@ const clamp = (s = '', max = 120) => (s.length > max ? s.slice(0, max) : s).trim
 const isAdult = (n) => /^\d+$/.test(String(n)) && parseInt(String(n), 10) >= 18
 
 const getImagePickerImageMediaTypes = () => {
-  const newEnum = ImagePicker.MediaType?.Images
-  if (newEnum !== undefined) {
-    return [newEnum]
+  const mediaType =
+    ImagePicker.MediaType?.IMAGES ??
+    ImagePicker.MediaType?.IMAGE ??
+    ImagePicker.MediaType?.Images ??
+    ImagePicker.MediaType?.Image ??
+    ImagePicker.MediaType?.image
+
+  if (mediaType !== undefined) {
+    return mediaType
   }
-  const legacyEnum =
-    ImagePicker.MediaTypeOptions?.Images ??
-    (ImagePicker.MediaTypeOptions ? ImagePicker.MediaTypeOptions.Images : undefined)
-  return legacyEnum ?? 'images'
+
+  return 'image'
 }
 
 async function pickImageFromLibrary() {
