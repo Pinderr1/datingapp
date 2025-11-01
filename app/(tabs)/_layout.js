@@ -52,7 +52,7 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="swipe"
+          name="swipe/index"
           options={{
             title: 'Swipe',
             tabBarIcon: ({ focused }) => renderIcon('heart', focused),
