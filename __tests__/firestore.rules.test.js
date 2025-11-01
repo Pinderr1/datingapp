@@ -134,6 +134,30 @@ describeIfAvailable('firestore security rules - matches mutual likes', () => {
     );
   });
 
+  test('allows participants to read legacy matches with userMeta proof', async () => {
+    const aliceContext = testEnv.authenticatedContext(aliceUid);
+    const bobContext = testEnv.authenticatedContext(bobUid);
+    const charlieContext = testEnv.authenticatedContext(charlieUid);
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().collection('matches').doc('legacyMetaOnly').set({
+        matchedAt: new Date(),
+        userMeta: {
+          [aliceUid]: { displayName: 'Alice Legacy', photoURL: 'https://example.com/alice-legacy.png' },
+          [bobUid]: { displayName: 'Bob Legacy', photoURL: 'https://example.com/bob-legacy.png' },
+        },
+      });
+    });
+
+    const aliceDb = aliceContext.firestore();
+    const bobDb = bobContext.firestore();
+    const charlieDb = charlieContext.firestore();
+
+    await assertSucceeds(aliceDb.collection('matches').doc('legacyMetaOnly').get());
+    await assertSucceeds(bobDb.collection('matches').doc('legacyMetaOnly').get());
+    await assertFails(charlieDb.collection('matches').doc('legacyMetaOnly').get());
+  });
+
   test('repairs legacy matches missing users before enforcing participant queries', async () => {
     const aliceContext = testEnv.authenticatedContext(aliceUid);
     const bobContext = testEnv.authenticatedContext(bobUid);

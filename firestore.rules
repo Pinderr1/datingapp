@@ -18,9 +18,19 @@ service cloud.firestore {
     // Match participant = request.auth.uid is in data.users (array)
     function isMatchParticipant(data) {
       return data != null &&
-             data.keys().hasAny(['users']) &&
-             data.users is list &&
-             data.users.hasAny([request.auth.uid]);
+             (
+               (
+                 data.keys().hasAny(['users']) &&
+                 data.users is list &&
+                 data.users.hasAny([request.auth.uid])
+               ) ||
+               (
+                 data.keys().hasAny(['userMeta']) &&
+                 data.userMeta is map &&
+                 data.userMeta.keys().hasAny([request.auth.uid]) &&
+                 data.userMeta[request.auth.uid] is map
+               )
+             );
     }
 
     // For mutual-like verification when creating a match
