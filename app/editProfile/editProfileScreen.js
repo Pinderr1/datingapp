@@ -12,18 +12,17 @@ import { arrayUnion, doc, setDoc, getDoc, serverTimestamp } from 'firebase/fires
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 const getImagePickerImageMediaTypes = () => {
-    const mediaType =
-        ImagePicker.MediaType?.IMAGES ??
-        ImagePicker.MediaType?.IMAGE ??
-        ImagePicker.MediaType?.Images ??
-        ImagePicker.MediaType?.Image ??
-        ImagePicker.MediaType?.image;
+    const candidates = [
+        ImagePicker.MediaTypeOptions?.Images,
+        ImagePicker.MediaTypeOptions?.images,
+        ImagePicker.MediaType?.IMAGES,
+        ImagePicker.MediaType?.IMAGE,
+        ImagePicker.MediaType?.Images,
+        ImagePicker.MediaType?.Image,
+        ImagePicker.MediaType?.image,
+    ];
 
-    if (mediaType !== undefined) {
-        return mediaType;
-    }
-
-    return 'image';
+    return candidates.find((value) => value) ?? undefined;
 };
 
 const agesList = [
