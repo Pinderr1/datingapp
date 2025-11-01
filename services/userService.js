@@ -136,6 +136,38 @@ export async function likeUser({ targetUserId, liked }) {
       const data = matchSnapshot.data() ?? {}
       const updatePayload = { updatedAt: timestamp }
       if (!data.matchedAt) updatePayload.matchedAt = timestamp
+
+      const expectedUsers = [a, b]
+      const hasUsersArray =
+        Array.isArray(data.users) && expectedUsers.every((id) => data.users.includes(id))
+      if (!hasUsersArray) {
+        updatePayload.users = expectedUsers
+      }
+
+      const existingUserMeta =
+        data.userMeta && typeof data.userMeta === 'object' ? { ...data.userMeta } : {}
+      const missingUserMetaIds = expectedUsers.filter((id) => {
+        const meta = existingUserMeta[id]
+        return !meta || typeof meta !== 'object'
+      })
+
+      if (missingUserMetaIds.length > 0) {
+        const userDocs = await Promise.all(
+          missingUserMetaIds.map((id) => getDoc(doc(db, 'users', id)))
+        )
+
+        missingUserMetaIds.forEach((id, index) => {
+          const userDoc = userDocs[index]
+          const userData = userDoc.exists() ? userDoc.data() : {}
+          existingUserMeta[id] = {
+            displayName: userData?.displayName || '',
+            photoURL: userData?.photoURL || '',
+          }
+        })
+
+        updatePayload.userMeta = existingUserMeta
+      }
+
       try {
         await updateDoc(matchRef, updatePayload)
         return success({ match: true, matchId })

@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "test": "jest --passWithNoTests --watchAll=false",
     "build": "echo \"Dry build complete\"",
-    "lint": "node scripts/run-eslint.js"
+    "lint": "node scripts/run-eslint.js",
+    "repair-legacy-matches": "node ./scripts/repairLegacyMatches.mjs"
   },
   "jest": {
     "preset": "jest-expo",
