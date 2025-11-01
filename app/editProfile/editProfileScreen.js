@@ -12,14 +12,18 @@ import { arrayUnion, doc, setDoc, getDoc, serverTimestamp } from 'firebase/fires
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 const getImagePickerImageMediaTypes = () => {
-    const newEnum = ImagePicker.MediaType?.Images;
-    if (newEnum !== undefined) {
-        return [newEnum];
+    const mediaType =
+        ImagePicker.MediaType?.IMAGES ??
+        ImagePicker.MediaType?.IMAGE ??
+        ImagePicker.MediaType?.Images ??
+        ImagePicker.MediaType?.Image ??
+        ImagePicker.MediaType?.image;
+
+    if (mediaType !== undefined) {
+        return mediaType;
     }
-    const legacyEnum =
-        ImagePicker.MediaTypeOptions?.Images ??
-        (ImagePicker.MediaTypeOptions ? ImagePicker.MediaTypeOptions.Images : undefined);
-    return legacyEnum ?? 'images';
+
+    return 'image';
 };
 
 const agesList = [
