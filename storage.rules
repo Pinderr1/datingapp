@@ -1,27 +1,30 @@
 rules_version = '2';
 service firebase.storage {
-  match /b/{bucket}/o {
+  // The application is configured to use the pinged-5d8e7 storage bucket.
+  match /b/pinged-5d8e7.firebasestorage.app/o {
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // avatars/{uid}/filename — only that uid can write/delete
-    match /avatars/{uid}/{fileName} {
-      // Read via downloadURL works regardless; allowing read is fine for CDN caching.
-      allow read: if true;
+    // Allow each authenticated user to manage only their own avatar images under
+    // users/{uid}/avatars/{fileName}.
+    match /users/{uid}/avatars/{fileName} {
+      // Users may read only their own avatar assets.
+      allow read: if isSignedIn() && request.auth.uid == uid;
 
-      // Create/overwrite only by the owner, images only, max 8 MB
+      // Users may upload or overwrite their own avatar images when the request
+      // provides image content and stays within an 8 MB cap.
       allow create, update: if isSignedIn()
                             && request.auth.uid == uid
                             && request.resource.size < 8 * 1024 * 1024
                             && request.resource.contentType.matches('image/.*');
 
-      // Delete only by the owner
+      // Users may delete only their own avatar files.
       allow delete: if isSignedIn() && request.auth.uid == uid;
     }
 
-    // Everything else: blocked
+    // Any paths outside the scoped user avatar directories are rejected.
     match /{allPaths=**} {
       allow read, write: if false;
     }

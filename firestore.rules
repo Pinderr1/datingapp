@@ -101,7 +101,8 @@ service cloud.firestore {
       // No public listing of the users collection
       allow list: if false;
 
-      // Only the owner can read their user doc
+      // Only the owner can read their user doc. User profiles may reference
+      // avatar assets stored under users/{uid}/avatars/{fileName} in Cloud Storage.
       allow get, read: if isSignedIn() && request.auth.uid == uid;
 
       // Create/update/delete limited to owner, and must keep uid consistent
