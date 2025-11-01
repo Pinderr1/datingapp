@@ -133,4 +133,82 @@ describeIfAvailable('firestore security rules - matches mutual likes', () => {
       bobDb.collection('matches').where('users', 'array-contains', bobUid).get()
     );
   });
+
+  test('repairs legacy matches missing users before enforcing participant queries', async () => {
+    const aliceContext = testEnv.authenticatedContext(aliceUid);
+    const bobContext = testEnv.authenticatedContext(bobUid);
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const adminDb = context.firestore();
+      await adminDb.collection('users').doc(aliceUid).set({
+        uid: aliceUid,
+        displayName: 'Alice',
+        photoURL: 'https://example.com/alice.png',
+      });
+      await adminDb.collection('users').doc(bobUid).set({
+        uid: bobUid,
+        displayName: 'Bob',
+        photoURL: 'https://example.com/bob.png',
+      });
+
+      await adminDb.collection('matches').doc('legacyMatch').set({
+        matchedAt: new Date(),
+        updatedAt: new Date(),
+        userMeta: {
+          [aliceUid]: { displayName: 'Alice', photoURL: 'https://example.com/alice.png' },
+        },
+      });
+    });
+
+    const aliceDb = aliceContext.firestore();
+    const bobDb = bobContext.firestore();
+
+    await assertFails(aliceDb.collection('matches').doc('legacyMatch').get());
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const adminDb = context.firestore();
+      const matchRef = adminDb.collection('matches').doc('legacyMatch');
+      const snapshot = await matchRef.get();
+      const data = snapshot.data() || {};
+      const participants = [aliceUid, bobUid];
+      const usersArray = Array.isArray(data.users) ? data.users : [];
+
+      const updatePayload = {
+        updatedAt: new Date(),
+      };
+
+      if (!participants.every((id) => usersArray.includes(id))) {
+        updatePayload.users = participants;
+      }
+
+      const existingMeta = data.userMeta && typeof data.userMeta === 'object' ? { ...data.userMeta } : {};
+      const missingMetaIds = participants.filter((id) => {
+        const meta = existingMeta[id];
+        return !meta || typeof meta !== 'object';
+      });
+
+      if (missingMetaIds.length > 0) {
+        await Promise.all(
+          missingMetaIds.map(async (id) => {
+            const userSnap = await adminDb.collection('users').doc(id).get();
+            const userData = userSnap.data() || {};
+            existingMeta[id] = {
+              displayName: userData.displayName || '',
+              photoURL: userData.photoURL || '',
+            };
+          })
+        );
+        updatePayload.userMeta = existingMeta;
+      }
+
+      if (Object.keys(updatePayload).length > 0) {
+        await matchRef.update(updatePayload);
+      }
+    });
+
+    await assertSucceeds(
+      aliceDb.collection('matches').where('users', 'array-contains', aliceUid).get()
+    );
+    await assertSucceeds(bobDb.collection('matches').where('users', 'array-contains', bobUid).get());
+  });
 });
