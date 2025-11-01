@@ -44,8 +44,14 @@ const isAdult = (n) => /^\d+$/.test(String(n)) && parseInt(String(n), 10) >= 18
 
 const getImagePickerImageMediaTypes = () => {
   const candidates = [
+    ImagePicker.mediaTypes?.Images,
+    ImagePicker.mediaTypes?.images,
+    ImagePicker.mediaTypes?.IMAGES,
+    ImagePicker.mediaTypes?.IMAGE,
     ImagePicker.MediaTypeOptions?.Images,
     ImagePicker.MediaTypeOptions?.images,
+    ImagePicker.MediaTypeOptions?.IMAGES,
+    ImagePicker.MediaTypeOptions?.IMAGE,
     ImagePicker.MediaType?.IMAGES,
     ImagePicker.MediaType?.IMAGE,
     ImagePicker.MediaType?.Images,
@@ -53,7 +59,18 @@ const getImagePickerImageMediaTypes = () => {
     ImagePicker.MediaType?.image,
   ]
 
-  return candidates.find((value) => value) ?? undefined
+  const selected = candidates.find((value) => value != null)
+  if (selected) {
+    return selected
+  }
+
+  return (
+    ImagePicker.mediaTypes?.Images ??
+    ImagePicker.MediaTypeOptions?.Images ??
+    ImagePicker.MediaType?.Images ??
+    ImagePicker.MediaType?.IMAGES ??
+    undefined
+  )
 }
 
 async function pickImageFromLibrary() {
@@ -63,8 +80,9 @@ async function pickImageFromLibrary() {
     Alert.alert('Photo access needed', 'Enable photo library access in settings.')
     throw new Error('Permission denied')
   }
+  const imageMediaTypes = getImagePickerImageMediaTypes()
   const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: getImagePickerImageMediaTypes(),
+    ...(imageMediaTypes ? { mediaTypes: imageMediaTypes } : {}),
     allowsEditing: true,
     quality: 0.8,
   })
